@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0F1319">
+<meta name="description" content="Lockin — a free pocket CS2 coach. A quick quiz builds you a personalised training plan and a daily tracker to stick to it.">
+<title>Lockin — your pocket CS2 coach</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-512.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lockin">
+</head>
+<body>
+<style>
+  :root{
+    --bg:#0F1319;--surface:#161C24;--surface-2:#1B222C;--stripe:#141A22;--border:#262F3B;--border-soft:#1F2731;
+    --ink:#E7ECF2;--ink-soft:#A7B2C0;--ink-faint:#6B7787;--accent:#F2A63C;--accent-soft:rgba(242,166,60,0.13);--accent-line:rgba(242,166,60,0.35);
+    --good:#37C793;--good-soft:rgba(55,199,147,0.14);--bad:#EE5D5D;
+    --sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono","Segoe UI Mono",Consolas,"SF Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme: light){:root:not([data-theme]){--bg:#EEF1F5;--surface:#FFFFFF;--surface-2:#F3F6F9;--stripe:#F5F8FB;--border:#DBE2EA;--border-soft:#E6EBF1;--ink:#131922;--ink-soft:#4C5768;--ink-faint:#7E8899;--accent:#B26E12;--accent-soft:rgba(178,110,18,0.10);--accent-line:rgba(178,110,18,0.30);--good:#1B9E6E;--good-soft:rgba(27,158,110,0.12);--bad:#CE3D3D;}}
+  :root[data-theme="light"]{--bg:#EEF1F5;--surface:#FFFFFF;--surface-2:#F3F6F9;--stripe:#F5F8FB;--border:#DBE2EA;--border-soft:#E6EBF1;--ink:#131922;--ink-soft:#4C5768;--ink-faint:#7E8899;--accent:#B26E12;--accent-soft:rgba(178,110,18,0.10);--accent-line:rgba(178,110,18,0.30);--good:#1B9E6E;--good-soft:rgba(27,158,110,0.12);--bad:#CE3D3D;}
+  :root[data-theme="dark"]{--bg:#0F1319;--surface:#161C24;--surface-2:#1B222C;--stripe:#141A22;--border:#262F3B;--border-soft:#1F2731;--ink:#E7ECF2;--ink-soft:#A7B2C0;--ink-faint:#6B7787;--accent:#F2A63C;--accent-soft:rgba(242,166,60,0.13);--accent-line:rgba(242,166,60,0.35);--good:#37C793;--good-soft:rgba(55,199,147,0.14);--bad:#EE5D5D;}
+  *{box-sizing:border-box;}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;margin:0;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:640px;margin:0 auto;padding:24px 16px 70px;}
+  .mono{font-family:var(--mono);}
+  h1,h2,h3{margin:0;text-wrap:balance;line-height:1.15;}
+  .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:0.18em;text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 6px;}
+  .brand{display:flex;align-items:center;gap:9px;margin-bottom:4px;}
+  .brand .logo{font-family:var(--mono);font-weight:800;font-size:20px;letter-spacing:-0.02em;color:var(--ink);}
+  .brand .logo b{color:var(--accent);}
+  .sub{color:var(--ink-soft);font-size:14px;}
+
+  .btn{font-family:var(--sans);font-size:14px;font-weight:650;padding:12px 20px;border-radius:11px;border:0;background:var(--accent);color:#1a1206;cursor:pointer;}
+  .btn:hover{filter:brightness(1.06);} .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn.ghost{background:var(--surface);color:var(--ink-soft);border:1px solid var(--border);}
+  .btn.ghost:hover{border-color:var(--accent-line);color:var(--ink);filter:none;}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  /* onboarding */
+  .quizhead{margin-bottom:20px;}
+  .quizhead h2{font-size:clamp(24px,4vw,32px);font-weight:800;letter-spacing:-0.02em;}
+  .quizhead p{color:var(--ink-soft);margin:10px 0 0;font-size:15px;max-width:52ch;}
+  .prog{height:5px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:5px;overflow:hidden;margin:18px 0 22px;}
+  .prog span{display:block;height:100%;background:var(--accent);border-radius:5px;transition:width .25s;}
+  @media (prefers-reduced-motion:reduce){.prog span{transition:none;}}
+  .q{animation:fade .2s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  @media (prefers-reduced-motion:reduce){.q{animation:none;}}
+  .qn{font-family:var(--mono);font-size:11px;color:var(--ink-faint);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;}
+  .q h3{font-size:22px;font-weight:750;letter-spacing:-0.01em;margin-bottom:4px;}
+  .qhint{font-size:12.5px;color:var(--ink-faint);margin-bottom:16px;}
+  .opts{display:flex;flex-direction:column;gap:9px;}
+  .opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;color:var(--ink);font-family:var(--sans);font-size:15px;transition:border-color .12s,background .12s;}
+  .opt:hover{border-color:var(--accent-line);} .opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .opt .mk{width:22px;height:22px;border-radius:50%;border:2px solid var(--ink-faint);flex:0 0 auto;display:grid;place-items:center;font-size:12px;color:transparent;}
+  .opt.multi .mk{border-radius:7px;}
+  .opt.on{border-color:var(--good);background:var(--good-soft);} .opt.on .mk{background:var(--good);border-color:var(--good);color:#08120D;}
+  .qnav{display:flex;justify-content:space-between;gap:10px;margin-top:22px;}
+
+  /* app */
+  header.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;}
+  .icon-btn{background:var(--surface);border:1px solid var(--border);border-radius:9px;width:36px;height:36px;font-size:15px;cursor:pointer;color:var(--ink-soft);}
+  .icon-btn:hover{border-color:var(--accent-line);}
+  .tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:5px;margin-bottom:18px;}
+  .tabs button{font-family:var(--sans);font-size:13.5px;font-weight:600;padding:9px 4px;border:0;border-radius:8px;background:transparent;color:var(--ink-faint);cursor:pointer;}
+  .tabs button.active{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.25);}
+  .tab{display:none;} .tab.show{display:block;animation:fade .2s ease;}
+
+  .hero{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:15px 16px;text-align:center;}
+  .stat .n{font-size:38px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;letter-spacing:-0.03em;}
+  .stat .n .sm{font-size:19px;color:var(--ink-faint);} .stat .n .flame{font-size:24px;}
+  .stat .l{font-family:var(--mono);font-size:10px;letter-spacing:0.13em;text-transform:uppercase;color:var(--ink-faint);margin-top:7px;}
+  .stat .subx{font-size:11px;color:var(--ink-faint);margin-top:2px;}
+  .stat.streak .n{color:var(--accent);} .stat.week .n{color:var(--good);}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;}
+  .sec-l{font-family:var(--mono);font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 11px;}
+  .today .date{font-family:var(--mono);font-size:12px;color:var(--ink-faint);}
+  .today .focus{font-size:19px;font-weight:750;margin:3px 0 2px;}
+  .today .focus .kx{color:var(--accent);font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.08em;}
+  .hint{font-size:12.5px;color:var(--ink-faint);margin:2px 0 14px;} .hint.warn{color:var(--bad);}
+  .check{width:100%;display:flex;align-items:center;gap:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:13px 15px;cursor:pointer;color:var(--ink);font-family:var(--sans);font-size:14.5px;text-align:left;margin-bottom:10px;transition:background .15s,border-color .15s;}
+  .check:hover{border-color:var(--accent-line);} .check .box{width:25px;height:25px;border-radius:8px;border:2px solid var(--accent);flex:0 0 auto;display:grid;place-items:center;font-size:15px;color:transparent;}
+  .check .tx b{font-weight:650;display:block;} .check .tx small{color:var(--ink-faint);font-size:11.5px;}
+  .check.on{background:var(--good-soft);border-color:var(--good);} .check.on .box{background:var(--good);border-color:var(--good);color:#08120D;} .check.on .tx b{color:var(--good);}
+  .dhead{display:flex;justify-content:space-between;align-items:baseline;margin:4px 0 8px;}
+  .dhead .t{font-family:var(--mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-faint);}
+  .dhead .c{font-family:var(--mono);font-size:11px;color:var(--ink-soft);} .dhead .c.done{color:var(--good);}
+  .dcheck{display:flex;align-items:center;gap:10px;width:100%;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:9px;padding:9px 12px;cursor:pointer;font-size:13px;color:var(--ink-soft);text-align:left;margin-bottom:6px;font-family:var(--sans);}
+  .dcheck:hover{border-color:var(--accent-line);} .dcheck .b{width:19px;height:19px;border-radius:6px;border:2px solid var(--ink-faint);flex:0 0 auto;display:grid;place-items:center;font-size:12px;color:transparent;}
+  .dcheck.on{border-color:var(--good);color:var(--ink);} .dcheck.on .b{background:var(--good);border-color:var(--good);color:#08120D;} .dcheck.on .tx{text-decoration:line-through;text-decoration-color:var(--ink-faint);}
+  .field{margin-top:12px;} .field label{font-family:var(--mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint);display:block;margin-bottom:5px;}
+  .field input,.field textarea{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;color:var(--ink);font-family:var(--sans);font-size:13.5px;resize:vertical;}
+  .field input:focus,.field textarea:focus{outline:none;border-color:var(--accent);}
+  .feel{display:flex;gap:6px;flex-wrap:wrap;} .feel button{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:var(--surface-2);color:var(--ink-soft);font-family:var(--mono);font-size:12px;cursor:pointer;} .feel button.sel{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:700;}
+  .rest{text-align:center;padding:8px 0;} .rest .big{font-size:16px;font-weight:700;} .rest .sm{font-size:13px;color:var(--ink-faint);margin-top:4px;}
+  .week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .d{border:1px solid var(--border-soft);border-radius:9px;padding:8px 3px 7px;text-align:center;background:var(--surface-2);}
+  .d .dn{font-family:var(--mono);font-size:9.5px;color:var(--ink-faint);text-transform:uppercase;}
+  .d .dot{width:15px;height:15px;border-radius:50%;margin:6px auto 0;border:2px solid var(--border);}
+  .d.done .dot{background:var(--good);border-color:var(--good);} .d.deep .dot{background:var(--good);border-color:var(--good);box-shadow:0 0 0 3px var(--good-soft);}
+  .d.miss .dot{border-color:var(--bad);border-style:dashed;} .d.rest .dot{background:var(--border);border-color:var(--border);} .d.today{border-color:var(--accent);} .d.today .dn{color:var(--accent);} .d.future .dot{opacity:.4;}
+
+  .diag{background:linear-gradient(180deg,var(--accent-soft),transparent);border:1px solid var(--accent-line);border-radius:14px;padding:18px;margin-bottom:14px;}
+  .diag .ks{font-family:var(--mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+  .diag p{margin:0;color:var(--ink-soft);font-size:14px;} .diag p b{color:var(--ink);}
+  .phase{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--border-soft);} .phase:last-child{border-bottom:0;}
+  .phase .w{font-family:var(--mono);font-size:11px;color:var(--accent);white-space:nowrap;flex:0 0 74px;padding-top:2px;}
+  .phase .b b{color:var(--ink);font-size:14px;} .phase .b div{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+  .rot{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;text-align:center;}
+  .rot .rc{background:var(--surface-2);border:1px solid var(--border-soft);border-radius:8px;padding:8px 3px;}
+  .rot .rc .rn{font-family:var(--mono);font-size:9px;color:var(--ink-faint);text-transform:uppercase;} .rot .rc .rf{font-size:10px;color:var(--ink);margin-top:4px;line-height:1.2;}
+  .rot .rc.rest{opacity:.6;} .rot .rc.match .rf{color:var(--accent);}
+  .foc{padding:12px 0;border-bottom:1px solid var(--border-soft);} .foc:last-child{border-bottom:0;}
+  .foc .fn{font-size:14.5px;font-weight:650;} .foc .fn .kk{font-family:var(--mono);font-size:9.5px;color:var(--accent);letter-spacing:0.08em;text-transform:uppercase;margin-left:6px;}
+  .foc .fw{font-size:12.5px;color:var(--ink-faint);margin:3px 0 7px;}
+  .foc ul{margin:0;padding-left:16px;} .foc li{font-size:12.5px;color:var(--ink-soft);margin-bottom:3px;}
+  .tgt{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border-soft);font-size:13px;} .tgt:last-child{border-bottom:0;} .tgt .tn{color:var(--ink);font-weight:600;flex:0 0 40%;} .tgt .th{color:var(--ink-soft);}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;} .status{font-size:11px;color:var(--ink-faint);margin-top:10px;} .status.warn{color:var(--bad);}
+  .mission{background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:11px;padding:13px 15px;font-size:13px;color:var(--ink-soft);} .mission b{color:var(--ink);}
+  .help{font-size:11.5px;color:var(--ink-faint);margin-top:6px;line-height:1.45;}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--surface);border:1px solid var(--accent-line);color:var(--ink);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;box-shadow:0 8px 24px rgba(0,0,0,.35);z-index:50;max-width:90%;text-align:center;}
+  .toast.show{opacity:1;}
+  footer{margin-top:20px;text-align:center;font-size:11px;color:var(--ink-faint);}
+</style>
+
+<div class="wrap">
+  <div id="onboard"></div>
+  <div id="app" style="display:none;"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var KEY="lockin.v1";
+  var storageOk=true, mem=null;
+
+  // ---- coaching catalog ----
+  var FOCI={
+    cstrafe:{name:"Counter-strafing",why:"You're only accurate when fully stopped — this one fix gates your rifle spray AND every peek.",drills:["aim_botz + cl_showpos: peek, counter-strafe, fire only at velocity 0","Recoil Master — stop-then-shoot reps","20 peek-stop-taps, both directions"]},
+    consistency:{name:"Aim consistency",why:"Your aim's already there on good nights. The job is a routine that makes it show up every night — not new skill.",drills:["Same fixed warm-up, identical every session","aim_botz — 100 slow micro-adjust one-taps","5 min deathmatch: stop before every shot"]},
+    placement:{name:"Crosshair placement",why:"Keep the dot at head height and pre-aimed, so you win the first shot before it's a fight.",drills:["Yprac Prefire — pre-aim the common angles","aim_botz — reset crosshair to head height each tap","Prefire a map you actually play"]},
+    spray:{name:"Spray / recoil",why:"Learn the pattern so your held sprays land instead of leaking off target.",drills:["Recoil Master — AK + M4 patterns","Spray transfers across 2–3 bots","Controlled bursts at range"]},
+    utility:{name:"Utility",why:"Good util wins duels before they're duels — fewer coinflips, more rounds on your terms.",drills:["Learn 5 core smokes for your best map (own server / Yprac)","2 pop-flashes for your own entries","Molotov / incendiary denials"]},
+    positioning:{name:"Positioning & game sense",why:"Being in the right place beats out-aiming from the wrong one. Cheaper wins, less variance.",drills:["Demo review: 1 death/round — was the fight avoidable?","Watch a pro POV of your role on your map","Set crossfires & off-angles, not head-on peeks"]},
+    clutch:{name:"Clutch craft",why:"Clutches are won on info, isolation and time — all trainable, not luck.",drills:["Retake servers — post-plant 1vX reps","Isolate fights; use the clock and sound","Fake-defuse / bait timings"]},
+    entry:{name:"Opening duels",why:"Win the opening pick on your terms, not on a 50/50 wide-swing.",drills:["Prefire the common opening angles","Jiggle / shoulder-peek for info first","Trade-timing reps with a duo or bots"]},
+    awp:{name:"AWP",why:"The AWP only hits when you're fully stopped — add repeek so a miss isn't a death.",drills:["aim_botz AWP — one-taps then flicks","Counter-strafe → shot on the peek","Repeek / reposition drill"]},
+    rifle:{name:"Rifling",why:"A reliable rifle so you stop bleeding the rounds you can't play for picks.",drills:["Recoil Master — AK / M4","Spray transfers","Prefire angles (Yprac)"]},
+    match:{name:"Match night",why:"",drills:["Full warm-up before you queue","Set ONE process goal for the night","Only queue warm + not tilted","Stop after 2 tilted losses"]},
+    rest:{name:"Rest",why:"",drills:["Recovery is part of consistency — nothing required today."]}
+  };
+  var KEYSTONE_ORDER=["cstrafe","consistency","placement","spray","utility","positioning","clutch","entry"];
+
+  var QUIZ=[
+    {id:"rank",q:"Where are you roughly?",hint:"Sets the language and how hard we push.",multi:false,opts:[["new","New / Silver (under ~10k)"],["mid","Mid (10–15k)"],["good","Good (15–20k)"],["high","High (20k+)"],["unsure","Not sure"]]},
+    {id:"weapon",q:"What do you main?",hint:"",multi:false,opts:[["awp","AWP"],["rifle","Rifles"],["both","A bit of both"]]},
+    {id:"role",q:"Your role in a team?",hint:"",multi:false,opts:[["entry","Entry / aggressive"],["lurk","Lurk / solo"],["support","Support / anchor"],["igl","IGL / caller"],["unsure","Not sure"]]},
+    {id:"weak",q:"What lets you down most?",hint:"Pick any that ring true — this drives your plan.",multi:true,opts:[["consistency","Inconsistent night to night"],["spray","Spray / recoil control"],["cstrafe","Moving when I shoot"],["placement","Crosshair placement"],["utility","Utility (smokes/flashes)"],["positioning","Positioning / game sense"],["clutch","Clutching under pressure"],["entry","Getting opening kills"]]},
+    {id:"time",q:"Time per training day?",hint:"Be honest — a plan you'll actually do beats a perfect one you won't.",multi:false,opts:[["10","10–15 min"],["30","20–30 min"],["45","45+ min"]]},
+    {id:"days",q:"Days a week you can train?",hint:"Weekdays, around real life.",multi:false,opts:[["2","1–2"],["4","3–4"],["5","5+"]]},
+    {id:"goal",q:"Your #1 goal right now?",hint:"",multi:false,opts:[["consistency","Just be consistent"],["rank","Climb the rank"],["aim","Sharpen my aim"],["sense","Game sense / utility"],["fun","More fun, less tilt"]]}
+  ];
+
+  // ---- the coach brain ----
+  function uniq(a){var o=[],s={};a.forEach(function(x){if(x&&!s[x]){s[x]=1;o.push(x);}});return o;}
+  function generatePlan(p){
+    var weak=(p.weak||[]).slice();
+    var keystone=null;
+    for(var i=0;i<KEYSTONE_ORDER.length;i++){if(weak.indexOf(KEYSTONE_ORDER[i])>=0){keystone=KEYSTONE_ORDER[i];break;}}
+    if(!keystone)keystone=(p.goal==="consistency")?"consistency":(p.goal==="sense")?"positioning":(p.goal==="aim")?"placement":"cstrafe";
+    var weaponFoci=p.weapon==="awp"?["awp"]:p.weapon==="rifle"?["rifle"]:["awp","rifle"];
+    var others=weak.filter(function(w){return w!==keystone;});
+    var used=uniq([keystone].concat(weaponFoci).concat(others));
+    var pool=[keystone,weaponFoci[0],keystone].concat(others.length?others:[weaponFoci[weaponFoci.length-1]]);
+    var weekly={0:"rest",5:"match",6:"match"};
+    for(var d=0;d<4;d++)weekly[1+d]=pool[d%pool.length];
+    var kName=FOCI[keystone].name, wName=weaponFoci.map(function(f){return FOCI[f].name;}).join(" & ");
+    var second=others[0]?FOCI[others[0]].name:wName;
+    var timeL=p.time==="10"?"10–15":p.time==="30"?"20–30":"45";
+    var rankL={new:"newer",mid:"mid-rank",good:"solid",high:"high-level",unsure:""}[p.rank]||"";
+    var wpL=p.weapon==="awp"?"AWP":p.weapon==="rifle"?"rifle":"flex";
+    var diagnosis="You're a "+(rankL?rankL+" ":"")+wpL+" player whose single biggest lever is <b>"+kName+"</b>. "+
+      "The plan makes that automatic first — that's where <b>consistency</b> comes from — then carries it into your <b>"+wName+"</b> and the rounds that decide games. "+
+      "You don't need hours: <b>"+timeL+" minutes</b> on your training days, built to actually stick.";
+    var phases=[
+      {w:"Weeks 1–4",t:"Foundation",d:"Make "+kName.toLowerCase()+" automatic and lock a fixed warm-up. Raise your floor before chasing the ceiling."},
+      {w:"Weeks 5–8",t:"Translation",d:"Carry it into your "+wName+", and start on your next gap ("+second+")."},
+      {w:"Weeks 9–12",t:"Consolidation",d:"Hold it under pressure — retakes, scrims, ranked — so the good games become your default."}
+    ];
+    var targets=buildTargets(keystone,weaponFoci);
+    return {v:1,profile:p,keystone:keystone,keystoneName:kName,weaponFoci:weaponFoci,used:used,weekly:weekly,phases:phases,diagnosis:diagnosis,targets:targets,days:parseInt(p.days,10)||4};
+  }
+  function buildTargets(keystone,weaponFoci){
+    var t=[];
+    var m={cstrafe:["Counter-strafing %","Get it to your bracket average, then above (Leetify → Aim)."],
+      consistency:["Aim floor (worst game)","Lift your worst games — fewer bad nights, same ceiling."],
+      placement:["Crosshair placement (°)","Lower is better — pre-aim so you shoot first."],
+      spray:["Spray accuracy %","Held sprays that land, not leak."],
+      utility:["Utility rating","Above your bracket — more rounds won before the aim-duel."],
+      positioning:["Deaths / round","Fewer avoidable deaths — check your demos."],
+      clutch:["Clutch rating","Win the rounds that swing games."],
+      entry:["Opening-duel win %","Positive — win the pick on your terms."]};
+    t.push({n:m[keystone][0],h:m[keystone][1]});
+    if(keystone!=="consistency")t.push({n:"Consistency (the real goal)",h:"Your worst game rising toward your best. Screenshot Leetify monthly and compare the floor."});
+    var wp=weaponFoci[0];
+    t.push({n:(wp==="awp"?"AWP":"Rifle")+" accuracy",h:"Fewer wasted shots — track it on csstats.gg."});
+    return t.filter(Boolean);
+  }
+
+  // ---- date/streak core (unit-tested logic) ----
+  function two(n){return (n<10?"0":"")+n;}
+  function dateKey(d){return d.getFullYear()+"-"+two(d.getMonth()+1)+"-"+two(d.getDate());}
+  function addDays(d,n){var x=new Date(d);x.setDate(x.getDate()+n);return x;}
+  function midnight(d){var x=new Date(d);x.setHours(0,0,0,0);return x;}
+  function mondayOf(d){var x=midnight(d);return addDays(x,-((x.getDay()+6)%7));}
+  function isFreebie(d){return d.getDay()<1||d.getDay()>4;}
+  function computeStreak(st,today){var s=0,d=new Date(today),t=st.sessions[dateKey(d)];if(!t||!t.warm)d=addDays(d,-1);
+    while(true){var x=st.sessions[dateKey(d)];if(x&&x.warm){s++;d=addDays(d,-1);}else if(isFreebie(d)){d=addDays(d,-1);}else break;}return s;}
+  function weekdayCount(st,mon){var c=0;for(var i=0;i<4;i++){var x=st.sessions[dateKey(addDays(mon,i))];if(x&&x.warm)c++;}return c;}
+
+  // ---- storage ----
+  function blank(){return {plan:null,sessions:{},settings:{}};}
+  function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};return o;}catch(e){storageOk=false;return mem||blank();}}
+  function save(st){mem=st;try{localStorage.setItem(KEY,JSON.stringify(st));storageOk=true;}catch(e){storageOk=false;}}
+
+  var toastT;function toast(m){var e=document.getElementById("toast");e.textContent=m;e.classList.add("show");clearTimeout(toastT);toastT=setTimeout(function(){e.classList.remove("show");},1800);}
+  function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+  function applyTheme(m){if(m==="light"||m==="dark")document.documentElement.setAttribute("data-theme",m);else document.documentElement.removeAttribute("data-theme");}
+
+  // ---- onboarding flow ----
+  var answers={},step=0;
+  function renderOnboard(){
+    var host=document.getElementById("onboard");
+    if(step===0&&Object.keys(answers).length===0){
+      host.innerHTML='<div class="brand"><span style="font-size:22px">🎯</span><span class="logo">LOCK<b>IN</b></span></div>'+
+        '<div class="quizhead"><h2>Your pocket CS2 coach.</h2><p>Answer 7 quick questions and Lockin builds you a personalised training plan you can actually stick to — free, forever. No coach required.</p></div>'+
+        '<button class="btn" id="startBtn">Build my plan →</button>'+
+        '<footer>Your answers stay on your device. Nothing is uploaded.</footer>';
+      document.getElementById("startBtn").onclick=function(){step=1;renderOnboard();};
+      return;
+    }
+    var qi=step-1, item=QUIZ[qi];
+    var pct=Math.round((qi)/QUIZ.length*100);
+    var sel=answers[item.id]||(item.multi?[]:null);
+    var opts=item.opts.map(function(o){
+      var on=item.multi?(sel.indexOf(o[0])>=0):(sel===o[0]);
+      return '<button class="opt '+(item.multi?"multi ":"")+(on?"on":"")+'" data-v="'+o[0]+'"><span class="mk">'+(item.multi?"✓":"●")+'</span><span>'+o[1]+'</span></button>';
+    }).join("");
+    var canNext=item.multi?true:(sel!=null);
+    host.innerHTML='<div class="brand"><span class="logo">LOCK<b>IN</b></span></div>'+
+      '<div class="prog"><span style="width:'+pct+'%"></span></div>'+
+      '<div class="q"><div class="qn">Question '+step+' of '+QUIZ.length+'</div><h3>'+item.q+'</h3>'+(item.hint?'<div class="qhint">'+item.hint+'</div>':'')+
+      '<div class="opts">'+opts+'</div>'+
+      '<div class="qnav"><button class="btn ghost" id="backB">'+(step>1?"← Back":"")+'</button><button class="btn" id="nextB" '+(canNext?"":"disabled")+'>'+(step<QUIZ.length?"Next →":"See my plan ✨")+'</button></div></div>';
+    var os=host.querySelectorAll(".opt");
+    for(var i=0;i<os.length;i++)(function(b){b.onclick=function(){
+      var v=b.getAttribute("data-v");
+      if(item.multi){var arr=(answers[item.id]||[]).slice();var ix=arr.indexOf(v);if(ix>=0)arr.splice(ix,1);else arr.push(v);answers[item.id]=arr;}
+      else{answers[item.id]=v;}
+      renderOnboard();
+    };})(os[i]);
+    if(step>1)document.getElementById("backB").onclick=function(){step--;renderOnboard();};
+    document.getElementById("nextB").onclick=function(){
+      if(step<QUIZ.length){step++;renderOnboard();}
+      else{finishOnboard();}
+    };
+  }
+  function finishOnboard(){
+    var st=load();var plan=generatePlan(answers);plan.created=dateKey(new Date());
+    st.plan=plan;save(st);
+    document.getElementById("onboard").style.display="none";
+    document.getElementById("app").style.display="block";
+    toast("Plan locked in 🎯");renderApp("plan");
+  }
+
+  // ---- app ----
+  function renderApp(tab){
+    var st=load();if(!st.plan){document.getElementById("app").style.display="none";document.getElementById("onboard").style.display="block";step=0;answers={};renderOnboard();return;}
+    var app=document.getElementById("app");
+    app.innerHTML=
+      '<header class="top"><div class="brand"><span class="logo">LOCK<b>IN</b></span></div><button class="icon-btn" id="themeBtn" title="Theme">◐</button></header>'+
+      '<div class="tabs"><button data-t="today">Today</button><button data-t="plan">Plan</button><button data-t="setup">Setup</button></div>'+
+      '<section class="tab" id="t-today"></section><section class="tab" id="t-plan"></section><section class="tab" id="t-setup"></section>';
+    var tb=app.querySelectorAll(".tabs button");
+    for(var i=0;i<tb.length;i++)(function(b){b.onclick=function(){showTab(b.getAttribute("data-t"));};})(tb[i]);
+    document.getElementById("themeBtn").onclick=function(){var s=load();var c=s.settings.theme||"auto";var n=c==="auto"?"dark":c==="dark"?"light":"auto";s.settings.theme=n;save(s);applyTheme(n);toast("Theme: "+n);};
+    renderToday(st);renderPlan(st);renderSetup(st);
+    showTab(tab||"today");
+  }
+  function showTab(t){var tabs=document.querySelectorAll(".tab");for(var i=0;i<tabs.length;i++)tabs[i].classList.remove("show");document.getElementById("t-"+t).classList.add("show");
+    var tb=document.querySelectorAll(".tabs button");for(var j=0;j<tb.length;j++)tb[j].classList.toggle("active",tb[j].getAttribute("data-t")===t);}
+
+  function renderToday(st){
+    var plan=st.plan,now=new Date(),tk=dateKey(now),dow=now.getDay();
+    var focusKey=plan.weekly[dow],F=FOCI[focusKey];
+    var host=document.getElementById("t-today");
+    var streak=computeStreak(st,now),mon=mondayOf(now),wd=weekdayCount(st,mon);
+    var sess=st.sessions[tk]||{warm:false,deep:false,feel:null,goal:"",note:"",drills:{}};
+    var hero='<div class="hero"><div class="stat streak"><div class="n">'+streak+'<span class="flame">🔥</span></div><div class="l">Day Streak</div><div class="subx">'+(streak===0?"start today":"don't break it")+'</div></div>'+
+      '<div class="stat week"><div class="n">'+wd+'<span class="sm">/'+Math.min(4,plan.days)+'</span></div><div class="l">This Week</div><div class="subx">training days</div></div></div>';
+    var dstr=now.toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"short"});
+    if(focusKey==="rest"){host.innerHTML=hero+'<div class="card today"><div class="date mono">'+dstr.toUpperCase()+'</div><div class="rest"><div class="big">Rest day 😴</div><div class="sm">'+F.drills[0]+'</div></div></div>'+weekStrip(st,now);return;}
+    var match=focusKey==="match";
+    var dl=F.drills,dstate=sess.drills||{},dc=0;for(var q=0;q<dl.length;q++)if(dstate[q])dc++;var allDone=dc===dl.length;
+    var warmL=match?["Warmed up before playing","the pre-match routine"]:["Did my "+(plan.profile.time==="10"?"10":plan.profile.time==="30"?"20":"session")+" minutes","the warm-up — this alone is a win"];
+    var kx=(focusKey===plan.keystone)?' <span class="kx">· keystone</span>':'';
+    var drills='<div class="dhead"><span class="t">'+(match?"Pre-match checklist":"Today’s drills")+'</span><span class="c'+(allDone?" done":"")+'">'+(allDone?"✓ full session":dc+" / "+dl.length)+'</span></div>';
+    for(var j=0;j<dl.length;j++)drills+='<button class="dcheck '+(dstate[j]?"on":"")+'" data-drill="'+j+'"><span class="b">✓</span><span class="tx">'+dl[j]+'</span></button>';
+    var feel='<div class="field"><label>Hand feel</label><div class="feel">';for(var f=1;f<=10;f++)feel+='<button data-feel="'+f+'" class="'+(sess.feel===f?"sel":"")+'">'+f+'</button>';feel+='</div></div>';
+    var goal='<div class="field"><label>One process goal</label><input id="goalI" placeholder="e.g. stop before every shot" value="'+esc(sess.goal||"")+'"></div>';
+    var note='<div class="field"><label>One takeaway</label><textarea id="noteI" rows="2" placeholder="how it felt, one thing to fix">'+esc(sess.note||"")+'</textarea></div>';
+    host.innerHTML=hero+'<div class="card today"><div class="date mono">'+dstr.toUpperCase()+'</div><div class="focus">'+F.name+kx+'</div>'+(F.why?'<div class="hint">'+F.why+'</div>':'')+
+      '<button class="check '+(sess.warm?"on":"")+'" id="cWarm"><span class="box">✓</span><span class="tx"><b>'+warmL[0]+'</b><small>'+warmL[1]+'</small></span></button>'+
+      drills+goal+feel+note+'</div>'+weekStrip(st,now);
+    document.getElementById("cWarm").onclick=function(){toggleWarm(tk);};
+    var db=host.querySelectorAll("[data-drill]");for(var d2=0;d2<db.length;d2++)(function(b){b.onclick=function(){toggleDrill(tk,parseInt(b.getAttribute("data-drill"),10),dl.length);};})(db[d2]);
+    document.getElementById("goalI").onchange=function(e){setField(tk,"goal",e.target.value);};
+    document.getElementById("noteI").onchange=function(e){setField(tk,"note",e.target.value);};
+    var fb=host.querySelectorAll("[data-feel]");for(var q2=0;q2<fb.length;q2++)(function(b){b.onclick=function(){setField(tk,"feel",sess.feel===parseInt(b.getAttribute("data-feel"),10)?null:parseInt(b.getAttribute("data-feel"),10),true);};})(fb[q2]);
+  }
+  function weekStrip(st,now){
+    var mon=mondayOf(now),tk=dateKey(now),names=["M","T","W","T","F","S","S"],todayMid=midnight(now).getTime(),h='<div class="card"><p class="sec-l">This week</p><div class="week">';
+    for(var k=0;k<7;k++){var day=addDays(mon,k),dk=dateKey(day),s=st.sessions[dk],cls="d";var isT=dk===tk,fut=midnight(day).getTime()>todayMid,req=day.getDay()>=1&&day.getDay()<=4;
+      if(s&&s.warm)cls+=s.deep?" deep":" done";else if(fut)cls+=" future";else if(isT){}else if(req)cls+=" miss";else cls+=" rest";if(isT)cls+=" today";
+      h+='<div class="'+cls+'"><div class="dn">'+names[k]+'</div><div class="dot"></div></div>';}
+    return h+'</div></div>';
+  }
+  function renderPlan(st){
+    var plan=st.plan,host=document.getElementById("t-plan");
+    var rot="";var rn=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],map=[1,2,3,4,5,6,0];
+    for(var i=0;i<7;i++){var fk=plan.weekly[map[i]],F=FOCI[fk],c="rc"+(fk==="rest"?" rest":fk==="match"?" match":"");rot+='<div class="'+c+'"><div class="rn">'+rn[i]+'</div><div class="rf">'+(fk==="rest"?"Rest":F.name)+'</div></div>';}
+    var phases=plan.phases.map(function(p){return '<div class="phase"><div class="w">'+p.w+'</div><div class="b"><b>'+p.t+'</b><div>'+p.d+'</div></div></div>';}).join("");
+    var lib=plan.used.map(function(k){var F=FOCI[k];var kk=(k===plan.keystone)?' <span class="kk">keystone</span>':'';return '<div class="foc"><div class="fn">'+F.name+kk+'</div><div class="fw">'+F.why+'</div><ul>'+F.drills.map(function(d){return '<li>'+d+'</li>';}).join("")+'</ul></div>';}).join("");
+    var tgt=plan.targets.map(function(t){return '<div class="tgt"><span class="tn">'+t.n+'</span><span class="th">'+t.h+'</span></div>';}).join("");
+    host.innerHTML='<div class="diag"><div class="ks">Your keystone · '+plan.keystoneName+'</div><p>'+plan.diagnosis+'</p></div>'+
+      '<div class="card"><p class="sec-l">Your week</p><div class="rot">'+rot+'</div></div>'+
+      '<div class="card"><p class="sec-l">The 12-week arc</p>'+phases+'</div>'+
+      '<div class="card"><p class="sec-l">Your drills &amp; why</p>'+lib+'</div>'+
+      '<div class="card"><p class="sec-l">How to measure it (Leetify / csstats)</p>'+tgt+'</div>';
+  }
+  function renderSetup(st){
+    var host=document.getElementById("t-setup");
+    host.innerHTML='<div class="card"><p class="sec-l">The mission</p><div class="mission">Lockin is a free pocket coach — because a good plan and the discipline to run it shouldn\'t cost $50 an hour. <b>Ten focused minutes beats an hour you skip.</b></div></div>'+
+      '<div class="card"><p class="sec-l">Plan</p><div class="btnrow"><button class="btn ghost" id="retake">Retake the quiz</button></div><p class="help">Rebuilds your plan from scratch. Your streak history stays.</p></div>'+
+      '<div class="card"><p class="sec-l">Backup &amp; data</p><div class="btnrow"><button class="btn ghost" id="expB">Export</button><button class="btn ghost" id="impB">Import</button><input type="file" id="impF" accept="application/json" style="display:none"></div><div class="status" id="status">saved on this device</div><p class="help">Everything stays in this browser. Export to back up or move devices.</p></div>'+
+      '<footer>Lockin · your pocket CS2 coach · free forever</footer>';
+    document.getElementById("retake").onclick=function(){if(confirm("Retake the quiz and rebuild your plan? Your streak stays.")){document.getElementById("app").style.display="none";document.getElementById("onboard").style.display="block";step=0;answers=st.plan?st.plan.profile:{};if(answers.weak&&!Array.isArray(answers.weak))answers.weak=[];renderOnboard();}};
+    document.getElementById("expB").onclick=function(){var b=new Blob([JSON.stringify(load(),null,2)],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="lockin-backup-"+dateKey(new Date())+".json";a.click();toast("Backup downloaded");};
+    document.getElementById("impB").onclick=function(){document.getElementById("impF").click();};
+    document.getElementById("impF").onchange=function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(){try{var d=JSON.parse(r.result);if(d&&d.sessions){d.settings=d.settings||{};save(d);toast("Restored");renderApp("today");}else toast("That file didn't look right");}catch(x){toast("Couldn't read that file");}};r.readAsText(f);};
+    var s=document.getElementById("status");if(!storageOk){s.textContent="⚠ storage blocked — Export to keep your data";s.className="status warn";}
+  }
+
+  // ---- mutations ----
+  function toggleWarm(k){var st=load();var s=st.sessions[k]||{warm:false,deep:false,feel:null,goal:"",note:"",drills:{}};s.warm=!s.warm;if(!s.warm){s.deep=false;s.drills={};}st.sessions[k]=s;save(st);if(s.warm)toast(computeStreak(st,new Date())+" day streak 🔥");renderApp("today");}
+  function toggleDrill(k,i,total){var st=load();var s=st.sessions[k]||{warm:false,deep:false,feel:null,goal:"",note:"",drills:{}};s.drills=s.drills||{};var pw=s.warm,pd=s.deep;s.drills[i]=!s.drills[i];var c=0;for(var x=0;x<total;x++)if(s.drills[x])c++;if(c>0)s.warm=true;s.deep=(c===total&&total>0);st.sessions[k]=s;save(st);if(s.warm&&!pw)toast(computeStreak(st,new Date())+" day streak 🔥");else if(s.deep&&!pd)toast("Full session 🎯");renderApp("today");}
+  function setField(k,f,v,rerender){var st=load();var s=st.sessions[k]||{warm:false,deep:false,feel:null,goal:"",note:"",drills:{}};s[f]=v;st.sessions[k]=s;save(st);if(rerender)renderApp("today");}
+
+  // ---- init ----
+  (function(){var st=load();applyTheme(st.settings.theme||"auto");
+    if(st.plan){document.getElementById("onboard").style.display="none";document.getElementById("app").style.display="block";renderApp("today");}
+    else{renderOnboard();}
+  })();
+
+  // expose generator for headless tests
+  if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){window.addEventListener('load',function(){navigator.serviceWorker.register('service-worker.js').catch(function(){});});}
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey};
+})();
+</script>
+</body>
+</html>
