@@ -1,0 +1,33 @@
+name: desktop-build
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend deps
+        run: npm install
+
+      - name: Build and publish release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Lockin ${{ github.ref_name }}"
+          releaseBody: "Lockin desktop — your pocket CS2 coach. Download **Lockin_*_x64-setup.exe** (recommended) or the **.msi** below, run it, done. Windows 10/11."
+          releaseDraft: false
+          prerelease: false
