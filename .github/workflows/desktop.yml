@@ -15,11 +15,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Install frontend deps
-        run: npm install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install deps (locked)
+        run: npm ci
+
+      - name: Version sources agree with tag
+        run: node scripts/check-version.js ${{ github.ref_name }}
+
+      - name: Frontend gate (syntax + unit tests)
+        run: npm run verify
 
       - name: Build and publish release
         uses: tauri-apps/tauri-action@v0
@@ -28,6 +39,6 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Lockin ${{ github.ref_name }}"
-          releaseBody: "Lockin desktop — your pocket CS2 coach. Download **Lockin_*_x64-setup.exe** (recommended) or the **.msi** below, run it, done. Windows 10/11."
+          releaseBody: "Lockin desktop — your pocket CS2 coach. Download **Lockin_*_x64-setup.exe** (recommended) or the **.msi**, run it, done. Windows 10/11.\n\nThe app is unsigned, so Windows SmartScreen may say \"Windows protected your PC\" — click **More info -> Run anyway** to install."
           releaseDraft: false
           prerelease: false

@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#1b1b18">
 <meta name="description" content="Lockin — a free pocket CS2 coach. A quick quiz builds you a personalised training plan and a daily tracker to stick to it.">
 <title>Lockin — your pocket CS2 coach</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20fill%3D%22%23EAC54F%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23322D14%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22square%22%3E%3Cpath%20d%3D%22M3%209V3h6M23%203h6v6M3%2023v6h6M29%2023v6h-6%22%2F%3E%3Cpath%20d%3D%22M16%208.5v3.5M16%2020v3.5M8.5%2016h3.5M20%2016h3.5%22%2F%3E%3C%2Fg%3E%3Ccircle%20cx%3D%2216%22%20cy%3D%2216%22%20r%3D%221.9%22%20fill%3D%22%23322D14%22%2F%3E%3C%2Fsvg%3E">
 <link rel="apple-touch-icon" href="data:image/png;base64,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">
@@ -20,8 +21,8 @@
     --stage:oklch(0.128 0.004 100);--bg:oklch(0.168 0.004 100);
     --surface:oklch(0.205 0.005 100);--surface2:oklch(0.248 0.006 100);
     --line:oklch(0.315 0.006 100);--line2:oklch(0.40 0.008 100);
-    --text:oklch(0.965 0.004 100);--muted:oklch(0.665 0.006 100);--faint:oklch(0.50 0.006 100);
-    --hero:oklch(0.865 0.165 96);--hero2:oklch(0.80 0.16 96);--onhero:oklch(0.20 0.03 96);
+    --text:oklch(0.965 0.004 100);--muted:oklch(0.665 0.006 100);--faint:oklch(0.625 0.006 100);
+    --hero:oklch(0.865 0.165 96);--hero2:oklch(0.80 0.16 96);--onhero:oklch(0.20 0.03 96);--hero-ink:oklch(0.865 0.165 96);
     --good:oklch(0.805 0.15 152);--bad:oklch(0.685 0.19 27);--info:oklch(0.78 0.085 225);
     --fd:'Helvetica Neue',Helvetica,Arial,sans-serif;
     --fb:system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif;
@@ -31,8 +32,8 @@
     --stage:oklch(0.90 0.005 95);--bg:oklch(0.948 0.004 95);
     --surface:oklch(0.995 0.003 95);--surface2:oklch(0.922 0.006 95);
     --line:oklch(0.855 0.006 95);--line2:oklch(0.77 0.008 95);
-    --text:oklch(0.205 0.006 95);--muted:oklch(0.44 0.006 95);--faint:oklch(0.575 0.006 95);
-    --hero:oklch(0.845 0.17 91);--hero2:oklch(0.79 0.16 91);--onhero:oklch(0.18 0.035 91);
+    --text:oklch(0.205 0.006 95);--muted:oklch(0.44 0.006 95);--faint:oklch(0.495 0.006 95);
+    --hero:oklch(0.845 0.17 91);--hero2:oklch(0.79 0.16 91);--onhero:oklch(0.18 0.035 91);--hero-ink:oklch(0.585 0.13 84);
     --good:oklch(0.55 0.14 152);--bad:oklch(0.53 0.20 27);
   }
   *{box-sizing:border-box;margin:0;}
@@ -43,7 +44,7 @@
   .ml{font-family:var(--fm);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--faint);font-weight:600;}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;}
   .wrap{max-width:640px;margin:0 auto;padding:18px 16px 96px;}
-  a{color:var(--hero);}
+  a{color:var(--hero-ink);}
 
   /* ---------- app shell ---------- */
   #app{min-height:100vh;}
@@ -114,7 +115,7 @@
   .dbody{flex:1;min-width:0;}
   .dname{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .drow.done .dname{color:var(--muted);}
-  .chip{font-family:var(--fm);font-size:9px;letter-spacing:0.12em;color:var(--hero);border:1px solid var(--hero);border-radius:4px;padding:1px 5px;font-weight:700;}
+  .chip{font-family:var(--fm);font-size:9px;letter-spacing:0.12em;color:var(--hero-ink);border:1px solid var(--hero-ink);border-radius:4px;padding:1px 5px;font-weight:700;}
   .dsub{font-size:12.5px;color:var(--muted);margin-top:2px;}
   .dmeas{font-family:var(--fm);font-size:11px;color:var(--faint);margin-top:5px;}
   .ddur{font-family:var(--fm);font-size:12px;color:var(--faint);white-space:nowrap;margin-top:2px;}
@@ -174,7 +175,7 @@
   .rotc .dl2{font-family:var(--fm);font-size:9.5px;letter-spacing:0.14em;color:var(--faint);}
   .rotc .fn2{font-weight:600;font-size:13px;margin-top:3px;}
   .librow{padding:11px 0;border-bottom:1px solid var(--line);} .librow:last-child{border-bottom:0;}
-  .librow .cat{font-family:var(--fm);font-size:9.5px;letter-spacing:0.14em;color:var(--hero);font-weight:700;}
+  .librow .cat{font-family:var(--fm);font-size:9.5px;letter-spacing:0.14em;color:var(--hero-ink);font-weight:700;}
   .librow .ln{font-weight:600;font-size:13.5px;display:flex;justify-content:space-between;gap:10px;margin-top:2px;}
   .librow .lm{font-family:var(--fm);font-size:10.5px;color:var(--faint);margin-top:3px;}
 
@@ -291,7 +292,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.6.1";
+  var VERSION="0.6.2";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -383,16 +384,18 @@
     var others=weak.filter(function(w){return w!==keystone;});
     var used=uniq([keystone].concat(weaponFoci).concat(others));
     var pool=[keystone,weaponFoci[0],keystone].concat(others.length?others:[weaponFoci[weaponFoci.length-1]]);
+    // stated availability drives how many weekday slots are training vs rest (was always 4)
+    var numTrain=(p.days==="2")?2:4;
     var weekly={0:"rest",5:"match",6:"match"};
-    for(var d=0;d<4;d++)weekly[1+d]=pool[d%pool.length];
+    for(var d=0;d<4;d++)weekly[1+d]=(d<numTrain)?pool[d%pool.length]:"rest";
     var kName=FOCI[keystone].name, wName=weaponFoci.map(function(f){return FOCI[f].name;}).join(" & ");
     var second=others[0]?FOCI[others[0]].name:wName;
     var timeL=p.time==="10"?"10–15":p.time==="30"?"20–30":"45";
     var rankL={new:"newer",mid:"mid-rank",good:"solid",high:"high-level",unsure:""}[p.rank]||"";
     var wpL=p.weapon==="awp"?"AWP":p.weapon==="rifle"?"rifle":"flex";
-    var diagnosis="You're a "+(rankL?rankL+" ":"")+wpL+" player whose single biggest lever is <b>"+kName+"</b>. "+
-      "The plan makes that automatic first — that's where <b>consistency</b> comes from — then carries it into your <b>"+wName+"</b> and the rounds that decide games. "+
-      "You don't need hours: <b>"+timeL+" minutes</b> on your training days, built to actually stick.";
+    var diagnosis="You're a "+(rankL?rankL+" ":"")+wpL+" player whose single biggest lever is [[b]]"+kName+"[[/b]]. "+
+      "The plan makes that automatic first — that's where [[b]]consistency[[/b]] comes from — then carries it into your [[b]]"+wName+"[[/b]] and the rounds that decide games. "+
+      "You don't need hours: [[b]]"+timeL+" minutes[[/b]] on your training days, built to actually stick.";
     var phases=[
       {w:"WK 1–4",t:"Foundations",d:"Make "+kName.toLowerCase()+" automatic and lock a fixed warm-up. Raise your floor before chasing the ceiling."},
       {w:"WK 5–8",t:"Sharpen",d:"Carry it into your "+wName+", and start on your next gap ("+second+")."},
@@ -403,7 +406,7 @@
   }
   function buildTargets(keystone,weaponFoci){
     var t=[];
-    var m={cstrafe:["Counter-strafing %","Reach your bracket average, then push a couple of points above (realistic ceiling ~78–82%). Leetify → Aim."],
+    var m={cstrafe:["Counter-strafing %","Reach your bracket average; it plateaus around ~78%, so once you're there put the reps into crosshair placement instead. Leetify → Aim."],
       consistency:["Aim floor (worst game)","Lift your worst games — fewer bad nights, same ceiling."],
       placement:["Crosshair placement (°)","Lower is better — pre-aim so you shoot first."],
       spray:["Spray accuracy %","Held sprays that land, not leak."],
@@ -429,15 +432,38 @@
   function computeStreak(st,today){var s=0,d=new Date(today),t=st.sessions[dateKey(d)];if(!t||!t.warm)d=addDays(d,-1);
     while(true){var x=st.sessions[dateKey(d)];if(x&&x.warm){s++;d=addDays(d,-1);}else if(isFreebie(d)){d=addDays(d,-1);}else break;}return s;}
   function weekdayCount(st,mon){var c=0;for(var i=0;i<4;i++){var x=st.sessions[dateKey(addDays(mon,i))];if(x&&x.warm)c++;}return c;}
-  function programWeek(plan,today){if(!plan||!plan.created)return 1;var wk=Math.floor((midnight(today)-parseKey(plan.created))/86400000/7)+1;return Math.max(1,Math.min(12,wk));}
+  function programWeek(plan,today){if(!plan||!plan.created)return 1;var days=Math.round((midnight(today)-parseKey(plan.created))/86400000);var wk=Math.floor(days/7)+1;return Math.max(1,Math.min(12,wk));}
 
   /* ---------- storage ---------- */
   function blank(){return {plan:null,sessions:{},settings:{},metrics:{}};}
   function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};migrate(o);return o;}catch(e){storageOk=false;return mem||blank();}}
   function save(st){mem=st;try{localStorage.setItem(KEY,JSON.stringify(st));storageOk=true;}catch(e){storageOk=false;}}
   function migrate(o){
-    for(var k in o.sessions){var f=o.sessions[k]&&o.sessions[k].feel;if(f&&f>5)o.sessions[k].feel=Math.ceil(f/2);}
+    if(o._m>=2)return; // one-time: load() runs on a 30s timer, so migration must not mutate on every read
+    for(var k in o.sessions){var f=o.sessions[k]&&o.sessions[k].feel;if(f&&f>5)o.sessions[k].feel=Math.min(5,Math.ceil(f/2));}
     if(o.settings.theme==="auto")delete o.settings.theme;
+    // old plans stored diagnosis with literal <b> tags; convert to safe markers (only exact <b>/</b>,
+    // so a hostile <img …> stays escaped by richText). Idempotent.
+    if(o.plan&&typeof o.plan.diagnosis==="string")o.plan.diagnosis=o.plan.diagnosis.split("<b>").join("[[b]]").split("</b>").join("[[/b]]");
+    // metrics were keyed by array position (m0/m1/…); re-key to stable name-derived keys so a retake
+    // into a different target set can't display old numbers under the wrong metric.
+    if(o.plan&&o.plan.targets&&o.metrics){for(var i=0;i<o.plan.targets.length;i++){var ok="m"+i;if(o.metrics[ok]!=null){var nk=tkey(o.plan.targets[i].n);if(o.metrics[nk]==null)o.metrics[nk]=o.metrics[ok];delete o.metrics[ok];}}}
+    o._m=2;
+  }
+
+  /* ---------- backup export / import validation ---------- */
+  function exportData(){var b=new Blob([JSON.stringify(load(),null,2)],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="lockin-backup-"+dateKey(new Date())+".json";a.click();}
+  function isObj(x){return x&&typeof x==="object"&&!Array.isArray(x);}
+  // reject a restore file that isn't shaped like our data — an unvalidated plan could brick the app
+  function validBackup(d2){
+    if(!isObj(d2)||!isObj(d2.sessions))return false;
+    if(d2.plan!=null){
+      var p=d2.plan;
+      if(!isObj(p)||!isObj(p.weekly)||!isObj(p.profile)||!Array.isArray(p.targets))return false;
+      for(var k in p.weekly){if(!FOCI[p.weekly[k]])return false;}
+      if(p.keystone&&!FOCI[p.keystone])return false;
+    }
+    return true;
   }
 
   /* ---------- theme ---------- */
@@ -448,7 +474,20 @@
   /* ---------- ui state ---------- */
   var screen="today", backfill=false, answers={}, step=0, generating=false, revealed=null, viewDate=new Date();
   function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+  // richText: escape everything, then restore ONLY our own bold markers — so an imported/hostile
+  // diagnosis string can never inject HTML (the markers are private-use chars user data won't carry).
+  function richText(s){return esc(String(s)).split("[[b]]").join("<b>").split("[[/b]]").join("</b>");}
+  // stable, name-derived key for a saved metric (was positional m0/m1/… which re-labelled on retake)
+  function tkey(name){return "m_"+String(name).toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"");}
   function actDate(){return backfill?addDays(new Date(),-1):new Date();}
+  // a stable selector for the focused control, so a full-screen re-render can restore keyboard focus
+  function focusSig(el){
+    if(!el||!el.getAttribute)return null;
+    var keys=["data-drill","data-feel","data-go","data-theme-set","data-cal","data-backfill","data-rem-toggle"];
+    for(var i=0;i<keys.length;i++){var v=el.getAttribute(keys[i]);if(v!=null)return "["+keys[i]+'="'+v+'"]';}
+    var mk=el.getAttribute("data-mk");if(mk!=null)return '[data-mk="'+mk+'"][data-mp="'+el.getAttribute("data-mp")+'"]';
+    return null;
+  }
   function copyText(t,btn){var old=btn.textContent;function flash(m){btn.textContent=m;setTimeout(function(){btn.textContent=old;},1200);}
     try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){flash("COPIED ✓");},function(){flash("COPY FAILED");});return;}}catch(e){}
     try{var ta=document.createElement("textarea");ta.value=t;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove();flash("COPIED ✓");}catch(e){flash("SELECT + COPY");}}
@@ -460,12 +499,14 @@
     if(!isNative)return;
     var st=load(),r=st.settings.reminder;
     if(!r||!r.on||!r.time)return;
-    var now=new Date(),hhmm=two(now.getHours())+":"+two(now.getMinutes()),tk=dateKey(now);
-    if(hhmm===r.time&&st.settings.remLast!==tk){
-      st.settings.remLast=tk;save(st);
-      var s=st.sessions[tk];
-      if(!(s&&s.warm))nativeNotify("Time to lock in — ten focused minutes. Don't hand them the worst version of you.");
-    }
+    var now=new Date(),tk=dateKey(now);
+    if(st.settings.remLast===tk)return;                       // already nudged today
+    var hm=/^(\d{1,2}):(\d{2})$/.exec(r.time);if(!hm)return;
+    var target=new Date(now);target.setHours(+hm[1],+hm[2],0,0);
+    if(now.getTime()<target.getTime())return;                 // level-triggered: fires at/after the time, with catch-up
+    st.settings.remLast=tk;save(st);
+    var s=st.sessions[tk];
+    if(!(s&&s.warm))nativeNotify("Time to lock in — ten focused minutes. Don't hand them the worst version of you.");
   }
 
   /* ---------- onboarding ---------- */
@@ -510,7 +551,7 @@
     var segs="";for(var s2=0;s2<QUIZ.length;s2++)segs+='<div class="seg'+(s2<step?" on":"")+'"></div>';
     var opts=item.opts.map(function(o){
       var on=item.multi?(sel.indexOf(o[0])>=0):(sel===o[0]);
-      return '<button class="opt'+(on?" on":"")+'" data-v="'+o[0]+'"><span class="tick '+(item.multi?"s":"c")+'">'+CHK+'</span><span>'+o[1]+'</span></button>';
+      return '<button class="opt'+(on?" on":"")+'" data-v="'+o[0]+'" role="'+(item.multi?"checkbox":"radio")+'" aria-checked="'+(on?"true":"false")+'"><span class="tick '+(item.multi?"s":"c")+'">'+CHK+'</span><span>'+o[1]+'</span></button>';
     }).join("");
     var canNext=item.multi?true:(sel!=null);
     host.innerHTML='<div class="wrap" style="max-width:480px;padding-top:26px;">'+
@@ -535,7 +576,7 @@
       else{
         generating=true;renderOnboard();
         setTimeout(function(){
-          var st=load();var plan=generatePlan(answers);plan.created=dateKey(new Date());
+          var st=load();var plan=generatePlan(answers);plan.created=(st.plan&&st.plan.created)?st.plan.created:dateKey(new Date());
           st.plan=plan;save(st);
           generating=false;revealed=plan;renderOnboard();
         },1400);
@@ -564,19 +605,42 @@
 
   function render(){
     var st=load();if(!st.plan){renderOnboard();return;}
-    renderSide(st);renderTabs();
+    var _f=focusSig(document.activeElement);
+    try{
+      renderSide(st);renderTabs();
+      var main=document.getElementById("main");
+      if(screen==="today")main.innerHTML=htmlToday(st);
+      else if(screen==="plan")main.innerHTML=htmlPlan(st);
+      else if(screen==="progress")main.innerHTML=htmlProgress(st);
+      else main.innerHTML=htmlSetup(st);
+      wire(st);
+    }catch(err){renderRecovery(err);return;}
+    if(_f){var fe=document.querySelector(_f);if(fe&&fe.focus)try{fe.focus();}catch(_){}}
+  }
+  // last-resort screen so a corrupt/hostile persisted plan can never permanently brick the app
+  function renderRecovery(err){
+    try{if(window.console)console.warn("Lockin render failed:",err);}catch(_){}
+    var app=document.getElementById("app"),tb=document.getElementById("tabbar"),ob=document.getElementById("onboard");
+    if(ob)ob.style.display="none";if(app)app.style.display="";if(tb)tb.style.display="flex";
     var main=document.getElementById("main");
-    if(screen==="today")main.innerHTML=htmlToday(st);
-    else if(screen==="plan")main.innerHTML=htmlPlan(st);
-    else if(screen==="progress")main.innerHTML=htmlProgress(st);
-    else main.innerHTML=htmlSetup(st);
-    wire(st);
+    main.innerHTML='<div class="hd"><div><div class="ml" style="color:var(--bad);">DATA PROBLEM</div><h1 class="dsp">RECOVER</h1></div></div>'+
+      '<div class="card rulecard"><div class="ml" style="color:var(--hero-ink);">WE HIT A SNAG</div>'+
+      '<p>Your saved data couldn’t be displayed — usually a bad imported backup. Nothing is deleted. Export a copy, or rebuild your plan from the quiz.</p>'+
+      '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;"><button class="pbtn" data-rec="export">EXPORT MY DATA</button><button class="gbtn" data-rec="reset">REBUILD MY PLAN</button></div></div>';
+    var ex=main.querySelector('[data-rec="export"]');if(ex)ex.onclick=exportData;
+    var rs=main.querySelector('[data-rec="reset"]');if(rs)rs.onclick=function(){
+      if(!confirm("Rebuild your plan from the quiz? Your session history and streak stay."))return;
+      try{var st=load();st.plan=null;save(st);}catch(_){}
+      answers={};step=0;revealed=null;generating=false;backfill=false;
+      if(app)app.style.display="none";if(tb)tb.style.display="none";
+      renderOnboard();
+    };
   }
 
   function renderSide(st){
     var side=document.getElementById("side");
     var streak=computeStreak(st,new Date());
-    function nb(k,l,ic){return '<button data-go="'+k+'" class="'+(screen===k?"on":"")+'">'+ic+'<span>'+l+'</span></button>';}
+    function nb(k,l,ic){return '<button data-go="'+k+'" class="'+(screen===k?"on":"")+'"'+(screen===k?' aria-current="page"':'')+'>'+ic+'<span>'+l+'</span></button>';}
     side.innerHTML='<div class="brand">'+ '<span style="width:22px;height:22px;color:var(--hero);display:inline-block;">'+RET+'</span><span class="wordmark">LOCK<b>IN</b></span></div>'+
       '<div class="snav">'+nb("today","TODAY",RET)+nb("plan","PLAN",LIST)+nb("progress","PROGRESS",CAL)+nb("setup","SETUP",GEAR)+'</div>'+
       '<div class="smini"><div><div class="ml">STREAK</div><div class="dsp" style="font-size:30px;color:var(--hero);">'+streak+'</div></div>'+
@@ -585,24 +649,32 @@
   }
   function renderTabs(){
     var tb=document.getElementById("tabbar");
-    function t(k,l,ic){return '<button class="tab'+(screen===k?" on":"")+'" data-go="'+k+'">'+ic+'<span>'+l+'</span></button>';}
+    function t(k,l,ic){return '<button class="tab'+(screen===k?" on":"")+'" data-go="'+k+'" aria-label="'+l+'"'+(screen===k?' aria-current="page"':'')+'>'+ic+'<span>'+l+'</span></button>';}
     tb.innerHTML=t("today","TODAY",RET)+t("plan","PLAN",LIST)+t("progress","PROGRESS",CAL)+t("setup","SETUP",GEAR);
   }
 
   /* ---------- TODAY ---------- */
   function weekCells(st,now){
-    var mon=mondayOf(now),tk=dateKey(now),names=["M","T","W","T","F","S","S"],todayMid=midnight(now).getTime(),h="";
+    var mon=mondayOf(now),tk=dateKey(now),sh=["M","T","W","T","F","S","S"],full=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],todayMid=midnight(now).getTime(),h="";
+    var createdMid=(st.plan&&st.plan.created)?parseKey(st.plan.created).getTime():0; // don't mark days before the plan existed as missed
     for(var k=0;k<7;k++){var day=addDays(mon,k),dk=dateKey(day),s=st.sessions[dk];
-      var isT=dk===tk,fut=midnight(day).getTime()>todayMid,req=day.getDay()>=1&&day.getDay()<=4;
-      var cls,mark;
-      if(s&&s.warm){cls="done";mark="✓";}
-      else if(isT){cls="today";mark="●";}
-      else if(fut){cls="up";mark="";}
-      else if(req){cls="miss";mark="✕";}
-      else{cls="rest";mark="—";}
-      h+='<div class="wd"><div class="dl">'+names[k]+'</div><div class="wc '+cls+'">'+mark+'</div></div>';
+      var isT=dk===tk,dm=midnight(day).getTime(),fut=dm>todayMid,req=day.getDay()>=1&&day.getDay()<=4,before=dm<createdMid;
+      var cls,mark,lab;
+      if(s&&s.warm){cls="done";mark="✓";lab="trained";}
+      else if(isT){cls="today";mark="●";lab="today";}
+      else if(fut){cls="up";mark="";lab="upcoming";}
+      else if(req&&!before){cls="miss";mark="✕";lab="missed";}
+      else{cls="rest";mark="—";lab="rest";}
+      h+='<div class="wd"><div class="dl">'+sh[k]+'</div><div class="wc '+cls+'" role="img" aria-label="'+full[k]+' '+day.getDate()+' — '+lab+'">'+mark+'</div></div>';
     }
     return h;
+  }
+  // which drills to show for a focus, given the plan's time budget — core-only for the 10-min tier.
+  // Preserves each drill's ORIGINAL index (completion is stored by index) so nothing shifts.
+  function drillList(F,plan){
+    var lite=plan&&plan.profile&&plan.profile.time==="10";
+    var out=[];F.drills.forEach(function(d,ix){if(!lite||d.core)out.push({d:d,i:ix});});
+    return out;
   }
   function htmlToday(st){
     var plan=st.plan,now=new Date(),tk=dateKey(now),dow=now.getDay();
@@ -637,11 +709,11 @@
         '<p style="color:var(--muted);font-size:13px;margin-top:6px;">'+F.drills[0].sub+'</p></div>';
     }else{
       var kx=(focusKey===plan.keystone)?" · KEYSTONE":"";
-      var dl=F.drills,dstate=sess.drills||{};
+      var shown=drillList(F,plan),dstate=sess.drills||{};
       var rows="";
-      for(var j=0;j<dl.length;j++){
-        var d=dl[j],done=!!dstate[j];
-        rows+='<button class="drow'+(done?" done":"")+'" data-drill="'+j+'">'+
+      for(var j=0;j<shown.length;j++){
+        var d=shown[j].d,dix=shown[j].i,done=!!dstate[dix];
+        rows+='<button class="drow'+(done?" done":"")+'" data-drill="'+dix+'" aria-pressed="'+(done?"true":"false")+'">'+
           '<span class="dbox">'+CHK+'</span>'+
           '<span class="dbody"><span class="dname">'+esc(d.t)+(d.core?'<span class="chip">CORE</span>':'')+'</span>'+
           '<span class="dsub" style="display:block;">'+esc(d.sub)+'</span>'+
@@ -651,11 +723,11 @@
       }
       var fw=["—","OFF","SHAKY","OK","WARM","DIALLED"];
       var fcol=sess.feel>=4?"var(--good)":(sess.feel>0&&sess.feel<=2?"var(--bad)":"var(--muted)");
-      var fbs="";for(var f=1;f<=5;f++)fbs+='<button class="fbtn'+(f<=sess.feel?" on":"")+'" data-feel="'+f+'">'+f+'</button>';
+      var fbs="";for(var f=1;f<=5;f++)fbs+='<button class="fbtn'+(f<=sess.feel?" on":"")+'" data-feel="'+f+'" aria-pressed="'+(f<=sess.feel?"true":"false")+'" aria-label="Hand feel '+f+' of 5">'+f+'</button>';
       var bfBanner=backfill?'<div class="warnbanner" style="background:var(--surface);border-color:var(--line);border-left-color:var(--hero);color:var(--muted);">Editing <b style="color:var(--text);">yesterday</b> ('+act.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})+'). Your streak updates automatically.</div>':'';
       var canSession=!backfill&&focusKey!=="match";
-      var totMin=0;for(var ti=0;ti<dl.length;ti++)totMin+=(dl[ti].dur||0);
-      var undone=false;for(var ui=0;ui<dl.length;ui++)if(!dstate[ui])undone=true;
+      var totMin=0;for(var ti=0;ti<shown.length;ti++)totMin+=(shown[ti].d.dur||0);
+      var undone=false;for(var ui=0;ui<shown.length;ui++)if(!dstate[shown[ui].i])undone=true;
       var startBtn=(canSession&&undone)?'<button class="startsession" data-startsession="1">▸ START GUIDED SESSION · '+totMin+' MIN</button>':'';
       body='<div class="divi"><span class="ml">'+(backfill?'YESTERDAY':'TODAY')+' ▸ '+esc(F.name).toUpperCase()+kx+'</span></div>'+
         bfBanner+nmt+startBtn+
@@ -673,7 +745,7 @@
     var plan=st.plan,now=new Date(),dow=now.getDay();
     var hd='<div class="hd"><div><div class="ml">YOUR PROGRAM</div><h1 class="dsp">PLAN</h1></div></div>';
     var diag='<div class="card diagcard" style="max-width:none;"><div class="ml" style="margin-bottom:6px;">DIAGNOSIS · FOCUS ▸ '+esc(plan.keystoneName).toUpperCase()+'</div>'+
-      '<p style="font-size:13.5px;color:var(--muted);">'+plan.diagnosis+'</p></div>';
+      '<p style="font-size:13.5px;color:var(--muted);">'+richText(plan.diagnosis)+'</p></div>';
     var ph='<div class="divi"><span class="ml">12-WEEK PHASES</span></div><div class="card">';
     for(var i=0;i<plan.phases.length;i++){var P=plan.phases[i];
       ph+='<div class="phrow"><div class="phnum">'+(i+1)+'</div><div><b>'+esc(P.t)+'</b><span class="wl">'+esc(P.w)+'</span><p>'+esc(P.d)+'</p></div></div>';}
@@ -719,19 +791,22 @@
     ["M","T","W","T","F","S","S"].forEach(function(h){cal+='<div class="ch">'+h+'</div>';});
     var first=new Date(vy,vm,1),pad=(first.getDay()+6)%7,dim=new Date(vy,vm+1,0).getDate();
     var tk=dateKey(now),todayMid=midnight(now).getTime();
+    var createdMid=(plan&&plan.created)?parseKey(plan.created).getTime():0; // floor the "missed" paint at the plan start
     for(var p=0;p<pad;p++)cal+='<div class="cell pad"></div>';
     for(var d=1;d<=dim;d++){var day=new Date(vy,vm,d),dk2=dateKey(day),s=st.sessions[dk2],cls="cell";
-      var fut=midnight(day).getTime()>todayMid,req=day.getDay()>=1&&day.getDay()<=4;
-      if(s&&s.warm)cls+=s.deep?" deep":" warm";else if(!fut&&dk2!==tk&&req)cls+=" miss";
-      if(dk2===tk)cls+=" today";
-      cal+='<div class="'+cls+'">'+d+'</div>';}
+      var dm=midnight(day).getTime(),fut=dm>todayMid,req=day.getDay()>=1&&day.getDay()<=4,before=dm<createdMid,lab;
+      if(s&&s.warm){cls+=s.deep?" deep":" warm";lab=s.deep?"full session":"trained";}
+      else if(!fut&&dk2!==tk&&req&&!before){cls+=" miss";lab="missed";}
+      else lab=fut?"upcoming":"";
+      if(dk2===tk){cls+=" today";lab=(lab?lab+", ":"")+"today";}
+      cal+='<div class="'+cls+'" role="img" aria-label="'+day.getDate()+(lab?" — "+lab:"")+'">'+d+'</div>';}
     cal+='</div><div class="calleg"><span><i class="swatch" style="background:color-mix(in oklab,var(--hero) 12%,transparent);border:1px solid var(--hero)"></i>trained</span><span><i class="swatch" style="background:var(--hero)"></i>full session</span><span><i class="swatch" style="background:transparent;border:1px dashed var(--bad)"></i>missed weekday</span></div></div>';
     var pw=programWeek(plan,now);
     var due=pw>=12?"w12":pw>=8?"w8":pw>=4?"w4":"base";
     var mx='<div class="divi"><span class="ml">LEETIFY CHECKPOINTS · WK '+pw+'/12</span></div><div class="card">';
     mx+='<p class="mhow" style="margin-top:0;">Type your Leetify numbers in at the start (BASE) and again at weeks 4 / 8 / 12. The chip shows movement from base.</p>';
     plan.targets.forEach(function(t,ti){
-      var key="m"+ti, v=(st.metrics||{})[key]||{};
+      var key=tkey(t.n), v=(st.metrics||{})[key]||{};
       var lb=/\(°\)|deaths/i.test(t.n);
       var latest=null;["w12","w8","w4"].some(function(kk){if(v[kk]!=null){latest=v[kk];return true;}return false;});
       var chip;
@@ -740,7 +815,7 @@
         chip=dlt===0?'<span class="delta na">±0</span>':'<span class="delta '+(better?"good":"bad")+'">'+(dlt>0?"+":"")+dlt+(better?" ▲":" ▼")+'</span>';}
       mx+='<div class="metric"><div class="mh"><span class="mname">'+esc(t.n)+'</span>'+chip+'</div><div class="mhow">'+esc(t.h)+benchHint(t.n,plan.profile.rank)+'</div><div class="cps">';
       [["base","BASE"],["w4","WK 4"],["w8","WK 8"],["w12","WK 12"]].forEach(function(cp){
-        mx+='<div class="'+(due===cp[0]?"due":"")+'"><label>'+cp[1]+'</label><input type="number" inputmode="decimal" step="any" data-mk="'+key+'" data-mp="'+cp[0]+'" value="'+(v[cp[0]]!=null?v[cp[0]]:"")+'" placeholder="—"></div>';});
+        mx+='<div class="'+(due===cp[0]?"due":"")+'"><label>'+cp[1]+'</label><input type="number" inputmode="decimal" step="any" aria-label="'+esc(t.n)+' — '+cp[1]+'" data-mk="'+key+'" data-mp="'+cp[0]+'" value="'+(v[cp[0]]!=null?v[cp[0]]:"")+'" placeholder="—"></div>';});
       mx+='</div></div>';});
     mx+='</div>';
     return hd+cal+mx+glossary();
@@ -777,7 +852,7 @@
       '<button class="gbtn" data-act="retake">RETAKE</button></div></div>';
     var cueSec='<div class="divi"><span class="ml">YOUR DAILY CUE</span></div>'+
       '<div class="card"><div class="field"><label>“After ___, I do the ten.”</label>'+
-      '<input type="text" data-cue value="'+esc(st.settings.cue||"")+'" placeholder="e.g. after dinner, before the couch"></div>'+
+      '<input type="text" data-cue aria-label="Your daily cue" value="'+esc(st.settings.cue||"")+'" placeholder="e.g. after dinner, before the couch"></div>'+
       '<p class="help">A plan with a specific <em>when</em> actually happens. Yours shows on the Today screen.</p></div>';
     var app='<div class="divi"><span class="ml">APPEARANCE</span></div>'+
       '<div class="segctl"><button data-theme-set="dark" class="'+(curTheme(st)==="dark"?"on":"")+'">DARK</button><button data-theme-set="light" class="'+(curTheme(st)==="light"?"on":"")+'">LIGHT</button></div>';
@@ -787,14 +862,15 @@
       remSec='<div class="divi"><span class="ml">DAILY REMINDER · DESKTOP</span></div>'+
         '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">'+
         '<div><div class="mname">“Go train” notification</div><div class="help" style="margin-top:2px;">Lockin sits in your tray and pings you at your time. Turning it on also launches Lockin at login so the reminder actually fires.</div></div>'+
-        '<button class="rtoggle'+(rem.on?" on":"")+'" data-rem-toggle>'+(rem.on?"ON":"OFF")+'</button></div>'+
-        (rem.on?'<div class="field" style="margin-top:12px;"><label>Remind me at</label><input type="time" data-rem-time value="'+esc(rem.time||"19:00")+'"></div>':'')+
+        '<button class="rtoggle'+(rem.on?" on":"")+'" data-rem-toggle role="switch" aria-checked="'+(rem.on?"true":"false")+'" aria-label="Daily reminder">'+(rem.on?"ON":"OFF")+'</button></div>'+
+        '<div class="field" style="margin-top:12px;"><label for="remTime">Remind me at</label><input type="time" id="remTime" data-rem-time value="'+esc(rem.time||"19:00")+'"'+(rem.on?"":" disabled")+'></div>'+
         '</div>';
     }
     var data='<div class="divi"><span class="ml">DATA · LOCAL ONLY</span></div>'+
       '<div style="display:flex;flex-direction:column;gap:8px;">'+
       '<button class="datarow" data-act="export">'+DL+'<span>Export backup<small>Everything as a .json file — plan, streak, sessions</small></span></button>'+
-      '<button class="datarow" data-act="import">'+UL+'<span>Restore backup<small>Load a previously exported file</small></span></button>'+
+      '<button class="datarow" data-act="import">'+UL+'<span>Restore backup<small>Load a previously exported file — you’ll get a confirmation first</small></span></button>'+
+      '<button class="datarow" data-act="reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span>Erase all data<small>Delete everything and start over — can’t be undone</small></span></button>'+
       '<input type="file" id="impF" accept="application/json" style="display:none;"></div>'+
       (storageOk?'':'<div class="ml" style="color:var(--bad);margin-top:8px;">⚠ STORAGE BLOCKED — EXPORT TO KEEP YOUR DATA</div>');
     return hd+prof+cueSec+app+remSec+data+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
@@ -822,23 +898,45 @@
     var cueI=root.querySelector("[data-cue]");
     if(cueI)cueI.onchange=function(e){var s2=load();s2.settings.cue=e.target.value.trim();save(s2);};
     var rtog=root.querySelector("[data-rem-toggle]");
-    if(rtog)rtog.onclick=function(){var s2=load();var r=s2.settings.reminder||{on:false,time:"19:00"};r.on=!r.on;s2.settings.reminder=r;save(s2);
-      if(r.on){setAutostart(true);nativeNotify("Reminders on — I'll ping you at "+r.time+" if you haven't trained.");}else setAutostart(false);
+    if(rtog)rtog.onclick=function(){var s2=load();var r=s2.settings.reminder||{on:false,time:"19:00"};r.on=!r.on;
+      if(r.on){
+        // if the time already passed today, mark today done so the level-triggered tick doesn't
+        // immediately fire a second nudge on top of this confirmation
+        var hm=/^(\d{1,2}):(\d{2})$/.exec(r.time),now=new Date();
+        if(hm){var tg=new Date(now);tg.setHours(+hm[1],+hm[2],0,0);if(now.getTime()>=tg.getTime())s2.settings.remLast=dateKey(now);}
+        s2.settings.reminder=r;save(s2);setAutostart(true);
+        nativeNotify("Reminders on — I'll nudge you at "+r.time+" if you haven't trained.");
+      }else{s2.settings.reminder=r;save(s2);setAutostart(false);}
       render();};
     var rtime=root.querySelector("[data-rem-time]");
-    if(rtime)rtime.onchange=function(e){var s2=load();var r=s2.settings.reminder||{on:true,time:"19:00"};r.time=e.target.value||"19:00";s2.settings.reminder=r;save(s2);};
+    if(rtime)rtime.onchange=function(e){var s2=load();var r=s2.settings.reminder||{on:true,time:"19:00"};r.time=e.target.value||"19:00";delete s2.settings.remLast;s2.settings.reminder=r;save(s2);};
     var dr=root.querySelectorAll("[data-drill]");
     for(var d=0;d<dr.length;d++)(function(b){b.onclick=function(){toggleDrill(parseInt(b.getAttribute("data-drill"),10));};})(dr[d]);
     var fb=root.querySelectorAll("[data-feel]");
     for(var f=0;f<fb.length;f++)(function(b){b.onclick=function(){setFeel(parseInt(b.getAttribute("data-feel"),10));};})(fb[f]);
     var ex=root.querySelector('[data-act="export"]');
-    if(ex)ex.onclick=function(){var b=new Blob([JSON.stringify(load(),null,2)],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="lockin-backup-"+dateKey(new Date())+".json";a.click();};
+    if(ex)ex.onclick=exportData;
     var im=root.querySelector('[data-act="import"]');
     if(im)im.onclick=function(){document.getElementById("impF").click();};
     var inf=document.getElementById("impF");
     if(inf)inf.onchange=function(e){var f=e.target.files[0];if(!f)return;var rd=new FileReader();
-      rd.onload=function(){try{var d2=JSON.parse(rd.result);if(d2&&d2.sessions){d2.settings=d2.settings||{};save(d2);render();}else alert("That file didn't look right.");}catch(x){alert("Couldn't read that file.");}};
+      rd.onload=function(){
+        var d2;try{d2=JSON.parse(rd.result);}catch(x){alert("Couldn't read that file — it isn't valid JSON.");inf.value="";return;}
+        if(!validBackup(d2)){alert("That file isn't a Lockin backup (or it's damaged), so it wasn't loaded. Your data is untouched.");inf.value="";return;}
+        var nDays=Object.keys(d2.sessions).length;
+        var summ="Restore this backup? It REPLACES your current data with "+nDays+" tracked day"+(nDays===1?"":"s")+(d2.plan&&d2.plan.keystoneName?", focus "+d2.plan.keystoneName:"")+".\n\nExport your current data first if you want to keep it — this can't be undone.";
+        if(!confirm(summ)){inf.value="";return;}
+        d2.settings=d2.settings||{};save(d2);inf.value="";render();
+      };
       rd.readAsText(f);};
+    var rst=root.querySelector('[data-act="reset"]');
+    if(rst)rst.onclick=function(){
+      if(!confirm("Erase ALL Lockin data on this device — plan, streak, sessions and metrics — and start over? This can't be undone."))return;
+      try{localStorage.removeItem(KEY);}catch(_){}
+      mem=null;answers={};step=0;revealed=null;generating=false;backfill=false;
+      document.getElementById("app").style.display="none";document.getElementById("tabbar").style.display="none";
+      renderOnboard();
+    };
   }
 
   function toggleDrill(i){
@@ -863,70 +961,93 @@
   }
 
   /* ---------- guided session mode ---------- */
-  var SESS=null;
+  var SESS=null, sessKeydown=null, sessReturnFocus=null;
   function fmtT(s){s=Math.max(0,s);var m=Math.floor(s/60),ss=s%60;return m+":"+(ss<10?"0":"")+ss;}
+  function coreComplete(F,drills){return F.drills.every(function(d,ix){return !d.core||(drills&&drills[ix]);});}
   function startSession(){
+    if(SESS)return;                                    // never run two sessions / two intervals at once
     var st=load(),plan=st.plan,fk=plan.weekly[new Date().getDay()],F=FOCI[fk];
     if(!F||fk==="rest"||fk==="match")return;
-    SESS={fk:fk,idx:0,remain:(F.drills[0].dur||1)*60,paused:false,timer:null};
+    var list=drillList(F,plan);if(!list.length)return;
+    var sNow=st.sessions[dateKey(new Date())]||{drills:{}};
+    sessReturnFocus=document.activeElement;
+    SESS={fk:fk,list:list,idx:0,remain:(list[0].d.dur||1)*60,paused:false,timer:null,
+      dayKey:dateKey(new Date()),coreWas:coreComplete(F,sNow.drills)};
     renderSession();
     SESS.timer=setInterval(sessTick,1000);
   }
   function sessTick(){
     if(!SESS||SESS.paused)return;
     SESS.remain--;
-    if(SESS.remain<=0){sessAdvance(true);return;}
     var el=document.getElementById("sTime");if(el)el.textContent=fmtT(SESS.remain);
+    if(SESS.remain<=0){if(el)el.className="stime zero";sessAdvance(true);}   // paint 0:00, then advance
   }
   function sessAdvance(markDone){
     if(!SESS)return;
-    var st=load(),F=FOCI[SESS.fk],tk=dateKey(new Date());
+    var st=load(),F=FOCI[SESS.fk],tk=SESS.dayKey;      // snapshot day: a session crossing midnight stays on its start day
     if(markDone){
       var s=st.sessions[tk]||{warm:false,deep:false,feel:0,drills:{}};s.drills=s.drills||{};
-      s.drills[SESS.idx]=true;
-      var any=F.drills.some(function(d,ix){return s.drills[ix];});s.warm=any;
+      s.drills[SESS.list[SESS.idx].i]=true;
+      s.warm=F.drills.some(function(d,ix){return s.drills[ix];});
       s.deep=F.drills.every(function(d,ix){return s.drills[ix];});
       st.sessions[tk]=s;save(st);
     }
-    if(SESS.idx+1>=F.drills.length){endSession();return;}
-    SESS.idx++;SESS.remain=(F.drills[SESS.idx].dur||1)*60;SESS.paused=false;renderSession();
+    if(SESS.idx+1>=SESS.list.length){endSession();return;}
+    SESS.idx++;SESS.remain=(SESS.list[SESS.idx].d.dur||1)*60;SESS.paused=false;renderSession();
   }
   function endSession(){
-    if(SESS&&SESS.timer)clearInterval(SESS.timer);
-    var doCele=false;
-    if(SESS){var st=load(),F=FOCI[SESS.fk],tk=dateKey(new Date());var s=st.sessions[tk]||{drills:{}};
-      doCele=F.drills.every(function(d,ix){return !d.core||(s.drills&&s.drills[ix]);});}
-    SESS=null;var ov=document.getElementById("session");if(ov)ov.classList.remove("show");
+    if(!SESS)return;
+    if(SESS.timer)clearInterval(SESS.timer);
+    var st=load(),F=FOCI[SESS.fk],s=st.sessions[SESS.dayKey]||{drills:{}};
+    var doCele=!SESS.coreWas&&coreComplete(F,s.drills);   // celebrate only on a false->true transition
+    SESS=null;
+    var ov=document.getElementById("session");if(ov){ov.classList.remove("show");ov.removeAttribute("role");ov.removeAttribute("aria-modal");}
+    if(sessKeydown){document.removeEventListener("keydown",sessKeydown);sessKeydown=null;}
+    var app=document.getElementById("app"),tb=document.getElementById("tabbar");
+    if(app)app.removeAttribute("inert");if(tb)tb.removeAttribute("inert");
     render();
+    if(sessReturnFocus&&sessReturnFocus.focus){try{sessReturnFocus.focus();}catch(_){}}
+    sessReturnFocus=null;
     if(doCele)celebrate(computeStreak(load(),new Date()));
   }
   function renderSession(){
-    var ov=document.getElementById("session"),F=FOCI[SESS.fk],d=F.drills[SESS.idx];
-    var dots="";for(var i=0;i<F.drills.length;i++)dots+='<span class="sdot'+(i<SESS.idx?" past":i===SESS.idx?" cur":"")+'"></span>';
+    var ov=document.getElementById("session"),F=FOCI[SESS.fk],d=SESS.list[SESS.idx].d;
+    var dots="";for(var i=0;i<SESS.list.length;i++)dots+='<span class="sdot'+(i<SESS.idx?" past":i===SESS.idx?" cur":"")+'"></span>';
+    ov.setAttribute("role","dialog");ov.setAttribute("aria-modal","true");ov.setAttribute("aria-label","Guided session");
     ov.innerHTML='<div class="sbar"><span class="ml">SESSION · '+esc(F.name).toUpperCase()+'</span><button class="siconx" data-sess="end" aria-label="End session">✕</button></div>'+
       '<div class="sdots">'+dots+'</div>'+
-      '<div class="sctr"><div class="ml">DRILL '+(SESS.idx+1)+' / '+F.drills.length+(d.core?" · CORE":"")+'</div>'+
+      '<div class="sctr"><div class="ml">DRILL '+(SESS.idx+1)+' / '+SESS.list.length+(d.core?" · CORE":"")+'</div>'+
       '<div class="sname dsp">'+esc(d.t)+'</div><div class="ssub">'+esc(d.sub)+'</div><div class="smeas">◎ '+esc(d.m)+'</div>'+
       '<div class="stime'+(SESS.remain<=0?" zero":"")+'" id="sTime">'+fmtT(SESS.remain)+'</div>'+
       '<div class="sctrls"><button class="gbtn" data-sess="pause">'+(SESS.paused?"RESUME":"PAUSE")+'</button>'+
       '<button class="gbtn" data-sess="skip">SKIP ▸</button><button class="pbtn" data-sess="done">DONE ✓</button></div></div>';
     ov.classList.add("show");
+    var app=document.getElementById("app"),tb=document.getElementById("tabbar");
+    if(app)app.setAttribute("inert","");if(tb)tb.setAttribute("inert","");
+    if(!sessKeydown){sessKeydown=function(e){if(e.key==="Escape")endSession();};document.addEventListener("keydown",sessKeydown);}
     var ctrls=ov.querySelectorAll("[data-sess]");
     for(var c=0;c<ctrls.length;c++)(function(b){b.onclick=function(){var a=b.getAttribute("data-sess");
       if(a==="pause"){SESS.paused=!SESS.paused;renderSession();}
       else if(a==="skip")sessAdvance(false);
       else if(a==="done")sessAdvance(true);
       else endSession();};})(ctrls[c]);
+    var x=ov.querySelector('[data-sess="end"]');
+    if(x&&(!document.activeElement||!ov.contains(document.activeElement)))try{x.focus();}catch(_){}
   }
 
-  var celeT;
+  var celeT, celeKey;
   function celebrate(streak){
     var c=document.getElementById("cele");
     c.innerHTML='<div class="scan"></div><div class="inner"><div class="badge" style="margin:0 auto;">'+RET+'<span class="ping"></span></div>'+
-      '<div class="ct1">DAY SECURED</div><div class="ct2">STREAK ▸ '+streak+' DAY'+(streak===1?"":"S")+'</div></div>';
+      '<div class="ct1">DAY SECURED</div><div class="ct2">STREAK ▸ '+streak+' DAY'+(streak===1?"":"S")+'</div>'+
+      '<div class="ml" style="margin-top:14px;color:var(--faint);">TAP OR PRESS ESC</div></div>';
     c.classList.add("show");
-    clearTimeout(celeT);celeT=setTimeout(function(){c.classList.remove("show");},1700);
-    c.onclick=function(){c.classList.remove("show");};
+    function done(){c.classList.remove("show");clearTimeout(celeT);if(celeKey){document.removeEventListener("keydown",celeKey);celeKey=null;}}
+    clearTimeout(celeT);celeT=setTimeout(done,2600);
+    c.onclick=done;
+    if(celeKey)document.removeEventListener("keydown",celeKey);
+    celeKey=function(e){if(e.key==="Escape"||e.key==="Enter"||e.key===" ")done();};
+    document.addEventListener("keydown",celeKey);
   }
 
   /* ---------- init ---------- */
@@ -935,8 +1056,15 @@
     if(st.plan)boot("today");else renderOnboard();
   })();
   if(isNative)setInterval(reminderTick,30000);
-  if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){window.addEventListener('load',function(){navigator.serviceWorker.register('service-worker.js').catch(function(){});});}
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey};
+  if('serviceWorker' in navigator && location.protocol.indexOf('http')===0 && !isNative){
+    var hadController=!!navigator.serviceWorker.controller, refreshing=false;
+    window.addEventListener('load',function(){navigator.serviceWorker.register('service-worker.js').catch(function(){});});
+    navigator.serviceWorker.addEventListener('controllerchange',function(){
+      if(!hadController||refreshing)return;   // first install: no reload. Later update: refresh to the new version.
+      refreshing=true;location.reload();
+    });
+  }
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek};
 })();
 </script>
 </body>

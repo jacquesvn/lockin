@@ -1,6 +1,6 @@
 [package]
 name = "lockin"
-version = "0.6.1"
+version = "0.6.2"
 description = "Lockin — your pocket CS2 coach"
 authors = ["jacquesvn"]
 edition = "2021"
@@ -16,3 +16,4 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-notification = "2"
 tauri-plugin-autostart = "2"
+tauri-plugin-single-instance = "2"
