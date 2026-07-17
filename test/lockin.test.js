@@ -112,11 +112,18 @@ ok('validBackup rejects sessions-not-object', !validBackup({ sessions: 'oops' })
 ok('validBackup rejects plan with unknown weekly focus', !validBackup({ sessions: {}, plan: { weekly: { 1: 'evilkey' }, profile: {}, targets: [] } }));
 ok('validBackup accepts a real export', validBackup({ sessions: {}, plan: A }));
 ok('validBackup accepts sessions-only (no plan)', validBackup({ sessions: {} }));
+ok('validBackup rejects an empty/partial weekly (would throw at render)', !validBackup({ sessions: {}, plan: { weekly: {}, profile: {}, targets: [] } }));
 
 // --- streak core (weekend freebie) ---
 function stt(dates) { var s = { sessions: {} }; dates.forEach(function (k) { s.sessions[k] = { warm: true }; }); return s; }
 ok('streak 3 Mon-Wed', computeStreak(stt(['2026-07-13','2026-07-14','2026-07-15']), new Date('2026-07-15T00:00:00')) === 3);
 ok('weekend gap does not break streak', computeStreak(stt(['2026-07-09','2026-07-13']), new Date('2026-07-13T00:00:00')) === 2);
+// v0.6.3: streak is plan-aware — a low-days plan's prescribed rest days must NOT break the streak
+var twoDayPlan = { weekly: { 0:'rest', 1:'cstrafe', 2:'awp', 3:'rest', 4:'rest', 5:'match', 6:'match' } };
+ok('2-day plan: prescribed rest day does not break streak (regression)',
+  computeStreak({ plan: twoDayPlan, sessions: { '2026-07-13': { warm: true }, '2026-07-14': { warm: true } } }, new Date('2026-07-16T00:00:00')) === 2);
+ok('2-day plan: missing a training day still breaks streak',
+  computeStreak({ plan: twoDayPlan, sessions: { '2026-07-13': { warm: true } } }, new Date('2026-07-15T00:00:00')) === 0);
 
 // --- programWeek is 1..12 and starts at week 1 ---
 ok('programWeek day 0 = week 1', programWeek({ created: '2026-07-01' }, new Date('2026-07-01T12:00:00')) === 1);
