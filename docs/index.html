@@ -192,6 +192,36 @@
   .datarow small{color:var(--faint);font-size:11.5px;display:block;}
   .foot{text-align:center;font-family:var(--fm);font-size:9.5px;letter-spacing:0.18em;color:var(--faint);margin-top:26px;}
 
+  /* ---------- progress: calendar + metrics ---------- */
+  .calhd{display:flex;justify-content:space-between;align-items:center;margin-bottom:11px;}
+  .calhd .nav{display:flex;gap:6px;}
+  .calhd .nav button{background:var(--surface2);border:1px solid var(--line);border-radius:6px;color:var(--muted);cursor:pointer;width:26px;height:24px;font-size:12px;}
+  .calhd .nav button:hover{border-color:var(--hero);}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
+  .cal .ch{font-family:var(--fm);font-size:9px;color:var(--faint);text-align:center;text-transform:uppercase;letter-spacing:0.05em;}
+  .cell{aspect-ratio:1;border-radius:8px;background:var(--surface2);border:1px solid var(--line);display:grid;place-items:center;font-size:10.5px;color:var(--faint);font-family:var(--fm);}
+  .cell.pad{background:transparent;border:0;}
+  .cell.warm{background:color-mix(in oklab,var(--hero) 12%,transparent);border-color:var(--hero);color:var(--hero);font-weight:700;}
+  .cell.deep{background:var(--hero);border-color:var(--hero);color:var(--onhero);font-weight:700;}
+  .cell.miss{border:1px dashed var(--bad);color:var(--bad);}
+  .cell.today{box-shadow:0 0 0 2px var(--hero);}
+  .calleg{display:flex;gap:14px;margin-top:11px;font-size:11px;color:var(--faint);flex-wrap:wrap;}
+  .calleg span{display:inline-flex;align-items:center;gap:5px;}
+  .swatch{width:11px;height:11px;border-radius:3px;display:inline-block;}
+  .metric{padding:12px 0;border-bottom:1px solid var(--line);} .metric:last-child{border-bottom:0;padding-bottom:2px;}
+  .metric .mh{display:flex;justify-content:space-between;gap:8px;align-items:baseline;}
+  .metric .mname{font-weight:600;font-size:13.5px;}
+  .delta{font-family:var(--fm);font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;white-space:nowrap;}
+  .delta.good{color:var(--good);background:color-mix(in oklab,var(--good) 12%,transparent);}
+  .delta.bad{color:var(--bad);background:color-mix(in oklab,var(--bad) 10%,transparent);}
+  .delta.na{color:var(--faint);background:var(--surface2);}
+  .mhow{font-family:var(--fm);font-size:10.5px;color:var(--faint);margin:4px 0 9px;line-height:1.5;}
+  .cps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+  .cps label{font-family:var(--fm);font-size:9px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:3px;}
+  .cps input{width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:7px;padding:6px 8px;color:var(--text);font-family:var(--fm);font-size:12.5px;text-align:center;}
+  .cps .due input{border-color:var(--hero);}
+  .cps input:focus{outline:none;border-color:var(--hero);}
+
   /* ---------- celebrate overlay ---------- */
   #cele{position:fixed;inset:0;z-index:80;display:none;place-items:center;background:color-mix(in oklab,var(--bg) 88%, transparent);overflow:hidden;}
   #cele.show{display:grid;}
@@ -221,7 +251,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.3.0";
+  var VERSION="0.4.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -231,6 +261,7 @@
   var LIST='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.5M3 12h.5M3 18h.5"/></svg>';
   var DL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M12 3v11M7 10l5 5 5-5M4 20h16"/></svg>';
   var UL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M12 14V3M7 8l5-5 5 5M4 20h16"/></svg>';
+  var CAL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
 
   /* ---------- coaching catalog (research-corrected Jul 2026) ---------- */
   function D(t,sub,m,dur,core){return {t:t,sub:sub,m:m,dur:dur,core:!!core};}
@@ -358,8 +389,8 @@
   function programWeek(plan,today){if(!plan||!plan.created)return 1;var wk=Math.floor((midnight(today)-parseKey(plan.created))/86400000/7)+1;return Math.max(1,Math.min(12,wk));}
 
   /* ---------- storage ---------- */
-  function blank(){return {plan:null,sessions:{},settings:{}};}
-  function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};migrate(o);return o;}catch(e){storageOk=false;return mem||blank();}}
+  function blank(){return {plan:null,sessions:{},settings:{},metrics:{}};}
+  function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};migrate(o);return o;}catch(e){storageOk=false;return mem||blank();}}
   function save(st){mem=st;try{localStorage.setItem(KEY,JSON.stringify(st));storageOk=true;}catch(e){storageOk=false;}}
   function migrate(o){
     for(var k in o.sessions){var f=o.sessions[k]&&o.sessions[k].feel;if(f&&f>5)o.sessions[k].feel=Math.ceil(f/2);}
@@ -372,7 +403,7 @@
   function setTheme(t){var st=load();st.settings.theme=t;save(st);applyTheme(t);render();}
 
   /* ---------- ui state ---------- */
-  var screen="today", backfill=false, answers={}, step=0, generating=false, revealed=null;
+  var screen="today", backfill=false, answers={}, step=0, generating=false, revealed=null, viewDate=new Date();
   function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 
   /* ---------- onboarding ---------- */
@@ -475,6 +506,7 @@
     var main=document.getElementById("main");
     if(screen==="today")main.innerHTML=htmlToday(st);
     else if(screen==="plan")main.innerHTML=htmlPlan(st);
+    else if(screen==="progress")main.innerHTML=htmlProgress(st);
     else main.innerHTML=htmlSetup(st);
     wire(st);
   }
@@ -484,7 +516,7 @@
     var streak=computeStreak(st,new Date());
     function nb(k,l,ic){return '<button data-go="'+k+'" class="'+(screen===k?"on":"")+'">'+ic+'<span>'+l+'</span></button>';}
     side.innerHTML='<div class="brand">'+ '<span style="width:22px;height:22px;color:var(--hero);display:inline-block;">'+RET+'</span><span class="wordmark">LOCK<b>IN</b></span></div>'+
-      '<div class="snav">'+nb("today","TODAY",RET)+nb("plan","PLAN",LIST)+nb("setup","SETUP",GEAR)+'</div>'+
+      '<div class="snav">'+nb("today","TODAY",RET)+nb("plan","PLAN",LIST)+nb("progress","PROGRESS",CAL)+nb("setup","SETUP",GEAR)+'</div>'+
       '<div class="smini"><div><div class="ml">STREAK</div><div class="dsp" style="font-size:30px;color:var(--hero);">'+streak+'</div></div>'+
       '<button class="gbtn" data-act="retake" style="width:100%;">RETAKE QUIZ</button>'+
       '<div class="segctl"><button data-theme-set="dark" class="'+(curTheme(st)==="dark"?"on":"")+'">DARK</button><button data-theme-set="light" class="'+(curTheme(st)==="light"?"on":"")+'">LIGHT</button></div></div>';
@@ -492,7 +524,7 @@
   function renderTabs(){
     var tb=document.getElementById("tabbar");
     function t(k,l,ic){return '<button class="tab'+(screen===k?" on":"")+'" data-go="'+k+'">'+ic+'<span>'+l+'</span></button>';}
-    tb.innerHTML=t("today","TODAY",RET)+t("plan","PLAN",LIST)+t("setup","SETUP",GEAR);
+    tb.innerHTML=t("today","TODAY",RET)+t("plan","PLAN",LIST)+t("progress","PROGRESS",CAL)+t("setup","SETUP",GEAR);
   }
 
   /* ---------- TODAY ---------- */
@@ -584,6 +616,48 @@
     return hd+diag+'<div class="plan-cols"><div>'+ph+rotc+'</div><div>'+lib+tg+'</div></div>';
   }
 
+  /* ---------- PROGRESS: calendar + Leetify checkpoints ---------- */
+  function htmlProgress(st){
+    var plan=st.plan,now=new Date();
+    var hd='<div class="hd"><div><div class="ml">TRACK IT</div><h1 class="dsp">PROGRESS</h1></div></div>';
+    var vy=viewDate.getFullYear(),vm=viewDate.getMonth();
+    var title=viewDate.toLocaleDateString(undefined,{month:"long",year:"numeric"});
+    var cal='<div class="card"><div class="calhd"><span class="ml">'+esc(title).toUpperCase()+'</span><span class="nav"><button data-cal="-1" aria-label="Previous month">‹</button><button data-cal="1" aria-label="Next month">›</button></span></div><div class="cal">';
+    ["M","T","W","T","F","S","S"].forEach(function(h){cal+='<div class="ch">'+h+'</div>';});
+    var first=new Date(vy,vm,1),pad=(first.getDay()+6)%7,dim=new Date(vy,vm+1,0).getDate();
+    var tk=dateKey(now),todayMid=midnight(now).getTime();
+    for(var p=0;p<pad;p++)cal+='<div class="cell pad"></div>';
+    for(var d=1;d<=dim;d++){var day=new Date(vy,vm,d),dk2=dateKey(day),s=st.sessions[dk2],cls="cell";
+      var fut=midnight(day).getTime()>todayMid,req=day.getDay()>=1&&day.getDay()<=4;
+      if(s&&s.warm)cls+=s.deep?" deep":" warm";else if(!fut&&dk2!==tk&&req)cls+=" miss";
+      if(dk2===tk)cls+=" today";
+      cal+='<div class="'+cls+'">'+d+'</div>';}
+    cal+='</div><div class="calleg"><span><i class="swatch" style="background:color-mix(in oklab,var(--hero) 12%,transparent);border:1px solid var(--hero)"></i>trained</span><span><i class="swatch" style="background:var(--hero)"></i>full session</span><span><i class="swatch" style="background:transparent;border:1px dashed var(--bad)"></i>missed weekday</span></div></div>';
+    var pw=programWeek(plan,now);
+    var due=pw>=12?"w12":pw>=8?"w8":pw>=4?"w4":"base";
+    var mx='<div class="divi"><span class="ml">LEETIFY CHECKPOINTS · WK '+pw+'/12</span></div><div class="card">';
+    mx+='<p class="mhow" style="margin-top:0;">Type your Leetify numbers in at the start (BASE) and again at weeks 4 / 8 / 12. The chip shows movement from base.</p>';
+    plan.targets.forEach(function(t,ti){
+      var key="m"+ti, v=(st.metrics||{})[key]||{};
+      var lb=/\(°\)|deaths/i.test(t.n);
+      var latest=null;["w12","w8","w4"].some(function(kk){if(v[kk]!=null){latest=v[kk];return true;}return false;});
+      var chip;
+      if(v.base==null||latest==null)chip='<span class="delta na">—</span>';
+      else{var dlt=Math.round((latest-v.base)*100)/100;var better=lb?dlt<0:dlt>0;
+        chip=dlt===0?'<span class="delta na">±0</span>':'<span class="delta '+(better?"good":"bad")+'">'+(dlt>0?"+":"")+dlt+(better?" ▲":" ▼")+'</span>';}
+      mx+='<div class="metric"><div class="mh"><span class="mname">'+esc(t.n)+'</span>'+chip+'</div><div class="mhow">'+esc(t.h)+'</div><div class="cps">';
+      [["base","BASE"],["w4","WK 4"],["w8","WK 8"],["w12","WK 12"]].forEach(function(cp){
+        mx+='<div class="'+(due===cp[0]?"due":"")+'"><label>'+cp[1]+'</label><input type="number" inputmode="decimal" step="any" data-mk="'+key+'" data-mp="'+cp[0]+'" value="'+(v[cp[0]]!=null?v[cp[0]]:"")+'" placeholder="—"></div>';});
+      mx+='</div></div>';});
+    mx+='</div>';
+    return hd+cal+mx;
+  }
+  function setMetric(key,part,val){
+    var st=load();st.metrics=st.metrics||{};st.metrics[key]=st.metrics[key]||{};
+    if(val===""||isNaN(parseFloat(val)))delete st.metrics[key][part];else st.metrics[key][part]=parseFloat(val);
+    save(st);render();
+  }
+
   /* ---------- SETUP ---------- */
   function htmlSetup(st){
     var plan=st.plan,p=plan.profile,streak=computeStreak(st,new Date());
@@ -613,6 +687,10 @@
     for(var t=0;t<th.length;t++)(function(b){b.onclick=function(){setTheme(b.getAttribute("data-theme-set"));};})(th[t]);
     var rk=root.querySelectorAll('[data-act="retake"]');
     for(var r=0;r<rk.length;r++)rk[r].onclick=retake;
+    var cb=root.querySelectorAll("[data-cal]");
+    for(var cbi=0;cbi<cb.length;cbi++)(function(b){b.onclick=function(){viewDate=new Date(viewDate.getFullYear(),viewDate.getMonth()+parseInt(b.getAttribute("data-cal"),10),1);render();};})(cb[cbi]);
+    var mi=root.querySelectorAll("[data-mk]");
+    for(var mii=0;mii<mi.length;mii++)(function(el){el.onchange=function(){setMetric(el.getAttribute("data-mk"),el.getAttribute("data-mp"),el.value);};})(mi[mii]);
     var dr=root.querySelectorAll("[data-drill]");
     for(var d=0;d<dr.length;d++)(function(b){b.onclick=function(){toggleDrill(parseInt(b.getAttribute("data-drill"),10));};})(dr[d]);
     var fb=root.querySelectorAll("[data-feel]");
