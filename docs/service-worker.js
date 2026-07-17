@@ -1,5 +1,5 @@
 /* Lockin service worker — offline app shell */
-const CACHE = 'lockin-v5';
+const CACHE = 'lockin-v6';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {

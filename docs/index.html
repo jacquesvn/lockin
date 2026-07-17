@@ -231,6 +231,8 @@
   .bftoggle{background:transparent;border:1px solid var(--line);border-radius:9px;color:var(--muted);cursor:pointer;font-family:var(--fm);font-size:10px;font-weight:700;letter-spacing:0.08em;padding:8px 11px;text-transform:uppercase;}
   .bftoggle:hover{border-color:var(--hero);color:var(--text);}
   .bftoggle.on{border-color:var(--hero);color:var(--hero);}
+  .rtoggle{background:var(--surface2);border:1px solid var(--line);border-radius:999px;color:var(--muted);cursor:pointer;font-family:var(--fm);font-size:10px;font-weight:800;letter-spacing:0.12em;padding:7px 18px;flex:0 0 auto;}
+  .rtoggle.on{background:var(--hero);border-color:var(--hero);color:var(--onhero);}
   .startsession{width:100%;background:var(--hero);color:var(--onhero);border:none;border-radius:12px;padding:14px;font-family:var(--fm);font-weight:800;font-size:12px;letter-spacing:0.1em;cursor:pointer;margin-bottom:12px;}
   .startsession:hover{background:var(--hero2);}
   .field{margin-top:0;} .field label{font-family:var(--fm);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:5px;}
@@ -289,7 +291,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.5.0";
+  var VERSION="0.6.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -450,6 +452,21 @@
   function copyText(t,btn){var old=btn.textContent;function flash(m){btn.textContent=m;setTimeout(function(){btn.textContent=old;},1200);}
     try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){flash("COPIED ✓");},function(){flash("COPY FAILED");});return;}}catch(e){}
     try{var ta=document.createElement("textarea");ta.value=t;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove();flash("COPIED ✓");}catch(e){flash("SELECT + COPY");}}
+  // --- native (Tauri desktop) bridge: notifications + autostart, guarded so web is untouched ---
+  var TAURI=window.__TAURI__, isNative=!!(TAURI&&TAURI.core);
+  function nativeNotify(body){ if(isNative)TAURI.core.invoke("notify",{title:"Lockin",body:body}).catch(function(){}); }
+  function setAutostart(on){ if(isNative)TAURI.core.invoke("set_autostart",{enabled:!!on}).catch(function(){}); }
+  function reminderTick(){
+    if(!isNative)return;
+    var st=load(),r=st.settings.reminder;
+    if(!r||!r.on||!r.time)return;
+    var now=new Date(),hhmm=two(now.getHours())+":"+two(now.getMinutes()),tk=dateKey(now);
+    if(hhmm===r.time&&st.settings.remLast!==tk){
+      st.settings.remLast=tk;save(st);
+      var s=st.sessions[tk];
+      if(!(s&&s.warm))nativeNotify("Time to lock in — ten focused minutes. Don't hand them the worst version of you.");
+    }
+  }
 
   /* ---------- onboarding ---------- */
   function renderOnboard(){
@@ -764,13 +781,23 @@
       '<p class="help">A plan with a specific <em>when</em> actually happens. Yours shows on the Today screen.</p></div>';
     var app='<div class="divi"><span class="ml">APPEARANCE</span></div>'+
       '<div class="segctl"><button data-theme-set="dark" class="'+(curTheme(st)==="dark"?"on":"")+'">DARK</button><button data-theme-set="light" class="'+(curTheme(st)==="light"?"on":"")+'">LIGHT</button></div>';
+    var remSec='';
+    if(isNative){
+      var rem=st.settings.reminder||{on:false,time:"19:00"};
+      remSec='<div class="divi"><span class="ml">DAILY REMINDER · DESKTOP</span></div>'+
+        '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">'+
+        '<div><div class="mname">“Go train” notification</div><div class="help" style="margin-top:2px;">Lockin sits in your tray and pings you at your time. Turning it on also launches Lockin at login so the reminder actually fires.</div></div>'+
+        '<button class="rtoggle'+(rem.on?" on":"")+'" data-rem-toggle>'+(rem.on?"ON":"OFF")+'</button></div>'+
+        (rem.on?'<div class="field" style="margin-top:12px;"><label>Remind me at</label><input type="time" data-rem-time value="'+esc(rem.time||"19:00")+'"></div>':'')+
+        '</div>';
+    }
     var data='<div class="divi"><span class="ml">DATA · LOCAL ONLY</span></div>'+
       '<div style="display:flex;flex-direction:column;gap:8px;">'+
       '<button class="datarow" data-act="export">'+DL+'<span>Export backup<small>Everything as a .json file — plan, streak, sessions</small></span></button>'+
       '<button class="datarow" data-act="import">'+UL+'<span>Restore backup<small>Load a previously exported file</small></span></button>'+
       '<input type="file" id="impF" accept="application/json" style="display:none;"></div>'+
       (storageOk?'':'<div class="ml" style="color:var(--bad);margin-top:8px;">⚠ STORAGE BLOCKED — EXPORT TO KEEP YOUR DATA</div>');
-    return hd+prof+cueSec+app+data+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
+    return hd+prof+cueSec+app+remSec+data+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
   }
 
   /* ---------- interactions ---------- */
@@ -794,6 +821,12 @@
     if(cpb)cpb.onclick=function(){var pc=document.getElementById("pcfg");if(pc)copyText(pc.textContent,cpb);};
     var cueI=root.querySelector("[data-cue]");
     if(cueI)cueI.onchange=function(e){var s2=load();s2.settings.cue=e.target.value.trim();save(s2);};
+    var rtog=root.querySelector("[data-rem-toggle]");
+    if(rtog)rtog.onclick=function(){var s2=load();var r=s2.settings.reminder||{on:false,time:"19:00"};r.on=!r.on;s2.settings.reminder=r;save(s2);
+      if(r.on){setAutostart(true);nativeNotify("Reminders on — I'll ping you at "+r.time+" if you haven't trained.");}else setAutostart(false);
+      render();};
+    var rtime=root.querySelector("[data-rem-time]");
+    if(rtime)rtime.onchange=function(e){var s2=load();var r=s2.settings.reminder||{on:true,time:"19:00"};r.time=e.target.value||"19:00";s2.settings.reminder=r;save(s2);};
     var dr=root.querySelectorAll("[data-drill]");
     for(var d=0;d<dr.length;d++)(function(b){b.onclick=function(){toggleDrill(parseInt(b.getAttribute("data-drill"),10));};})(dr[d]);
     var fb=root.querySelectorAll("[data-feel]");
@@ -901,6 +934,7 @@
     var st=load();applyTheme(curTheme(st));
     if(st.plan)boot("today");else renderOnboard();
   })();
+  if(isNative)setInterval(reminderTick,30000);
   if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){window.addEventListener('load',function(){navigator.serviceWorker.register('service-worker.js').catch(function(){});});}
   if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey};
 })();

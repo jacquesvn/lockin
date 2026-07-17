@@ -1,12 +1,13 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Lockin",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "identifier": "gg.lockin.desktop",
   "build": {
     "frontendDist": "../docs"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "Lockin — your pocket CS2 coach",
