@@ -222,6 +222,43 @@
   .cps .due input{border-color:var(--hero);}
   .cps input:focus{outline:none;border-color:var(--hero);}
 
+  /* ---------- v0.5: banners, cue, session, practice, glossary ---------- */
+  .warnbanner{background:color-mix(in oklab,var(--bad) 9%,transparent);border:1px solid color-mix(in oklab,var(--bad) 40%,transparent);border-left:3px solid var(--bad);border-radius:11px;padding:11px 13px;font-size:13px;color:var(--text);margin-bottom:12px;}
+  .warnbanner b{font-weight:700;}
+  .cuebar{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:14px;font-size:13px;color:var(--ink);}
+  .cuebar.prompt{cursor:pointer;border-style:dashed;}
+  .cuebar.prompt:hover{border-color:var(--hero);}
+  .bftoggle{background:transparent;border:1px solid var(--line);border-radius:9px;color:var(--muted);cursor:pointer;font-family:var(--fm);font-size:10px;font-weight:700;letter-spacing:0.08em;padding:8px 11px;text-transform:uppercase;}
+  .bftoggle:hover{border-color:var(--hero);color:var(--text);}
+  .bftoggle.on{border-color:var(--hero);color:var(--hero);}
+  .startsession{width:100%;background:var(--hero);color:var(--onhero);border:none;border-radius:12px;padding:14px;font-family:var(--fm);font-weight:800;font-size:12px;letter-spacing:0.1em;cursor:pointer;margin-bottom:12px;}
+  .startsession:hover{background:var(--hero2);}
+  .field{margin-top:0;} .field label{font-family:var(--fm);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:5px;}
+  .field input{width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;color:var(--text);font-family:var(--fb);font-size:14px;}
+  .field input:focus{outline:none;border-color:var(--hero);}
+  .help{font-size:11.5px;color:var(--faint);margin-top:8px;line-height:1.5;}
+  .glo{padding:9px 0;border-bottom:1px solid var(--line);} .glo:last-of-type{border-bottom:0;}
+  .glo b{display:block;font-size:12.5px;} .glo span{display:block;font-size:12px;color:var(--muted);margin-top:2px;}
+  .btncopy{background:var(--surface2);border:1px solid var(--line);border-radius:8px;color:var(--muted);cursor:pointer;font-family:var(--fm);font-size:10px;font-weight:700;letter-spacing:0.08em;padding:6px 12px;text-transform:uppercase;}
+  .btncopy:hover{border-color:var(--hero);color:var(--text);}
+  .pcfg{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;font-family:var(--fm);font-size:11.5px;line-height:1.7;color:var(--ink-soft,var(--muted));white-space:pre;margin:0;}
+  code{font-family:var(--fm);font-size:0.88em;background:var(--surface2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;}
+
+  #session{position:fixed;inset:0;z-index:70;display:none;flex-direction:column;background:var(--bg);padding:20px 18px calc(20px + env(safe-area-inset-bottom));}
+  #session.show{display:flex;}
+  #session .sbar{display:flex;justify-content:space-between;align-items:center;}
+  #session .siconx{background:transparent;border:1px solid var(--line);border-radius:9px;width:34px;height:34px;color:var(--muted);cursor:pointer;font-size:14px;}
+  #session .sdots{display:flex;gap:6px;margin:16px 0;}
+  #session .sdot{flex:1;height:4px;border-radius:2px;background:var(--surface2);}
+  #session .sdot.past{background:var(--hero);opacity:.5;} #session .sdot.cur{background:var(--hero);}
+  #session .sctr{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;}
+  #session .sname{font-size:26px;max-width:16ch;line-height:1.05;}
+  #session .ssub{color:var(--muted);font-size:14px;max-width:30ch;}
+  #session .smeas{font-family:var(--fm);font-size:11px;color:var(--faint);margin-bottom:4px;}
+  #session .stime{font-family:var(--fd);font-weight:800;font-size:clamp(64px,20vw,92px);letter-spacing:-0.03em;color:var(--hero);font-variant-numeric:tabular-nums;line-height:1;margin:4px 0;}
+  #session .stime.zero{color:var(--good);}
+  #session .sctrls{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;justify-content:center;}
+
   /* ---------- celebrate overlay ---------- */
   #cele{position:fixed;inset:0;z-index:80;display:none;place-items:center;background:color-mix(in oklab,var(--bg) 88%, transparent);overflow:hidden;}
   #cele.show{display:grid;}
@@ -245,13 +282,14 @@
   <div id="maincol"><div class="wrap" id="main"></div></div>
 </div>
 <nav id="tabbar" style="display:none;"></nav>
+<div id="session"></div>
 <div id="cele" aria-live="polite"></div>
 
 <script>
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.4.0";
+  var VERSION="0.5.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -334,8 +372,11 @@
   function generatePlan(p){
     var weak=(p.weak||[]).slice();
     var keystone=null;
-    for(var i=0;i<KEYSTONE_ORDER.length;i++){if(weak.indexOf(KEYSTONE_ORDER[i])>=0){keystone=KEYSTONE_ORDER[i];break;}}
-    if(!keystone)keystone=(p.goal==="consistency")?"consistency":(p.goal==="sense")?"positioning":(p.goal==="aim")?"placement":"cstrafe";
+    // Rank-aware: above ~20k counter-strafing plateaus (~78%) and stops differentiating;
+    // crosshair placement keeps separating players. So de-prioritise cstrafe for high rank.
+    var order=(p.rank==="high")?["placement","consistency","spray","utility","positioning","clutch","entry","cstrafe"]:KEYSTONE_ORDER;
+    for(var i=0;i<order.length;i++){if(weak.indexOf(order[i])>=0){keystone=order[i];break;}}
+    if(!keystone)keystone=(p.goal==="consistency")?"consistency":(p.goal==="sense")?"positioning":(p.goal==="aim")?"placement":(p.rank==="high"?"placement":"cstrafe");
     var weaponFoci=p.weapon==="awp"?["awp"]:p.weapon==="rifle"?["rifle"]:["awp","rifle"];
     var others=weak.filter(function(w){return w!==keystone;});
     var used=uniq([keystone].concat(weaponFoci).concat(others));
@@ -405,6 +446,10 @@
   /* ---------- ui state ---------- */
   var screen="today", backfill=false, answers={}, step=0, generating=false, revealed=null, viewDate=new Date();
   function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+  function actDate(){return backfill?addDays(new Date(),-1):new Date();}
+  function copyText(t,btn){var old=btn.textContent;function flash(m){btn.textContent=m;setTimeout(function(){btn.textContent=old;},1200);}
+    try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){flash("COPIED ✓");},function(){flash("COPY FAILED");});return;}}catch(e){}
+    try{var ta=document.createElement("textarea");ta.value=t;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove();flash("COPIED ✓");}catch(e){flash("SELECT + COPY");}}
 
   /* ---------- onboarding ---------- */
   function renderOnboard(){
@@ -544,20 +589,33 @@
   }
   function htmlToday(st){
     var plan=st.plan,now=new Date(),tk=dateKey(now),dow=now.getDay();
-    var focusKey=plan.weekly[dow],F=FOCI[focusKey];
-    var sess=st.sessions[tk]||{warm:false,deep:false,feel:0,drills:{}};
+    var act=backfill?addDays(now,-1):now,actK=dateKey(act),actDow=act.getDay();
+    var focusKey=plan.weekly[actDow],F=FOCI[focusKey];
+    var sess=st.sessions[actK]||{warm:false,deep:false,feel:0,drills:{}};
     var streak=computeStreak(st,now),mon=mondayOf(now),wd=weekdayCount(st,mon),target=Math.min(4,plan.days);
     var dstr=now.toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"short"});
+    // backfill toggle (only if yesterday was a trainable day)
+    var ydTrainable=plan.weekly[addDays(now,-1).getDay()]!=="rest";
+    var bfToggle=backfill?'<button class="bftoggle on" data-backfill="1">◂ BACK TO TODAY</button>':(ydTrainable?'<button class="bftoggle" data-backfill="1">LOG YESTERDAY</button>':'');
     var hd='<div class="hd"><div><div class="ml">'+dstr.toUpperCase()+' · WK '+programWeek(plan,now)+'/12</div><h1 class="dsp">TODAY</h1></div>'+
-      '<button class="iconbtn" data-go="setup" aria-label="Setup">'+GEAR+'</button></div>';
+      '<div style="display:flex;gap:8px;align-items:center;">'+bfToggle+'<button class="iconbtn" data-go="setup" aria-label="Setup">'+GEAR+'</button></div></div>';
     var hero='<div class="hero-card"><div class="hero-row">'+
       '<div><div class="ml">CURRENT STREAK</div><div class="big-n">'+streak+'</div><div class="ml" style="color:var(--muted);">DAYS LOCKED IN</div></div>'+
       '<div class="hr-r"><div class="ml">THIS WEEK</div><div class="n2 dsp">'+wd+'<span style="color:var(--faint);">/'+target+'</span></div>'+
       '<div class="ml '+(wd>=target?"status-good":"status-mut")+'">'+(wd>=target?"TARGET HIT":"ON PACE")+'</div></div></div>'+
       '<div class="wk7">'+weekCells(st,now)+'</div></div>';
+    // cue bar
+    var cue=st.settings.cue;
+    var cuebar=cue?'<div class="cuebar"><span class="ml">YOUR CUE</span><span>'+esc(cue)+' → the ten.</span></div>':
+      '<button class="cuebar prompt" data-go="setup"><span class="ml" style="color:var(--hero);">⚡ SET YOUR CUE</span><span>“After ___, I do the ten.” A plan with a <em>when</em> actually happens — set it in Setup.</span></button>';
+    // never-miss-twice
+    var yk=dateKey(addDays(now,-1)),ydow2=addDays(now,-1).getDay();
+    var ydMissed=ydow2>=1&&ydow2<=4&&!(st.sessions[yk]&&st.sessions[yk].warm);
+    var todayDone=st.sessions[tk]&&st.sessions[tk].warm;
+    var nmt=(ydMissed&&!todayDone&&!backfill)?'<div class="warnbanner">⚠ You missed yesterday — <b>never miss twice.</b> Today is non-negotiable: tick one drill.</div>':'';
     var body;
     if(focusKey==="rest"){
-      body='<div class="divi"><span class="ml">TODAY ▸ REST</span></div>'+
+      body='<div class="divi"><span class="ml">'+(backfill?'YESTERDAY':'TODAY')+' ▸ REST</span></div>'+nmt+
         '<div class="card" style="text-align:center;padding:26px;"><div class="dsp" style="font-size:18px;">REST DAY</div>'+
         '<p style="color:var(--muted);font-size:13px;margin-top:6px;">'+F.drills[0].sub+'</p></div>';
     }else{
@@ -577,14 +635,20 @@
       var fw=["—","OFF","SHAKY","OK","WARM","DIALLED"];
       var fcol=sess.feel>=4?"var(--good)":(sess.feel>0&&sess.feel<=2?"var(--bad)":"var(--muted)");
       var fbs="";for(var f=1;f<=5;f++)fbs+='<button class="fbtn'+(f<=sess.feel?" on":"")+'" data-feel="'+f+'">'+f+'</button>';
-      body='<div class="divi"><span class="ml">TODAY ▸ '+esc(F.name).toUpperCase()+kx+'</span></div>'+
+      var bfBanner=backfill?'<div class="warnbanner" style="background:var(--surface);border-color:var(--line);border-left-color:var(--hero);color:var(--muted);">Editing <b style="color:var(--text);">yesterday</b> ('+act.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})+'). Your streak updates automatically.</div>':'';
+      var canSession=!backfill&&focusKey!=="match";
+      var totMin=0;for(var ti=0;ti<dl.length;ti++)totMin+=(dl[ti].dur||0);
+      var undone=false;for(var ui=0;ui<dl.length;ui++)if(!dstate[ui])undone=true;
+      var startBtn=(canSession&&undone)?'<button class="startsession" data-startsession="1">▸ START GUIDED SESSION · '+totMin+' MIN</button>':'';
+      body='<div class="divi"><span class="ml">'+(backfill?'YESTERDAY':'TODAY')+' ▸ '+esc(F.name).toUpperCase()+kx+'</span></div>'+
+        bfBanner+nmt+startBtn+
         '<div class="cols"><div><div class="dlist">'+rows+'</div></div>'+
         '<div><div class="card"><div class="ml">HAND FEEL</div><div class="feelgrid">'+fbs+'</div>'+
         '<div class="fword" style="color:'+fcol+';">'+(sess.feel?fw[sess.feel]:"LOG IT AFTER YOUR REPS")+'</div></div>'+
         '<div class="card rulecard" style="margin-top:12px;"><div class="ml" style="color:var(--hero);">THE RULE</div>'+
         '<p>Ten focused minutes beats a skipped hour. Tick one drill and today counts.</p></div></div></div>';
     }
-    return hd+hero+body+'<div class="motto">LOCKIN · TEN FOCUSED MINUTES BEATS A SKIPPED HOUR</div>';
+    return hd+hero+cuebar+body+'<div class="motto">LOCKIN · TEN FOCUSED MINUTES BEATS A SKIPPED HOUR</div>';
   }
 
   /* ---------- PLAN ---------- */
@@ -613,7 +677,19 @@
     var tg='<div class="divi"><span class="ml">HOW TO MEASURE IT</span></div><div class="card">';
     plan.targets.forEach(function(t){tg+='<div class="librow"><div class="ln"><span>'+esc(t.n)+'</span></div><div class="lm">'+esc(t.h)+'</div></div>';});
     tg+='</div>';
-    return hd+diag+'<div class="plan-cols"><div>'+ph+rotc+'</div><div>'+lib+tg+'</div></div>';
+    return hd+diag+'<div class="plan-cols"><div>'+ph+rotc+'</div><div>'+lib+tg+'</div></div>'+practiceCard();
+  }
+  function practiceCard(){
+    var cfg='// lockin practice.cfg — save in ...\\game\\csgo\\cfg\\, then in console:  exec practice\n'+
+      'sv_cheats 1\nsv_infinite_ammo 1\nammo_grenade_limit_total 5\n'+
+      'mp_maxmoney 60000; mp_startmoney 60000\nmp_buytime 9999; mp_buy_anywhere 1\n'+
+      'mp_freezetime 0; mp_roundtime 60; mp_roundtime_defuse 60\nmp_warmup_end\n'+
+      'sv_grenade_trajectory_prac_pipreview 1\ncl_grenadepreview 1\nsv_showimpacts 1\nbot_kick\nmp_restartgame 1';
+    return '<div class="divi"><span class="ml">PRACTICE SETUP</span></div><div class="card">'+
+      '<div class="mh" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span class="mname">Your practice-server config</span><button class="btncopy" data-copy="1">COPY</button></div>'+
+      '<pre class="pcfg" id="pcfg">'+esc(cfg)+'</pre>'+
+      '<p class="mhow" style="margin-top:9px;">Load it on a local map (<code>map de_mirage</code>, then <code>bot_kick</code>) for unlimited nade + prefire reps with trajectories on. CS2 command names shift between patches — if the console rejects one, check its current spelling.</p>'+
+      '<p class="mhow" style="margin-top:8px;">Free workshop maps to subscribe on Steam Workshop: <b style="color:var(--text);">aim_botz</b> · <b style="color:var(--text);">Recoil Master</b> · <b style="color:var(--text);">Yprac Prefire</b> (one per map).</p></div>';
   }
 
   /* ---------- PROGRESS: calendar + Leetify checkpoints ---------- */
@@ -645,12 +721,27 @@
       if(v.base==null||latest==null)chip='<span class="delta na">—</span>';
       else{var dlt=Math.round((latest-v.base)*100)/100;var better=lb?dlt<0:dlt>0;
         chip=dlt===0?'<span class="delta na">±0</span>':'<span class="delta '+(better?"good":"bad")+'">'+(dlt>0?"+":"")+dlt+(better?" ▲":" ▼")+'</span>';}
-      mx+='<div class="metric"><div class="mh"><span class="mname">'+esc(t.n)+'</span>'+chip+'</div><div class="mhow">'+esc(t.h)+'</div><div class="cps">';
+      mx+='<div class="metric"><div class="mh"><span class="mname">'+esc(t.n)+'</span>'+chip+'</div><div class="mhow">'+esc(t.h)+benchHint(t.n,plan.profile.rank)+'</div><div class="cps">';
       [["base","BASE"],["w4","WK 4"],["w8","WK 8"],["w12","WK 12"]].forEach(function(cp){
         mx+='<div class="'+(due===cp[0]?"due":"")+'"><label>'+cp[1]+'</label><input type="number" inputmode="decimal" step="any" data-mk="'+key+'" data-mp="'+cp[0]+'" value="'+(v[cp[0]]!=null?v[cp[0]]:"")+'" placeholder="—"></div>';});
       mx+='</div></div>';});
     mx+='</div>';
-    return hd+cal+mx;
+    return hd+cal+mx+glossary();
+  }
+  function benchHint(name,rank){
+    var b=null;
+    if(/Counter-strafing/i.test(name))b={new:"~62%",mid:"~73%",good:"~76%",high:"~78% (plateau)",unsure:"~74%"}[rank];
+    else if(/Crosshair placement/i.test(name))b={new:"~12.4°",mid:"~10.5°",good:"~9.9°",high:"~9.0°",unsure:"~10°"}[rank];
+    return b?' <span style="color:var(--muted);">— your bracket ('+(RANKL[rank]||"?")+') averages '+b+'.</span>':'';
+  }
+  function glossary(){
+    return '<div class="divi"><span class="ml">WHERE TO FIND THESE</span></div><div class="card">'+
+      '<p class="mhow" style="margin:0 0 10px;">Open your <b style="color:var(--text);">Leetify</b> profile → any recent match → the <b style="color:var(--text);">Aim</b> tab. Every number below lives there.</p>'+
+      '<div class="glo"><b>Counter-strafing %</b><span>Of your rifle shots (AWP &amp; crouched shots excluded), how often you were under 34% of max speed — where accuracy returns.</span></div>'+
+      '<div class="glo"><b>Crosshair placement (°)</b><span>How far your crosshair sat from a head the moment you spotted someone. Lower is better.</span></div>'+
+      '<div class="glo"><b>Time to Damage (ms)</b><span>Spotting an enemy → first damaging them. Your reaction, not your rank.</span></div>'+
+      '<div class="glo"><b>Spray accuracy %</b><span>Of the bullets in your held sprays, how many landed on a body.</span></div>'+
+      '<p class="help" style="margin-top:10px;">Heads-up: <b>Leetify Rating is zero-sum</b> (it\'s relative to your lobby, sums to zero across 10 players) — chase these skill numbers, not the rating.</p></div>';
   }
   function setMetric(key,part,val){
     var st=load();st.metrics=st.metrics||{};st.metrics[key]=st.metrics[key]||{};
@@ -667,6 +758,10 @@
     var prof='<div class="card"><div class="prof"><div class="avatar">'+RET+'</div><div style="flex:1;">'+
       '<div class="ph">'+wp+role+'</div><div class="pm">'+(RANKL[p.rank]||"")+' · FOCUS '+esc(plan.keystoneName).toUpperCase()+' · STREAK '+streak+'</div></div>'+
       '<button class="gbtn" data-act="retake">RETAKE</button></div></div>';
+    var cueSec='<div class="divi"><span class="ml">YOUR DAILY CUE</span></div>'+
+      '<div class="card"><div class="field"><label>“After ___, I do the ten.”</label>'+
+      '<input type="text" data-cue value="'+esc(st.settings.cue||"")+'" placeholder="e.g. after dinner, before the couch"></div>'+
+      '<p class="help">A plan with a specific <em>when</em> actually happens. Yours shows on the Today screen.</p></div>';
     var app='<div class="divi"><span class="ml">APPEARANCE</span></div>'+
       '<div class="segctl"><button data-theme-set="dark" class="'+(curTheme(st)==="dark"?"on":"")+'">DARK</button><button data-theme-set="light" class="'+(curTheme(st)==="light"?"on":"")+'">LIGHT</button></div>';
     var data='<div class="divi"><span class="ml">DATA · LOCAL ONLY</span></div>'+
@@ -675,7 +770,7 @@
       '<button class="datarow" data-act="import">'+UL+'<span>Restore backup<small>Load a previously exported file</small></span></button>'+
       '<input type="file" id="impF" accept="application/json" style="display:none;"></div>'+
       (storageOk?'':'<div class="ml" style="color:var(--bad);margin-top:8px;">⚠ STORAGE BLOCKED — EXPORT TO KEEP YOUR DATA</div>');
-    return hd+prof+app+data+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
+    return hd+prof+cueSec+app+data+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
   }
 
   /* ---------- interactions ---------- */
@@ -691,6 +786,14 @@
     for(var cbi=0;cbi<cb.length;cbi++)(function(b){b.onclick=function(){viewDate=new Date(viewDate.getFullYear(),viewDate.getMonth()+parseInt(b.getAttribute("data-cal"),10),1);render();};})(cb[cbi]);
     var mi=root.querySelectorAll("[data-mk]");
     for(var mii=0;mii<mi.length;mii++)(function(el){el.onchange=function(){setMetric(el.getAttribute("data-mk"),el.getAttribute("data-mp"),el.value);};})(mi[mii]);
+    var bft=root.querySelectorAll("[data-backfill]");
+    for(var bi=0;bi<bft.length;bi++)bft[bi].onclick=function(){backfill=!backfill;render();};
+    var ssb=root.querySelector("[data-startsession]");
+    if(ssb)ssb.onclick=startSession;
+    var cpb=root.querySelector("[data-copy]");
+    if(cpb)cpb.onclick=function(){var pc=document.getElementById("pcfg");if(pc)copyText(pc.textContent,cpb);};
+    var cueI=root.querySelector("[data-cue]");
+    if(cueI)cueI.onchange=function(e){var s2=load();s2.settings.cue=e.target.value.trim();save(s2);};
     var dr=root.querySelectorAll("[data-drill]");
     for(var d=0;d<dr.length;d++)(function(b){b.onclick=function(){toggleDrill(parseInt(b.getAttribute("data-drill"),10));};})(dr[d]);
     var fb=root.querySelectorAll("[data-feel]");
@@ -706,9 +809,9 @@
   }
 
   function toggleDrill(i){
-    var st=load();var plan=st.plan,now=new Date(),tk=dateKey(now),dow=now.getDay();
-    var F=FOCI[plan.weekly[dow]];if(!F||plan.weekly[dow]==="rest")return;
-    var s=st.sessions[tk]||{warm:false,deep:false,feel:0,drills:{}};
+    var st=load(),plan=st.plan,act=actDate(),actK=dateKey(act),actDow=act.getDay();
+    var F=FOCI[plan.weekly[actDow]];if(!F||plan.weekly[actDow]==="rest")return;
+    var s=st.sessions[actK]||{warm:false,deep:false,feel:0,drills:{}};
     s.drills=s.drills||{};
     var coreDoneBefore=F.drills.every(function(d,ix){return !d.core||s.drills[ix];});
     s.drills[i]=!s.drills[i];
@@ -716,14 +819,71 @@
     if(any)s.warm=true;else{s.warm=false;s.deep=false;}
     var coreDone=F.drills.every(function(d,ix){return !d.core||s.drills[ix];});
     s.deep=F.drills.every(function(d,ix){return s.drills[ix];});
-    st.sessions[tk]=s;save(st);
+    st.sessions[actK]=s;save(st);
     if(coreDone&&!coreDoneBefore)celebrate(computeStreak(st,new Date()));
     render();
   }
   function setFeel(v){
-    var st=load(),tk=dateKey(new Date());
-    var s=st.sessions[tk]||{warm:false,deep:false,feel:0,drills:{}};
-    s.feel=(s.feel===v?0:v);st.sessions[tk]=s;save(st);render();
+    var st=load(),actK=dateKey(actDate());
+    var s=st.sessions[actK]||{warm:false,deep:false,feel:0,drills:{}};
+    s.feel=(s.feel===v?0:v);st.sessions[actK]=s;save(st);render();
+  }
+
+  /* ---------- guided session mode ---------- */
+  var SESS=null;
+  function fmtT(s){s=Math.max(0,s);var m=Math.floor(s/60),ss=s%60;return m+":"+(ss<10?"0":"")+ss;}
+  function startSession(){
+    var st=load(),plan=st.plan,fk=plan.weekly[new Date().getDay()],F=FOCI[fk];
+    if(!F||fk==="rest"||fk==="match")return;
+    SESS={fk:fk,idx:0,remain:(F.drills[0].dur||1)*60,paused:false,timer:null};
+    renderSession();
+    SESS.timer=setInterval(sessTick,1000);
+  }
+  function sessTick(){
+    if(!SESS||SESS.paused)return;
+    SESS.remain--;
+    if(SESS.remain<=0){sessAdvance(true);return;}
+    var el=document.getElementById("sTime");if(el)el.textContent=fmtT(SESS.remain);
+  }
+  function sessAdvance(markDone){
+    if(!SESS)return;
+    var st=load(),F=FOCI[SESS.fk],tk=dateKey(new Date());
+    if(markDone){
+      var s=st.sessions[tk]||{warm:false,deep:false,feel:0,drills:{}};s.drills=s.drills||{};
+      s.drills[SESS.idx]=true;
+      var any=F.drills.some(function(d,ix){return s.drills[ix];});s.warm=any;
+      s.deep=F.drills.every(function(d,ix){return s.drills[ix];});
+      st.sessions[tk]=s;save(st);
+    }
+    if(SESS.idx+1>=F.drills.length){endSession();return;}
+    SESS.idx++;SESS.remain=(F.drills[SESS.idx].dur||1)*60;SESS.paused=false;renderSession();
+  }
+  function endSession(){
+    if(SESS&&SESS.timer)clearInterval(SESS.timer);
+    var doCele=false;
+    if(SESS){var st=load(),F=FOCI[SESS.fk],tk=dateKey(new Date());var s=st.sessions[tk]||{drills:{}};
+      doCele=F.drills.every(function(d,ix){return !d.core||(s.drills&&s.drills[ix]);});}
+    SESS=null;var ov=document.getElementById("session");if(ov)ov.classList.remove("show");
+    render();
+    if(doCele)celebrate(computeStreak(load(),new Date()));
+  }
+  function renderSession(){
+    var ov=document.getElementById("session"),F=FOCI[SESS.fk],d=F.drills[SESS.idx];
+    var dots="";for(var i=0;i<F.drills.length;i++)dots+='<span class="sdot'+(i<SESS.idx?" past":i===SESS.idx?" cur":"")+'"></span>';
+    ov.innerHTML='<div class="sbar"><span class="ml">SESSION · '+esc(F.name).toUpperCase()+'</span><button class="siconx" data-sess="end" aria-label="End session">✕</button></div>'+
+      '<div class="sdots">'+dots+'</div>'+
+      '<div class="sctr"><div class="ml">DRILL '+(SESS.idx+1)+' / '+F.drills.length+(d.core?" · CORE":"")+'</div>'+
+      '<div class="sname dsp">'+esc(d.t)+'</div><div class="ssub">'+esc(d.sub)+'</div><div class="smeas">◎ '+esc(d.m)+'</div>'+
+      '<div class="stime'+(SESS.remain<=0?" zero":"")+'" id="sTime">'+fmtT(SESS.remain)+'</div>'+
+      '<div class="sctrls"><button class="gbtn" data-sess="pause">'+(SESS.paused?"RESUME":"PAUSE")+'</button>'+
+      '<button class="gbtn" data-sess="skip">SKIP ▸</button><button class="pbtn" data-sess="done">DONE ✓</button></div></div>';
+    ov.classList.add("show");
+    var ctrls=ov.querySelectorAll("[data-sess]");
+    for(var c=0;c<ctrls.length;c++)(function(b){b.onclick=function(){var a=b.getAttribute("data-sess");
+      if(a==="pause"){SESS.paused=!SESS.paused;renderSession();}
+      else if(a==="skip")sessAdvance(false);
+      else if(a==="done")sessAdvance(true);
+      else endSession();};})(ctrls[c]);
   }
 
   var celeT;
