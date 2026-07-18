@@ -46,7 +46,8 @@ sandbox.window.document = sandbox.document;
 vm.createContext(sandbox);
 vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 
-const { generatePlan, computeStreak, richText, validBackup, programWeek } = sandbox.module.exports;
+const { generatePlan, computeStreak, richText, validBackup, programWeek,
+        dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, sparkBars, sparkLine } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -129,6 +130,33 @@ ok('2-day plan: missing a training day still breaks streak',
 ok('programWeek day 0 = week 1', programWeek({ created: '2026-07-01' }, new Date('2026-07-01T12:00:00')) === 1);
 ok('programWeek day 7 = week 2', programWeek({ created: '2026-07-01' }, new Date('2026-07-08T12:00:00')) === 2);
 ok('programWeek clamps to 12', programWeek({ created: '2026-01-01' }, new Date('2026-07-01T12:00:00')) === 12);
+
+// --- v0.7: insights, death audit, quick-tier drills ---
+var hist = stt(['2026-07-13','2026-07-14','2026-07-15','2026-07-06','2026-07-07']); // 3-run and a 2-run
+ok('bestStreak finds the longest run', bestStreak(hist) === 3);
+ok('bestStreak of empty history is 0', bestStreak({ plan: null, sessions: {} }) === 0);
+ok('weekCounts returns N buckets', Array.isArray(weekCounts(hist, 8)) && weekCounts(hist, 8).length === 8);
+
+var rv = { reviews: {} }; rv.reviews[dateKey(new Date())] = { aim: 2, pos: 3 };
+var rt = reviewTotals(rv, 30);
+ok('reviewTotals aggregates causes', rt.aim === 2 && rt.pos === 3 && rt.util === 0);
+ok('reviewTotals ignores days outside the window', reviewTotals({ reviews: { '2020-01-01': { aim: 9 } } }, 30).aim === 0);
+ok('reviewTotals is safe with no reviews', reviewTotals({}, 30).aim === 0);
+
+ok('sparkBars renders an svg for data', /^<svg/.test(sparkBars([1, 2, 3])));
+ok('sparkBars is empty with no data', sparkBars([]) === '');
+ok('sparkLine needs 2+ points', sparkLine([3]) === '' && /^<svg/.test(sparkLine([3, 4])));
+
+ok('drillList lite tier is core-only and shorter', (function () {
+  var F = FOCI.cstrafe;
+  var lite = drillList(F, { profile: { time: '10' } });
+  var full = drillList(F, { profile: { time: '30' } });
+  return lite.length < full.length && lite.every(function (it) { return it.d.core; });
+})());
+ok('drillList preserves original drill indices', (function () {
+  var lite = drillList(FOCI.cstrafe, { profile: { time: '10' } });
+  return lite.every(function (it) { return FOCI.cstrafe.drills[it.i] === it.d; });
+})());
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

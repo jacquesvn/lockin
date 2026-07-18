@@ -247,6 +247,39 @@
   .pcfg{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;font-family:var(--fm);font-size:11.5px;line-height:1.7;color:var(--ink-soft,var(--muted));white-space:pre;margin:0;}
   code{font-family:var(--fm);font-size:0.88em;background:var(--surface2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;}
 
+  /* ---------- v0.7: insights, gate, death audit, loadout ---------- */
+  .stats4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+  @media (max-width:520px){.stats4{grid-template-columns:repeat(2,1fr);}}
+  .stt{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:11px 12px;}
+  .stt .v{font-family:var(--fd);font-weight:800;font-size:23px;line-height:1;letter-spacing:-0.02em;color:var(--hero-ink);font-variant-numeric:tabular-nums;}
+  .stt .k{font-family:var(--fm);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint);margin-top:6px;}
+  .sparkrow{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--line);}
+  .sparkrow:last-child{border-bottom:0;}
+  .sparkrow .sl{flex:0 0 120px;}
+  .sparkrow .sl b{display:block;font-size:12.5px;font-weight:600;}
+  .sparkrow .sl span{font-family:var(--fm);font-size:9.5px;color:var(--faint);letter-spacing:0.08em;text-transform:uppercase;}
+  .spark{flex:1;height:30px;min-width:0;}
+  .gate{border-left:3px solid var(--hero);}
+  .gcheck{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:transparent;border:none;border-bottom:1px solid var(--line);padding:10px 0;cursor:pointer;color:var(--text);font-size:14px;}
+  .gcheck .gbox{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--line2);display:grid;place-items:center;flex:0 0 auto;}
+  .gcheck.on .gbox{background:var(--hero);border-color:var(--hero);}
+  .gcheck .gbox svg{width:12px;height:12px;color:var(--onhero);opacity:0;}
+  .gcheck.on .gbox svg{opacity:1;}
+  .gcheck.on{color:var(--muted);}
+  .losswrap{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;}
+  .lossn{font-family:var(--fd);font-weight:800;font-size:26px;line-height:1;font-variant-numeric:tabular-nums;}
+  .causes{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+  @media (max-width:520px){.causes{grid-template-columns:repeat(3,1fr);}}
+  .cbtn{background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:9px 4px;cursor:pointer;color:var(--muted);font-family:var(--fm);font-size:9px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;}
+  .cbtn:hover{border-color:var(--hero-ink);color:var(--text);}
+  .cbtn b{display:block;font-family:var(--fd);font-size:18px;color:var(--hero-ink);margin-bottom:3px;font-variant-numeric:tabular-nums;}
+  .leakbar{display:flex;height:9px;border-radius:5px;background:var(--surface2);overflow:hidden;margin-top:13px;}
+  .leakbar i{height:100%;display:block;}
+  .lo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  @media (max-width:520px){.lo-grid{grid-template-columns:1fr;}}
+  .quickbtn{width:100%;background:transparent;color:var(--hero-ink);border:1px solid var(--hero-ink);border-radius:12px;padding:13px;font-family:var(--fm);font-weight:800;font-size:12px;letter-spacing:0.1em;cursor:pointer;margin-bottom:12px;}
+  .quickbtn:hover{background:color-mix(in oklab,var(--hero) 12%,transparent);}
+
   #session{position:fixed;inset:0;z-index:70;display:none;flex-direction:column;background:var(--bg);padding:20px 18px calc(20px + env(safe-area-inset-bottom));}
   #session.show{display:flex;}
   #session .sbar{display:flex;justify-content:space-between;align-items:center;}
@@ -292,7 +325,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.6.3";
+  var VERSION="0.7.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -439,8 +472,8 @@
   function programWeek(plan,today){if(!plan||!plan.created)return 1;var days=Math.round((midnight(today)-parseKey(plan.created))/86400000);var wk=Math.floor(days/7)+1;return Math.max(1,Math.min(12,wk));}
 
   /* ---------- storage ---------- */
-  function blank(){return {plan:null,sessions:{},settings:{},metrics:{}};}
-  function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};migrate(o);return o;}catch(e){storageOk=false;return mem||blank();}}
+  function blank(){return {plan:null,sessions:{},settings:{},metrics:{},reviews:{}};}
+  function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};o.reviews=o.reviews||{};migrate(o);return o;}catch(e){storageOk=false;return mem||blank();}}
   function save(st){mem=st;try{localStorage.setItem(KEY,JSON.stringify(st));storageOk=true;}catch(e){storageOk=false;}}
   function migrate(o){
     if(o._m>=2)return; // one-time: load() runs on a 30s timer, so migration must not mutate on every read
@@ -499,8 +532,16 @@
   var TAURI=window.__TAURI__, isNative=!!(TAURI&&TAURI.core);
   function nativeNotify(body){ if(isNative)TAURI.core.invoke("notify",{title:"Lockin",body:body}).catch(function(){}); }
   function setAutostart(on){ if(isNative)TAURI.core.invoke("set_autostart",{enabled:!!on}).catch(function(){}); }
+  // web fallback: the Notification API works while Lockin is open (tab or installed PWA).
+  // Closed-app reminders need the desktop build — the UI says so rather than pretending.
+  function webNotifyAvailable(){return !isNative&&typeof window!=="undefined"&&("Notification" in window);}
+  function notifyGranted(){try{return !!(window.Notification&&window.Notification.permission==="granted");}catch(e){return false;}}
+  function pushNotify(body){
+    if(isNative){nativeNotify(body);return;}
+    try{if(notifyGranted())new window.Notification("Lockin",{body:body,icon:"icon-192.png"});}catch(e){}
+  }
   function reminderTick(){
-    if(!isNative)return;
+    if(!isNative&&!notifyGranted())return;
     var st=load(),r=st.settings.reminder;
     if(!r||!r.on||!r.time)return;
     var now=new Date(),tk=dateKey(now);
@@ -510,7 +551,7 @@
     if(now.getTime()<target.getTime())return;                 // level-triggered: fires at/after the time, with catch-up
     st.settings.remLast=tk;save(st);
     var s=st.sessions[tk];
-    if(!(s&&s.warm))nativeNotify("Time to lock in — ten focused minutes. Don't hand them the worst version of you.");
+    if(!(s&&s.warm))pushNotify("Time to lock in — ten focused minutes. Don't hand them the worst version of you.");
   }
 
   /* ---------- onboarding ---------- */
@@ -734,8 +775,11 @@
       var totMin=0;for(var ti=0;ti<shown.length;ti++)totMin+=(shown[ti].d.dur||0);
       var undone=false;for(var ui=0;ui<shown.length;ui++)if(!dstate[shown[ui].i])undone=true;
       var startBtn=(canSession&&undone)?'<button class="startsession" data-startsession="1">▸ START GUIDED SESSION · '+totMin+' MIN</button>':'';
+      // low-friction escape hatch: one core drill, five minutes, and the day still counts
+      var quickBtn=(canSession&&undone)?'<button class="quickbtn" data-quickstart="1">⚡ I\'VE GOT 5 MINUTES</button>':'';
+      var gate=(focusKey==="match"&&!backfill)?gateCard(sess):"";
       body='<div class="divi"><span class="ml">'+(backfill?'YESTERDAY':'TODAY')+' ▸ '+esc(F.name).toUpperCase()+kx+'</span></div>'+
-        bfBanner+nmt+startBtn+
+        bfBanner+nmt+gate+startBtn+quickBtn+
         '<div class="cols"><div><div class="dlist">'+rows+'</div></div>'+
         '<div><div class="card"><div class="ml">HAND FEEL</div><div class="feelgrid">'+fbs+'</div>'+
         '<div class="fword" style="color:'+fcol+';">'+(sess.feel?fw[sess.feel]:"LOG IT AFTER YOUR REPS")+'</div></div>'+
@@ -823,7 +867,7 @@
         mx+='<div class="'+(due===cp[0]?"due":"")+'"><label>'+cp[1]+'</label><input type="number" inputmode="decimal" step="any" aria-label="'+esc(t.n)+' — '+cp[1]+'" data-mk="'+key+'" data-mp="'+cp[0]+'" value="'+esc(v[cp[0]]!=null?v[cp[0]]:"")+'" placeholder="—"></div>';});
       mx+='</div></div>';});
     mx+='</div>';
-    return hd+cal+mx+glossary();
+    return hd+insightsCard(st)+cal+deathCard(st)+mx+glossary();
   }
   function benchHint(name,rank){
     var b=null;
@@ -846,6 +890,145 @@
     save(st);render();
   }
 
+  /* ---------- v0.7: insights + sparklines ---------- */
+  function warmDays(st){var o=[];for(var k in st.sessions){if(st.sessions[k]&&st.sessions[k].warm)o.push(k);}return o.sort();}
+  function bestStreak(st){
+    var keys=warmDays(st);if(!keys.length)return 0;var best=0;
+    for(var i=0;i<keys.length;i++){var s=0,d=parseKey(keys[i]);
+      while(true){var x=st.sessions[dateKey(d)];
+        if(x&&x.warm){s++;d=addDays(d,-1);}
+        else if(!isTrainingDay(st.plan,d)){d=addDays(d,-1);}
+        else break;}
+      if(s>best)best=s;}
+    return best;}
+  function weekCounts(st,n){var out=[],mon=mondayOf(new Date());
+    for(var w=n-1;w>=0;w--){var start=addDays(mon,-7*w),c=0;
+      for(var i=0;i<7;i++){var x=st.sessions[dateKey(addDays(start,i))];if(x&&x.warm)c++;}
+      out.push(c);}
+    return out;}
+  function feelSeries(st,n){var keys=[];for(var k in st.sessions){if(st.sessions[k]&&st.sessions[k].feel>0)keys.push(k);}
+    keys.sort();return keys.slice(-n).map(function(k){return st.sessions[k].feel;});}
+  function sparkBars(vals){
+    if(!vals.length)return "";
+    var w=100,h=30,n=vals.length,max=Math.max.apply(null,vals)||1,step=w/n,bw=step*0.62,s="";
+    for(var i=0;i<n;i++){var bh=Math.max(1.5,(vals[i]/max)*(h-2));
+      s+='<rect x="'+(i*step+(step-bw)/2).toFixed(1)+'" y="'+(h-bh).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+bh.toFixed(1)+'" rx="1" fill="'+(i===n-1?"var(--hero)":"var(--line2)")+'"/>';}
+    return '<svg class="spark" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" aria-hidden="true">'+s+'</svg>';}
+  function sparkLine(vals){
+    if(vals.length<2)return "";
+    var w=100,h=30,n=vals.length,mn=1,mx=5,pts=[];
+    for(var i=0;i<n;i++){var x=(i/(n-1))*w,y=h-2-((vals[i]-mn)/(mx-mn))*(h-4);pts.push(x.toFixed(1)+","+y.toFixed(1));}
+    return '<svg class="spark" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" aria-hidden="true">'+
+      '<polyline points="'+pts.join(" ")+'" fill="none" stroke="var(--hero)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>';}
+  function insightsCard(st){
+    var wds=warmDays(st),cur=computeStreak(st,new Date()),best=bestStreak(st);
+    var fs=feelSeries(st,14),avg=fs.length?(fs.reduce(function(a,b){return a+b;},0)/fs.length):0;
+    var tiles='<div class="stats4">'+
+      '<div class="stt"><div class="v">'+cur+'</div><div class="k">Current streak</div></div>'+
+      '<div class="stt"><div class="v">'+best+'</div><div class="k">Best streak</div></div>'+
+      '<div class="stt"><div class="v">'+wds.length+'</div><div class="k">Days trained</div></div>'+
+      '<div class="stt"><div class="v">'+(avg?avg.toFixed(1):"—")+'</div><div class="k">Avg hand feel</div></div></div>';
+    var bars=sparkBars(weekCounts(st,8)),line=sparkLine(fs);
+    var rows='<div class="card" style="margin-top:10px;">'+
+      '<div class="sparkrow"><div class="sl"><b>Sessions / week</b><span>last 8 weeks</span></div>'+(bars||'<span class="mhow">no sessions yet</span>')+'</div>'+
+      '<div class="sparkrow"><div class="sl"><b>Hand feel</b><span>'+(fs.length?"last "+fs.length+" logged":"1–5 scale")+'</span></div>'+(line||'<span class="mhow">log feel on 2+ days to see the trend</span>')+'</div></div>';
+    return '<div class="divi"><span class="ml">INSIGHTS</span></div>'+tiles+rows+
+      '<button class="btncopy" data-sharecard="1" style="margin-top:10px;">⬇ SAVE PROGRESS CARD (PNG)</button>';
+  }
+
+  /* ---------- v0.7: death audit (demo review) ---------- */
+  var CAUSES=[["aim","Aim"],["pos","Position"],["util","Utility"],["info","Info"],["trade","No trade"]];
+  var CAUSE_COL={aim:"var(--bad)",pos:"var(--info)",util:"var(--good)",info:"var(--hero)",trade:"var(--line2)"};
+  function reviewTotals(st,days){
+    var t={aim:0,pos:0,util:0,info:0,trade:0},now=new Date();
+    for(var i=0;i<days;i++){var r=(st.reviews||{})[dateKey(addDays(now,-i))];
+      if(r)for(var c in t){if(r[c])t[c]+=r[c];}}
+    return t;}
+  function deathCard(st){
+    var today=(st.reviews||{})[dateKey(new Date())]||{};
+    var btns='<div class="causes">'+CAUSES.map(function(c){
+      return '<button class="cbtn" data-death="'+c[0]+'" aria-label="Log a death caused by '+c[1]+'"><b>'+(today[c[0]]||0)+'</b>'+c[1]+'</button>';}).join("")+'</div>';
+    var tot=reviewTotals(st,30),sum=0;for(var c in tot)sum+=tot[c];
+    var body;
+    if(sum>0){
+      var top=null;for(var k in tot){if(top===null||tot[k]>tot[top])top=k;}
+      var lbl=CAUSES.filter(function(x){return x[0]===top;})[0][1];
+      var bar='<div class="leakbar">'+CAUSES.map(function(x){
+        var pc=(tot[x[0]]/sum)*100;return pc>0?'<i style="width:'+pc.toFixed(1)+'%;background:'+CAUSE_COL[x[0]]+'"></i>':"";}).join("")+'</div>';
+      body=bar+'<p class="mhow" style="margin-top:10px;">Last 30 days · <b style="color:var(--text);">'+esc(lbl.toLowerCase())+'</b> is your biggest leak ('+tot[top]+' of '+sum+' deaths). That is the pattern to fix — not your aim.</p>';
+    }else body='<p class="mhow" style="margin-top:10px;">Watch a demo and, for each death, tap what <em>actually</em> killed you. After a few sessions the pattern shows up — and patterns are fixable.</p>';
+    return '<div class="divi"><span class="ml">DEATH AUDIT</span></div><div class="card">'+
+      '<p class="mhow" style="margin-top:0;">One death per round — what was the real cause?</p>'+btns+body+
+      (Object.keys(today).length?'<button class="btncopy" data-deathclear="1" style="margin-top:10px;">CLEAR TODAY</button>':"")+'</div>';
+  }
+
+  /* ---------- v0.7: shareable progress card (canvas → PNG) ---------- */
+  function shareCard(st){
+    try{
+      var c=document.createElement("canvas"),W=640,H=360,x=c.getContext("2d");
+      c.width=W;c.height=H;
+      x.fillStyle="#1b1b18";x.fillRect(0,0,W,H);
+      x.strokeStyle="#EAC54F";x.lineWidth=4;x.lineCap="square";
+      [[34,34,1,1],[W-34,34,-1,1],[34,H-34,1,-1],[W-34,H-34,-1,-1]].forEach(function(p){
+        x.beginPath();x.moveTo(p[0],p[1]+24*p[3]);x.lineTo(p[0],p[1]);x.lineTo(p[0]+24*p[2],p[1]);x.stroke();});
+      x.font="800 21px Helvetica,Arial,sans-serif";
+      x.fillStyle="#ECE9E0";x.fillText("LOCK",72,84);
+      x.fillStyle="#EAC54F";x.fillText("IN",72+x.measureText("LOCK").width,84);
+      var streak=computeStreak(st,new Date());
+      x.fillStyle="#EAC54F";x.font="800 118px Helvetica,Arial,sans-serif";x.fillText(String(streak),68,208);
+      x.fillStyle="#9A9482";x.font="600 14px ui-monospace,Consolas,monospace";x.fillText("DAYS LOCKED IN",72,238);
+      x.fillStyle="#ECE9E0";x.font="800 18px Helvetica,Arial,sans-serif";
+      x.fillText(String(st.plan&&st.plan.keystoneName||"").toUpperCase(),72,286);
+      x.fillStyle="#9A9482";x.font="600 12px ui-monospace,Consolas,monospace";
+      x.fillText("FOCUS  ·  WK "+programWeek(st.plan,new Date())+"/12",72,308);
+      var mon=mondayOf(new Date());
+      x.fillStyle="#9A9482";x.font="600 11px ui-monospace,Consolas,monospace";x.fillText("THIS WEEK",392,170);
+      for(var i=0;i<7;i++){var s2=st.sessions[dateKey(addDays(mon,i))];
+        x.fillStyle=(s2&&s2.warm)?"#EAC54F":"#332F22";
+        var bx=392+i*30;
+        if(x.roundRect){x.beginPath();x.roundRect(bx,182,22,22,5);x.fill();}else x.fillRect(bx,182,22,22);}
+      x.fillStyle="#78735F";x.font="600 11px ui-monospace,Consolas,monospace";
+      x.fillText("YOUR POCKET CS2 COACH", 392, 308);
+      var a=document.createElement("a");a.href=c.toDataURL("image/png");
+      a.download="lockin-streak-"+dateKey(new Date())+".png";a.click();
+    }catch(e){alert("Couldn't create the image on this browser.");}
+  }
+
+  /* ---------- v0.7: match-night gate + stop-loss ---------- */
+  function gateCard(sess){
+    var g=sess.gate||{},losses=sess.losses||0;
+    function chk(k,label){return '<button class="gcheck'+(g[k]?" on":"")+'" data-gate="'+k+'" aria-pressed="'+(g[k]?"true":"false")+'"><span class="gbox">'+CHK+'</span><span>'+label+'</span></button>';}
+    var stop=losses>=2?'<div class="warnbanner" style="margin-top:13px;">🛑 <b>Stop-loss hit.</b> Two on the bounce — the next one gets played tilted. Call it here and come back warm.</div>':"";
+    return '<div class="card gate" style="margin-bottom:12px;"><div class="ml" style="color:var(--hero-ink);">THE GATE · BEFORE YOU QUEUE</div>'+
+      chk("warm","I warmed up — not cold-queueing")+
+      chk("calm","I'm not tilted or fried")+
+      '<div class="field" style="margin-top:12px;"><label for="pgoal">One process goal tonight</label>'+
+      '<input id="pgoal" type="text" data-goal aria-label="Process goal for tonight" value="'+esc(sess.goal||"")+'" placeholder="e.g. stop before every shot"></div>'+
+      '<div class="losswrap"><div><div class="ml">LOSSES TONIGHT</div><div class="lossn" style="color:'+(losses>=2?"var(--bad)":"var(--text)")+'">'+losses+'</div></div>'+
+      '<div style="display:flex;gap:8px;"><button class="gbtn" data-loss="1">+1 LOSS</button><button class="gbtn" data-loss="0">RESET</button></div></div>'+
+      stop+'</div>';
+  }
+
+  /* ---------- v0.7: loadout vault ---------- */
+  function loadoutSec(st){
+    var lo=(st.settings&&st.settings.loadout)||{};
+    var sn=parseFloat(lo.sens),dp=parseFloat(lo.dpi);
+    var edpi=(sn>0&&dp>0)?Math.round(sn*dp):null;
+    return '<div class="divi"><span class="ml">LOADOUT</span></div><div class="card">'+
+      '<div class="lo-grid">'+
+        '<div class="field"><label for="lo_sens">Sensitivity</label><input id="lo_sens" type="text" inputmode="decimal" data-lo="sens" value="'+esc(lo.sens||"")+'" placeholder="1.25"></div>'+
+        '<div class="field"><label for="lo_dpi">Mouse DPI</label><input id="lo_dpi" type="text" inputmode="numeric" data-lo="dpi" value="'+esc(lo.dpi||"")+'" placeholder="800"></div>'+
+      '</div>'+
+      (edpi?'<p class="help" style="margin-top:9px;">eDPI <b style="color:var(--text);">'+edpi+'</b> — the number that actually matters. Keep it fixed while you train; changing it resets your muscle memory.</p>':"")+
+      '<div class="field" style="margin-top:12px;"><label for="lo_cross">Crosshair code</label><input id="lo_cross" type="text" data-lo="cross" value="'+esc(lo.cross||"")+'" placeholder="CSGO-xxxxx-xxxxx-…"></div>'+
+      '<div class="field" style="margin-top:12px;"><label for="lo_launch">Launch options</label><input id="lo_launch" type="text" data-lo="launch" value="'+esc(lo.launch||"")+'" placeholder="-novid -high -freq 144"></div>'+
+      '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">'+
+        (lo.cross?'<button class="btncopy" data-locopy="cross">COPY CROSSHAIR</button>':"")+
+        (lo.launch?'<button class="btncopy" data-locopy="launch">COPY LAUNCH OPTS</button>':"")+
+      '</div>'+
+      '<p class="help" style="margin-top:10px;">Your settings live here so a reinstall, a new PC or a Steam reset never costs you your muscle memory. Stored on this device only.</p></div>';
+  }
+
   /* ---------- SETUP ---------- */
   function htmlSetup(st){
     var plan=st.plan,p=plan.profile,streak=computeStreak(st,new Date());
@@ -862,11 +1045,14 @@
     var app='<div class="divi"><span class="ml">APPEARANCE</span></div>'+
       '<div class="segctl"><button data-theme-set="dark" class="'+(curTheme(st)==="dark"?"on":"")+'">DARK</button><button data-theme-set="light" class="'+(curTheme(st)==="light"?"on":"")+'">LIGHT</button></div>';
     var remSec='';
-    if(isNative){
+    if(isNative||webNotifyAvailable()){
       var rem=st.settings.reminder||{on:false,time:"19:00"};
-      remSec='<div class="divi"><span class="ml">DAILY REMINDER · DESKTOP</span></div>'+
+      var remHelp=isNative
+        ?"Lockin sits in your tray and pings you at your time. Turning it on also launches Lockin at login so the reminder actually fires."
+        :"Lockin nudges you at your time while it's open in a tab or installed as an app. For a reminder when Lockin is closed, use the desktop app.";
+      remSec='<div class="divi"><span class="ml">DAILY REMINDER · '+(isNative?"DESKTOP":"THIS BROWSER")+'</span></div>'+
         '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">'+
-        '<div><div class="mname">“Go train” notification</div><div class="help" style="margin-top:2px;">Lockin sits in your tray and pings you at your time. Turning it on also launches Lockin at login so the reminder actually fires.</div></div>'+
+        '<div><div class="mname">“Go train” notification</div><div class="help" style="margin-top:2px;">'+remHelp+'</div></div>'+
         '<button class="rtoggle'+(rem.on?" on":"")+'" data-rem-toggle role="switch" aria-checked="'+(rem.on?"true":"false")+'" aria-label="Daily reminder">'+(rem.on?"ON":"OFF")+'</button></div>'+
         '<div class="field" style="margin-top:12px;"><label for="remTime">Remind me at</label><input type="time" id="remTime" data-rem-time value="'+esc(rem.time||"19:00")+'"'+(rem.on?"":" disabled")+'></div>'+
         '</div>';
@@ -878,7 +1064,7 @@
       '<button class="datarow" data-act="reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span>Erase all data<small>Delete everything and start over — can’t be undone</small></span></button>'+
       '<input type="file" id="impF" accept="application/json" style="display:none;"></div>'+
       (storageOk?'':'<div class="ml" style="color:var(--bad);margin-top:8px;">⚠ STORAGE BLOCKED — EXPORT TO KEEP YOUR DATA</div>');
-    return hd+prof+cueSec+app+remSec+data+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
+    return hd+prof+cueSec+loadoutSec(st)+app+remSec+data+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
   }
 
   /* ---------- interactions ---------- */
@@ -897,7 +1083,7 @@
     var bft=root.querySelectorAll("[data-backfill]");
     for(var bi=0;bi<bft.length;bi++)bft[bi].onclick=function(){backfill=!backfill;render();};
     var ssb=root.querySelector("[data-startsession]");
-    if(ssb)ssb.onclick=startSession;
+    if(ssb)ssb.onclick=function(){startSession();};
     var cpb=root.querySelector("[data-copy]");
     if(cpb)cpb.onclick=function(){var pc=document.getElementById("pcfg");if(pc)copyText(pc.textContent,cpb);};
     var cueI=root.querySelector("[data-cue]");
@@ -909,12 +1095,51 @@
         // immediately fire a second nudge on top of this confirmation
         var hm=/^(\d{1,2}):(\d{2})$/.exec(r.time),now=new Date();
         if(hm){var tg=new Date(now);tg.setHours(+hm[1],+hm[2],0,0);if(now.getTime()>=tg.getTime())s2.settings.remLast=dateKey(now);}
-        s2.settings.reminder=r;save(s2);setAutostart(true);
-        nativeNotify("Reminders on — I'll nudge you at "+r.time+" if you haven't trained.");
-      }else{s2.settings.reminder=r;save(s2);setAutostart(false);}
+        s2.settings.reminder=r;save(s2);
+        var msg="Reminders on — I'll nudge you at "+r.time+" if you haven't trained.";
+        if(isNative){setAutostart(true);pushNotify(msg);}
+        else if(notifyGranted())pushNotify(msg);
+        else if(window.Notification){ // web: ask permission from this click (a user gesture)
+          try{var pr=window.Notification.requestPermission();if(pr&&pr.then)pr.then(function(){pushNotify(msg);});}catch(e){}
+        }
+      }else{s2.settings.reminder=r;save(s2);if(isNative)setAutostart(false);}
       render();};
     var rtime=root.querySelector("[data-rem-time]");
     if(rtime)rtime.onchange=function(e){var s2=load();var r=s2.settings.reminder||{on:true,time:"19:00"};r.time=e.target.value||"19:00";delete s2.settings.remLast;s2.settings.reminder=r;save(s2);};
+    /* ---- v0.7 controls ---- */
+    var qs=root.querySelector("[data-quickstart]");
+    if(qs)qs.onclick=function(){startSession({quick:true});};
+    var gt=root.querySelectorAll("[data-gate]");
+    for(var gi=0;gi<gt.length;gi++)(function(b){b.onclick=function(){
+      var k=b.getAttribute("data-gate"),s2=load(),ak=dateKey(actDate());
+      var sx=s2.sessions[ak]||{warm:false,deep:false,feel:0,drills:{}};
+      sx.gate=sx.gate||{};sx.gate[k]=!sx.gate[k];s2.sessions[ak]=sx;save(s2);render();};})(gt[gi]);
+    var gl=root.querySelector("[data-goal]");
+    if(gl)gl.onchange=function(e){var s2=load(),ak=dateKey(actDate());
+      var sx=s2.sessions[ak]||{warm:false,deep:false,feel:0,drills:{}};
+      sx.goal=e.target.value.trim();s2.sessions[ak]=sx;save(s2);};
+    var ls=root.querySelectorAll("[data-loss]");
+    for(var lsi=0;lsi<ls.length;lsi++)(function(b){b.onclick=function(){
+      var s2=load(),ak=dateKey(actDate());
+      var sx=s2.sessions[ak]||{warm:false,deep:false,feel:0,drills:{}};
+      sx.losses=(b.getAttribute("data-loss")==="1")?((sx.losses||0)+1):0;
+      s2.sessions[ak]=sx;save(s2);render();};})(ls[lsi]);
+    var dth=root.querySelectorAll("[data-death]");
+    for(var dti=0;dti<dth.length;dti++)(function(b){b.onclick=function(){
+      var c=b.getAttribute("data-death"),s2=load(),dk3=dateKey(new Date());
+      s2.reviews=s2.reviews||{};s2.reviews[dk3]=s2.reviews[dk3]||{};
+      s2.reviews[dk3][c]=(s2.reviews[dk3][c]||0)+1;save(s2);render();};})(dth[dti]);
+    var dcl=root.querySelector("[data-deathclear]");
+    if(dcl)dcl.onclick=function(){var s2=load();s2.reviews=s2.reviews||{};delete s2.reviews[dateKey(new Date())];save(s2);render();};
+    var los=root.querySelectorAll("[data-lo]");
+    for(var loi=0;loi<los.length;loi++)(function(el){el.onchange=function(){
+      var s2=load();s2.settings.loadout=s2.settings.loadout||{};
+      s2.settings.loadout[el.getAttribute("data-lo")]=el.value.trim();save(s2);render();};})(los[loi]);
+    var lcp=root.querySelectorAll("[data-locopy]");
+    for(var lci=0;lci<lcp.length;lci++)(function(b){b.onclick=function(){
+      var lo=(load().settings.loadout)||{};copyText(lo[b.getAttribute("data-locopy")]||"",b);};})(lcp[lci]);
+    var shc=root.querySelector("[data-sharecard]");
+    if(shc)shc.onclick=function(){shareCard(load());};
     var dr=root.querySelectorAll("[data-drill]");
     for(var d=0;d<dr.length;d++)(function(b){b.onclick=function(){toggleDrill(parseInt(b.getAttribute("data-drill"),10));};})(dr[d]);
     var fb=root.querySelectorAll("[data-feel]");
@@ -971,15 +1196,18 @@
   var SESS=null, sessKeydown=null, sessReturnFocus=null;
   function fmtT(s){s=Math.max(0,s);var m=Math.floor(s/60),ss=s%60;return m+":"+(ss<10?"0":"")+ss;}
   function coreComplete(F,drills){return F.drills.every(function(d,ix){return !d.core||(drills&&drills[ix]);});}
-  function startSession(){
+  function startSession(opts){
     if(SESS)return;                                    // never run two sessions / two intervals at once
+    var quick=!!(opts&&opts.quick===true);             // (guard: a click handler may pass an Event)
     var st=load(),plan=st.plan,fk=plan.weekly[new Date().getDay()],F=FOCI[fk];
     if(!F||fk==="rest"||fk==="match")return;
     var list=drillList(F,plan);if(!list.length)return;
+    // quick mode: just the single highest-leverage core drill, five minutes, day still counts
+    if(quick){var core=list.filter(function(it){return it.d.core;});list=[core[0]||list[0]];}
     var sNow=st.sessions[dateKey(new Date())]||{drills:{}};
     sessReturnFocus=document.activeElement;
-    SESS={fk:fk,list:list,idx:0,remain:(list[0].d.dur||1)*60,paused:false,timer:null,
-      dayKey:dateKey(new Date()),coreWas:coreComplete(F,sNow.drills)};
+    SESS={fk:fk,list:list,idx:0,remain:quick?300:((list[0].d.dur||1)*60),paused:false,timer:null,
+      dayKey:dateKey(new Date()),coreWas:coreComplete(F,sNow.drills),quick:quick};
     renderSession();
     SESS.timer=setInterval(sessTick,1000);
   }
@@ -1021,7 +1249,7 @@
     var ov=document.getElementById("session"),F=FOCI[SESS.fk],d=SESS.list[SESS.idx].d;
     var dots="";for(var i=0;i<SESS.list.length;i++)dots+='<span class="sdot'+(i<SESS.idx?" past":i===SESS.idx?" cur":"")+'"></span>';
     ov.setAttribute("role","dialog");ov.setAttribute("aria-modal","true");ov.setAttribute("aria-label","Guided session");
-    ov.innerHTML='<div class="sbar"><span class="ml">SESSION · '+esc(F.name).toUpperCase()+'</span><button class="siconx" data-sess="end" aria-label="End session">✕</button></div>'+
+    ov.innerHTML='<div class="sbar"><span class="ml">SESSION · '+esc(F.name).toUpperCase()+(SESS.quick?" · QUICK":"")+'</span><button class="siconx" data-sess="end" aria-label="End session">✕</button></div>'+
       '<div class="sdots">'+dots+'</div>'+
       '<div class="sctr"><div class="ml">DRILL '+(SESS.idx+1)+' / '+SESS.list.length+(d.core?" · CORE":"")+'</div>'+
       '<div class="sname dsp">'+esc(d.t)+'</div><div class="ssub">'+esc(d.sub)+'</div><div class="smeas">◎ '+esc(d.m)+'</div>'+
@@ -1062,7 +1290,7 @@
     var st=load();applyTheme(curTheme(st));
     if(st.plan)boot("today");else renderOnboard();
   })();
-  if(isNative)setInterval(reminderTick,30000);
+  if(isNative||("Notification" in window))setInterval(reminderTick,30000);
   if('serviceWorker' in navigator && location.protocol.indexOf('http')===0 && !isNative){
     var hadController=!!navigator.serviceWorker.controller, refreshing=false;
     window.addEventListener('load',function(){navigator.serviceWorker.register('service-worker.js').catch(function(){});});
@@ -1071,7 +1299,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,sparkBars:sparkBars,sparkLine:sparkLine};
 })();
 </script>
 </body>
