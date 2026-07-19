@@ -47,7 +47,7 @@ vm.createContext(sandbox);
 vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
-        dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, sparkBars, sparkLine } = sandbox.module.exports;
+        dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, sparkBars, sparkLine, MAPS } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -156,6 +156,23 @@ ok('drillList lite tier is core-only and shorter', (function () {
 ok('drillList preserves original drill indices', (function () {
   var lite = drillList(FOCI.cstrafe, { profile: { time: '10' } });
   return lite.every(function (it) { return FOCI.cstrafe.drills[it.i] === it.d; });
+})());
+
+// --- v0.8: map prep library (Active Duty pool verified Jul 2026) ---
+var MAPIDS = MAPS.map(function (m) { return m.id; });
+ok('MAPS covers the 7 Active Duty maps',
+  MAPS.length === 7 && ['mirage','dust2','inferno','nuke','ancient','anubis','cache'].every(function (id) { return MAPIDS.indexOf(id) >= 0; }));
+ok('MAPS ids are unique', MAPIDS.filter(function (v, i) { return MAPIDS.indexOf(v) === i; }).length === MAPS.length);
+ok('every map has T jobs, CT jobs and prefire routes', MAPS.every(function (m) {
+  return m.n && Array.isArray(m.t) && m.t.length > 0 && Array.isArray(m.ct) && m.ct.length > 0 &&
+         Array.isArray(m.r) && m.r.length > 0 &&
+         m.r.every(function (x) { return Array.isArray(x) && x.length === 2 && x[0] && x[1]; });
+}));
+ok('reserve maps (Train/Overpass/Vertigo) are not in the pool',
+  !MAPIDS.some(function (id) { return ['train','overpass','vertigo'].indexOf(id) >= 0; }));
+ok('Cache carries its rework caveat', (function () {
+  var cache = MAPS.filter(function (m) { return m.id === 'cache'; })[0];
+  return !!(cache && cache.note && /rework/i.test(cache.note));
 })());
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

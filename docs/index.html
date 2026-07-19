@@ -280,6 +280,31 @@
   .quickbtn{width:100%;background:transparent;color:var(--hero-ink);border:1px solid var(--hero-ink);border-radius:12px;padding:13px;font-family:var(--fm);font-weight:800;font-size:12px;letter-spacing:0.1em;cursor:pointer;margin-bottom:12px;}
   .quickbtn:hover{background:color-mix(in oklab,var(--hero) 12%,transparent);}
 
+  /* ---------- v0.8: map prep ---------- */
+  .mapchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+  .mchip{background:var(--surface2);border:1px solid var(--line);border-radius:999px;color:var(--muted);cursor:pointer;
+    font-family:var(--fm);font-size:10.5px;font-weight:700;letter-spacing:0.08em;padding:8px 14px;text-transform:uppercase;}
+  .mchip:hover{border-color:var(--hero-ink);color:var(--text);}
+  .mchip.on{background:var(--hero);border-color:var(--hero);color:var(--onhero);}
+  .mchip .pin{opacity:.75;}
+  .jobs{margin-top:2px;}
+  .job{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--muted);}
+  .job:last-child{border-bottom:0;}
+  .job i{flex:0 0 auto;font-style:normal;color:var(--hero-ink);font-family:var(--fm);font-size:11px;font-weight:700;padding-top:1px;}
+  .rt{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);align-items:baseline;}
+  .rt:last-child{border-bottom:0;}
+  .rt b{flex:0 0 92px;font-size:12.5px;font-weight:600;}
+  .rt span{font-family:var(--fm);font-size:11px;color:var(--faint);}
+  .lnrow{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line);}
+  .lnrow:last-of-type{border-bottom:0;}
+  .lnrow .lnb{flex:1;min-width:0;}
+  .lnrow .lnb b{display:block;font-size:13px;font-weight:600;}
+  .lnrow .lnb span{display:block;font-size:12px;color:var(--muted);margin-top:2px;white-space:pre-wrap;word-break:break-word;}
+  .lndel{background:transparent;border:1px solid var(--line);border-radius:7px;color:var(--faint);cursor:pointer;width:28px;height:28px;flex:0 0 auto;font-size:12px;}
+  .lndel:hover{border-color:var(--bad);color:var(--bad);}
+  .lnadd{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin-top:12px;}
+  @media (max-width:600px){.lnadd{grid-template-columns:1fr;}}
+
   #session{position:fixed;inset:0;z-index:70;display:none;flex-direction:column;background:var(--bg);padding:20px 18px calc(20px + env(safe-area-inset-bottom));}
   #session.show{display:flex;}
   #session .sbar{display:flex;justify-content:space-between;align-items:center;}
@@ -325,7 +350,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.7.0";
+  var VERSION="0.8.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -389,6 +414,84 @@
       D("Rest day","recovery is part of consistency — nothing required","come back tomorrow",0,false)]}
   };
   var KEYSTONE_ORDER=["cstrafe","consistency","placement","spray","utility","positioning","clutch","entry"];
+
+  /* ---------- map prep (Active Duty, verified Jul 2026: Mirage, Dust II, Inferno, Nuke, Ancient, Anubis, Cache) ----------
+     These are the utility JOBS and prefire routes that decide each map — deliberately NOT lineups.
+     Exact throws are patch-specific and can't be written from memory without being subtly wrong;
+     learn them in Yprac and save your own in the vault below. */
+  var MAPS=[
+    {id:"mirage",n:"Mirage",
+     t:["CT smoke is the A exec — without it you walk into an open site with a free angle on you.",
+        "B wants market + CT smoked. B rounds are won by denying the rotate, not winning the duel in apps.",
+        "Take mid with a window smoke or top-mid flash first — mid is free info and a free B split.",
+        "Molotov tetris or jungle to move the anchor off its default hold before you enter.",
+        "One palace flash that lands over the arch for whoever entries A."],
+     ct:["Molly or HE palace and ramp early — the free A take is what loses this map.",
+         "Hold window. Lose mid and you lose both sites.",
+         "Keep one smoke for the retake instead of burning everything on the hold."],
+     r:[["A ramp","tetris · CT · jungle · ticket"],["Palace","palace-side · jungle · CT"],["B apps","van · bench · market"],["Mid","window · connector · catwalk"]]},
+    {id:"dust2",n:"Dust II",
+     t:["Long needs doors smoked plus a cross smoke, or it's a pit/car crossfire.",
+        "Smoke xbox/mid to cut the CT mid rotate before any B hit.",
+        "Short (cat) smoke isolates the A site fight so it's 5v2, not 5v4.",
+        "B tunnels flashes want to land over the site, not into it.",
+        "Molly car and goose — the two most common free-kill anchor spots on A."],
+     ct:["Molly long and cat early to deny the free take.",
+         "Smoke mid to refuse the AWP duel you don't want.",
+         "An A retake needs a smoke that cuts long off from site."],
+     r:[["Long","pit · car · goose · ninja"],["Short / cat","cat · A default · platform"],["B tunnels","back plat · door · big box"],["Mid","xbox · top mid"]]},
+    {id:"inferno",n:"Inferno",
+     t:["Banana is the map. Molly plus flash to break early CT aggression before you commit.",
+        "B exec wants banana smoked deep (CT + fountain) so the site fight isn't 5v4.",
+        "A exec: smoke CT and library, molly pit — pit is where the free kill on entry comes from.",
+        "Apartments flashes should land over balcony, not into it.",
+        "Save a molly for the post-plant. Inferno post-plants are won with fire."],
+     ct:["Molly banana early every round you can afford — it buys the whole round's timing.",
+         "Don't peek banana without a trade; it's the most traded angle in the game.",
+         "Keep util for the retake — both A and B retakes need smoke plus flash."],
+     r:[["Banana","sandbags · car · CT"],["Apartments","balcony · pit · boiler"],["A main","arch · graveyard · library"],["Mid","short · arch"]]},
+    {id:"nuke",n:"Nuke",
+     t:["Outside control is the round — secret/garage timing beats any utility you throw.",
+        "A exec: smoke heaven and hut and the site fight becomes winnable.",
+        "Ramp needs a molly or smoke, or one anchor holds it alone for free.",
+        "Vents is a timing play, not a utility play — it works when outside is contested.",
+        "Keep a smoke for the plant rather than the entry."],
+     ct:["Molly ramp and vents on a timing — Nuke is held on delay, not aim.",
+         "Heaven is the anchor. Lose it and you lose A.",
+         "Rotates are short — don't over-commit off a single sound."],
+     r:[["Outside","garage · silo · heaven · hut"],["Ramp","back site · dark"],["Vents","site · squeaky"],["A main","hut · rafters · heaven"]]},
+    {id:"ancient",n:"Ancient",
+     t:["A exec needs CT and donut smoked — donut is the free angle that kills entries.",
+        "B needs ramp and back smoked; the site is small, so utility does the work.",
+        "Molly cubby on every B hit — it's the default anchor spot.",
+        "Mid control with doors smoked opens up both sites.",
+        "Ancient post-plants are utility-heavy. Save one nade."],
+     ct:["Molly A main early — the choke is narrow and punishes it hard.",
+         "Hold mid doors; losing mid makes both sites indefensible.",
+         "Retake B with a flash over the top, never a dry peek."],
+     r:[["A main","elbow · temple · donut"],["B ramp","cubby · back · water"],["Mid","doors · sniper's nest"]]},
+    {id:"anubis",n:"Anubis",
+     t:["Canal/mid control decides the map — take it with smokes, not duels.",
+        "A exec: smoke connector and heaven, molly the water/boat angle.",
+        "B wants street and bridge smoked so the walkway cross is survivable.",
+        "Sightlines are long — most crosses need a smoke, not a flash.",
+        "Post-plant mollies matter here more than on most maps."],
+     ct:["Deny canal early; conceding mid concedes both sites.",
+         "Molly A palace to stop the free entry.",
+         "Play for the retake with utility — the sites are hard to hold dry."],
+     r:[["A palace","site · heaven · connector"],["B bridge","walkway · canal"],["Mid canal","mid doors · connector"]]},
+    {id:"cache",n:"Cache",
+     note:"Cache came back to Active Duty in July 2026 after a rework — re-check any old lineups and callouts in Yprac before you trust them.",
+     t:["A take needs CT and highland smoked — highland is where the free angle lives.",
+        "B is a utility site: checkers and heaven smoked, then hit it as five.",
+        "Mid control opens the B split and the A squeeze.",
+        "Molly the forklift/truck angle before entering A.",
+        "Cache rewards fast coordinated executes over slow defaults."],
+     ct:["Molly A main and squeaky to break the entry timing.",
+         "Heaven is the B anchor — hold it and B is very hard to take.",
+         "Watch mid; losing it loses your rotations."],
+     r:[["A main","quad · truck · highland"],["B halls","checkers · heaven · boost"],["Mid","white box · squeaky"]]}
+  ];
 
   var QUIZ=[
     {id:"rank",q:"Where are you roughly?",hint:"Sets the language and how hard we push.",multi:false,opts:[["new","New / Silver (under ~10k)"],["mid","Mid (10–15k)"],["good","Good (15–20k)"],["high","High (20k+)"],["unsure","Not sure"]]},
@@ -472,8 +575,8 @@
   function programWeek(plan,today){if(!plan||!plan.created)return 1;var days=Math.round((midnight(today)-parseKey(plan.created))/86400000);var wk=Math.floor(days/7)+1;return Math.max(1,Math.min(12,wk));}
 
   /* ---------- storage ---------- */
-  function blank(){return {plan:null,sessions:{},settings:{},metrics:{},reviews:{}};}
-  function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};o.reviews=o.reviews||{};migrate(o);return o;}catch(e){storageOk=false;return mem||blank();}}
+  function blank(){return {plan:null,sessions:{},settings:{},metrics:{},reviews:{},lineups:{}};}
+  function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};o.reviews=o.reviews||{};o.lineups=o.lineups||{};migrate(o);return o;}catch(e){storageOk=false;return mem||blank();}}
   function save(st){mem=st;try{localStorage.setItem(KEY,JSON.stringify(st));storageOk=true;}catch(e){storageOk=false;}}
   function migrate(o){
     if(o._m>=2)return; // one-time: load() runs on a 30s timer, so migration must not mutate on every read
@@ -815,7 +918,34 @@
     var tg='<div class="divi"><span class="ml">HOW TO MEASURE IT</span></div><div class="card">';
     plan.targets.forEach(function(t){tg+='<div class="librow"><div class="ln"><span>'+esc(t.n)+'</span></div><div class="lm">'+esc(t.h)+'</div></div>';});
     tg+='</div>';
-    return hd+diag+'<div class="plan-cols"><div>'+ph+rotc+'</div><div>'+lib+tg+'</div></div>'+practiceCard();
+    return hd+diag+'<div class="plan-cols"><div>'+ph+rotc+'</div><div>'+lib+tg+'</div></div>'+mapPrep(st)+practiceCard();
+  }
+  function mapPrep(st){
+    var sel=(st.settings&&st.settings.mainMap)||MAPS[0].id,M=null;
+    for(var i=0;i<MAPS.length;i++)if(MAPS[i].id===sel)M=MAPS[i];
+    if(!M){M=MAPS[0];sel=M.id;}
+    var chips='<div class="mapchips">'+MAPS.map(function(m){
+      return '<button class="mchip'+(m.id===sel?" on":"")+'" data-map="'+m.id+'" aria-pressed="'+(m.id===sel?"true":"false")+'">'+esc(m.n)+'</button>';}).join("")+'</div>';
+    function jobList(arr){return '<div class="jobs">'+arr.map(function(j,i){
+      return '<div class="job"><i>'+(i+1)+'</i><span>'+esc(j)+'</span></div>';}).join("")+'</div>';}
+    var tSide='<div class="card"><div class="ml" style="color:var(--hero-ink);">T SIDE · WHAT YOUR UTILITY IS FOR</div>'+jobList(M.t)+'</div>';
+    var ctSide='<div class="card" style="margin-top:10px;"><div class="ml">CT SIDE · WHAT TO DENY</div>'+jobList(M.ct)+'</div>';
+    var routes='<div class="card" style="margin-top:10px;"><div class="ml">PREFIRE ROUTES · WHERE THE CROSSHAIR RIDES</div>'+
+      M.r.map(function(x){return '<div class="rt"><b>'+esc(x[0])+'</b><span>'+esc(x[1])+'</span></div>';}).join("")+'</div>';
+    var lns=((st.lineups||{})[sel])||[];
+    var lnList=lns.length?lns.map(function(l,i){
+        return '<div class="lnrow"><div class="lnb"><b>'+esc(l.n)+'</b><span>'+esc(l.t||"")+'</span></div>'+
+          '<button class="lndel" data-lndel="'+i+'" aria-label="Delete this lineup">✕</button></div>';}).join("")
+      :'<p class="mhow" style="margin:0;">Nothing saved for '+esc(M.n)+' yet. Learn one in Yprac, then write it down here in your own words — writing it is what makes it stick.</p>';
+    var vault='<div class="card" style="margin-top:10px;"><div class="ml">YOUR '+esc(M.n).toUpperCase()+' LINEUPS · '+lns.length+'</div>'+lnList+
+      '<div class="lnadd">'+
+        '<div class="field"><label for="lnN">Name</label><input id="lnN" type="text" data-lnname placeholder="A exec — CT smoke"></div>'+
+        '<div class="field"><label for="lnT">How you throw it</label><input id="lnT" type="text" data-lntext placeholder="T spawn, line up on the antenna, jump-throw"></div>'+
+        '<button class="pbtn" data-lnadd="1">ADD</button>'+
+      '</div></div>';
+    var caveat='<p class="help" style="margin-top:10px;">These are the utility <em>jobs</em> that decide the map — deliberately not lineups. Exact throws are patch-specific, so learn them in <b style="color:var(--text);">Yprac '+esc(M.n)+'</b> and save your own above.'+
+      (M.note?' <b style="color:var(--text);">'+esc(M.note)+'</b>':'')+'</p>';
+    return '<div class="divi"><span class="ml">MAP PREP · ACTIVE DUTY</span></div>'+chips+tSide+ctSide+routes+vault+caveat;
   }
   function practiceCard(){
     var cfg='// lockin practice.cfg — save in ...\\game\\csgo\\cfg\\, then in console:  exec practice\n'+
@@ -1140,6 +1270,22 @@
       var lo=(load().settings.loadout)||{};copyText(lo[b.getAttribute("data-locopy")]||"",b);};})(lcp[lci]);
     var shc=root.querySelector("[data-sharecard]");
     if(shc)shc.onclick=function(){shareCard(load());};
+    /* ---- v0.8 map prep ---- */
+    var mch=root.querySelectorAll("[data-map]");
+    for(var mci=0;mci<mch.length;mci++)(function(b){b.onclick=function(){
+      var s2=load();s2.settings.mainMap=b.getAttribute("data-map");save(s2);render();};})(mch[mci]);
+    var lnadd=root.querySelector("[data-lnadd]");
+    if(lnadd)lnadd.onclick=function(){
+      var nEl=root.querySelector("[data-lnname]"),tEl=root.querySelector("[data-lntext]");
+      var n=((nEl&&nEl.value)||"").trim(),t=((tEl&&tEl.value)||"").trim();
+      if(!n){if(nEl)nEl.focus();return;}                       // a lineup needs a name to be findable
+      var s2=load(),m=s2.settings.mainMap||MAPS[0].id;
+      s2.lineups=s2.lineups||{};s2.lineups[m]=s2.lineups[m]||[];
+      s2.lineups[m].push({n:n,t:t});save(s2);render();};
+    var lndl=root.querySelectorAll("[data-lndel]");
+    for(var ldi=0;ldi<lndl.length;ldi++)(function(b){b.onclick=function(){
+      var s2=load(),m=s2.settings.mainMap||MAPS[0].id,ix=parseInt(b.getAttribute("data-lndel"),10);
+      if(s2.lineups&&s2.lineups[m]){s2.lineups[m].splice(ix,1);save(s2);render();}};})(lndl[ldi]);
     var dr=root.querySelectorAll("[data-drill]");
     for(var d=0;d<dr.length;d++)(function(b){b.onclick=function(){toggleDrill(parseInt(b.getAttribute("data-drill"),10));};})(dr[d]);
     var fb=root.querySelectorAll("[data-feel]");
@@ -1299,7 +1445,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,sparkBars:sparkBars,sparkLine:sparkLine};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,sparkBars:sparkBars,sparkLine:sparkLine,MAPS:MAPS};
 })();
 </script>
 </body>
