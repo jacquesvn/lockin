@@ -350,7 +350,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.9.0";
+  var VERSION="0.9.1";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -368,19 +368,19 @@
     cstrafe:{name:"Counter-strafing",why:"Your rifle regains accuracy the instant you slow below ~34% of top speed — a counter-strafe gets you there instantly (not a dead stop, just a slow walk). Highest-leverage fix up to the mid ranks; it matters less at the very top.",drills:[
       D("Peek-stop-tap","aim_botz + cl_showpos — peek, counter-strafe, fire as you stop","velocity under ~34% max at the shot",8,true),
       D("Stop-then-shoot","Recoil Master — A-stop-fire / D-stop-fire, both directions","first bullet inside the head circle",7,true),
-      D("20 wide-peek stops","swing wide, plant, one-tap — 10 each side","clean plant before every shot",5,false)]},
+      D("Duels under fire","Aim Arena or Training 01 combat — the bots shoot back, so you have to strafe, stop, then shoot","stopped before every shot, even while being shot at",5,false)]},
     consistency:{name:"Aim consistency",why:"Your aim's already there on good nights. The job is a routine that makes it show up every night — not new skill.",drills:[
-      D("Fixed warm-up","identical routine, same order, every session","completed before anything else",10,true),
-      D("100 micro-adjust one-taps","aim_botz headshot-only — settle, confirm, click","slow + clean beats fast + sloppy",6,true),
-      D("Stop-discipline DM","5 min deathmatch — stop before every shot","zero moving shots",5,false)]},
+      D("Fixed warm-up","CST Labs or Aim Arena — same modes, same order, every session","completed before anything else",10,true),
+      D("100 micro-adjust one-taps","aim_botz headshot-only, or the CS2 Labs fast-micro-adjust mode — settle, confirm, click","slow + clean beats fast + sloppy",6,true),
+      D("Reaction baseline","Aim Training Reflex Dots — reaction mode, note the average","same ballpark as usual = you are warm; slower = keep warming up",4,false)]},
     placement:{name:"Crosshair placement",why:"Keep the dot at head height and pre-aimed, so you win the first shot before it's a fight.",drills:[
-      D("Prefire lines","Yprac Prefire — pre-aim the common angles","head height through the whole route",8,true),
+      D("Prefire lines","Yprac Prefire, or a timed prefire course for your map — the clock makes clean-and-fast measurable","head height the whole route, time dropping week to week",8,true),
       D("Head-height resets","aim_botz — re-place to head level between taps","no floor-aiming between kills",6,true),
-      D("Map walk","walk your main map, crosshair riding each angle","pre-aimed before the angle opens",5,false)]},
+      D("Randomised prefire","Aim Arena prefire — bots land on common angles at random, so you cannot memorise a line","pre-aimed before the angle opens, not after",5,false)]},
     spray:{name:"Spray / recoil",why:"Learn the pattern so your held sprays land instead of leaking off target.",drills:[
       D("AK / M4 patterns","Recoil Master — guided pattern reps","grouping tightens set to set",8,true),
-      D("Spray transfers","aim_botz — drag through 2–3 bots","second kill inside the same spray",6,true),
-      D("Range bursts","4–6 round bursts at distance","burst lands inside the ring",5,false)]},
+      D("Spray transfers","aim_botz, or Reflex Dots burst-and-spray with hits-to-kill raised","second kill inside the same spray",6,true),
+      D("Range bursts","Reflex Dots — push the distance out and shrink the target","burst lands inside the ring",5,false)]},
     utility:{name:"Utility",why:"Good util wins duels before they're duels — fewer coinflips, more rounds on your terms.",drills:[
       D("5 core smokes","your best map — own server or Yprac","5/5 land without checking lineups",8,true),
       D("2 entry pop-flashes","flashes that support YOUR entries","peek lands before the flash fades",6,true),
@@ -390,21 +390,25 @@
       D("Pro POV study","watch your role on your map","note 3 positions you never use",8,true),
       D("Off-angle setups","set crossfires, not head-on holds","first contact on your terms",5,false)]},
     clutch:{name:"Clutch craft",why:"Clutches are won on info, isolation and time — all trainable, not luck.",drills:[
-      D("Retake 1vX reps","retake servers — post-plant situations","isolate one fight at a time",10,true),
+      D("Retake 1vX reps","retake servers, or Training 01 combat offline — the bots shoot back, so you must isolate","isolate one fight at a time",10,true),
       D("Clock craft","play the timer — fake defuse, sound baits","win by time, not just aim",6,true),
       D("Sound-only reads","call positions from audio before peeking","read confirmed on the peek",5,false)]},
     entry:{name:"Opening duels",why:"Win the opening pick on your terms, not on a 50/50 wide-swing.",drills:[
-      D("Opening-angle prefires","the common first-contact angles","first bullet already on the head",8,true),
+      D("Opening-angle prefires","Aim Arena prefire or a timed prefire course — the first-contact angles","first bullet already on the head",8,true),
       D("Info jiggles","shoulder-peek to bait, then commit","info first, duel second",5,true),
-      D("Trade timing","with a duo or bots — die traded, never alone","refrag inside 2 seconds",6,false)]},
+      D("Trade timing","with a duo, or Training 01 rush for the pressure — die traded, never alone","refrag inside 2 seconds",6,false)]},
     awp:{name:"AWP",why:"The AWP needs a near-full stop to be pinpoint — stricter than rifles — so counter-strafe into the shot; add repeek so a miss isn't a death.",drills:[
-      D("One-taps → flicks","aim_botz — statics first, then flicks","hit rate over speed",8,true),
+      D("One-taps → flicks","aim_botz statics, then Target Training moving dots at 0.5 scale — aim where it is going, not where it is","hit rate over speed",8,true),
       D("Stop-into-shot","counter-strafe into the scoped shot","near-full stop before the click",6,true),
       D("Repeek discipline","shot → reposition → new angle","never re-peek the same pixel",5,false)]},
     rifle:{name:"Rifling",why:"A reliable rifle so you stop bleeding the rounds you can't play for picks.",drills:[
       D("Pattern reps","Recoil Master — AK / M4","grouping tightens set to set",8,true),
       D("Transfers","multi-bot spray transfers","second kill in the spray",6,true),
-      D("Prefire angles","Yprac — your main map","head-height the whole route",5,false)]},
+      D("Prefire angles","Yprac or a timed prefire course — your main map","head-height the whole route, time improving",5,false)]},
+    movement:{name:"Movement",why:"Clean air-strafes and efficient jump pathing get you between fights faster and make you harder to hit inside them — and a peek you do not have to think about is a peek you win.",drills:[
+      D("Air-strafe laps","Movement Mirage — jump the objects and hold the strafe through every corner","no speed lost on the turns",8,true),
+      D("Jump pathing","Movement Hub time trial — follow the guide line, then beat your own time","same route, faster each session",7,true),
+      D("Crouch-jump timings","CST Labs, or the climb / bhop section in Aim Arena","land it five in a row before you move on",5,false)]},
     match:{name:"Match night",why:"",drills:[
       D("Full warm-up first","the fixed routine before you queue","no cold queues",10,true),
       D("One process goal","e.g. stop before every shot","graded on the goal, not the scoreboard",1,true),
@@ -413,7 +417,7 @@
     rest:{name:"Rest",why:"",drills:[
       D("Rest day","recovery is part of consistency — nothing required","come back tomorrow",0,false)]}
   };
-  var KEYSTONE_ORDER=["cstrafe","consistency","placement","spray","utility","positioning","clutch","entry"];
+  var KEYSTONE_ORDER=["cstrafe","consistency","placement","spray","utility","positioning","movement","clutch","entry"];
 
   /* ---------- map prep (Active Duty, verified Jul 2026: Mirage, Dust II, Inferno, Nuke, Ancient, Anubis, Cache) ----------
      These are the utility JOBS and prefire routes that decide each map — deliberately NOT lineups.
@@ -497,7 +501,7 @@
     {id:"rank",q:"Where are you roughly?",hint:"Sets the language and how hard we push.",multi:false,opts:[["new","New / Silver (under ~10k)"],["mid","Mid (10–15k)"],["good","Good (15–20k)"],["high","High (20k+)"],["unsure","Not sure"]]},
     {id:"weapon",q:"What do you main?",hint:"",multi:false,opts:[["awp","AWP"],["rifle","Rifles"],["both","A bit of both"]]},
     {id:"role",q:"Your role in a team?",hint:"",multi:false,opts:[["entry","Entry / aggressive"],["lurk","Lurk / solo"],["support","Support / anchor"],["igl","IGL / caller"],["unsure","Not sure"]]},
-    {id:"weak",q:"What lets you down most?",hint:"Pick any that ring true — this drives your plan.",multi:true,opts:[["consistency","Inconsistent night to night"],["spray","Spray / recoil control"],["cstrafe","Moving when I shoot"],["placement","Crosshair placement"],["utility","Utility (smokes/flashes)"],["positioning","Positioning / game sense"],["clutch","Clutching under pressure"],["entry","Getting opening kills"]]},
+    {id:"weak",q:"What lets you down most?",hint:"Pick any that ring true — this drives your plan.",multi:true,opts:[["consistency","Inconsistent night to night"],["spray","Spray / recoil control"],["cstrafe","Moving when I shoot"],["placement","Crosshair placement"],["movement","Movement / air-strafing"],["utility","Utility (smokes/flashes)"],["positioning","Positioning / game sense"],["clutch","Clutching under pressure"],["entry","Getting opening kills"]]},
     {id:"time",q:"Time per training day?",hint:"Be honest — a plan you'll actually do beats a perfect one you won't.",multi:false,opts:[["10","10–15 min"],["30","20–30 min"],["45","45+ min"]]},
     {id:"days",q:"Days a week you can train?",hint:"Weekdays, around real life.",multi:false,opts:[["2","1–2"],["4","3–4"],["5","5+"]]},
     {id:"goal",q:"Your #1 goal right now?",hint:"",multi:false,opts:[["consistency","Just be consistent"],["rank","Climb the rank"],["aim","Sharpen my aim"],["sense","Game sense / utility"],["fun","More fun, less tilt"]]}
@@ -513,7 +517,7 @@
     var keystone=null;
     // Rank-aware: above ~20k counter-strafing plateaus (~78%) and stops differentiating;
     // crosshair placement keeps separating players. So de-prioritise cstrafe for high rank.
-    var order=(p.rank==="high")?["placement","consistency","spray","utility","positioning","clutch","entry","cstrafe"]:KEYSTONE_ORDER;
+    var order=(p.rank==="high")?["placement","consistency","spray","utility","positioning","movement","clutch","entry","cstrafe"]:KEYSTONE_ORDER;
     for(var i=0;i<order.length;i++){if(weak.indexOf(order[i])>=0){keystone=order[i];break;}}
     if(!keystone)keystone=(p.goal==="consistency")?"consistency":(p.goal==="sense")?"positioning":(p.goal==="aim")?"placement":(p.rank==="high"?"placement":"cstrafe");
     var weaponFoci=p.weapon==="awp"?["awp"]:p.weapon==="rifle"?["rifle"]:["awp","rifle"];
@@ -548,6 +552,7 @@
       spray:["Spray accuracy %","Held sprays that land, not leak."],
       utility:["Utility rating","Above your bracket — more rounds won before the aim-duel."],
       positioning:["Deaths / round","Fewer avoidable deaths — check your demos."],
+      movement:["Jump-course best time","Your own time on the same route — the honest movement metric. Leetify does not track this one."],
       clutch:["Clutch rating","Win the rounds that swing games."],
       entry:["Opening-duel win %","Positive — win the pick on your terms."]};
     t.push({n:m[keystone][0],h:m[keystone][1]});
@@ -1014,7 +1019,12 @@
       '<div class="mh" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span class="mname">Your practice-server config</span><button class="btncopy" data-copy="1">COPY</button></div>'+
       '<pre class="pcfg" id="pcfg">'+esc(cfg)+'</pre>'+
       '<p class="mhow" style="margin-top:9px;">Load it on a local map (<code>map de_mirage</code>, then <code>bot_kick</code>) for unlimited nade + prefire reps with trajectories on. CS2 command names shift between patches — if the console rejects one, check its current spelling.</p>'+
-      '<p class="mhow" style="margin-top:8px;">Free workshop maps to subscribe on Steam Workshop: <b style="color:var(--text);">aim_botz</b> · <b style="color:var(--text);">Recoil Master</b> · <b style="color:var(--text);">Yprac Prefire</b> (one per map).</p></div>';
+      '<div class="divi" style="margin-top:16px;"><span class="ml">THE WORKSHOP KIT</span></div>'+
+      '<p class="mhow" style="margin-top:0;"><b style="color:var(--text);">Aim &amp; warm-up</b> — aim_botz · Recoil Master · Aim Arena · CST Labs · CS2 Labs · Reflex Training · Target Training · Aim Training Reflex Dots · Training 01</p>'+
+      '<p class="mhow" style="margin-top:7px;"><b style="color:var(--text);">Prefire</b> — Yprac Prefire (one per map) · Aim Arena prefire (randomised) · timed prefire courses (one per map)</p>'+
+      '<p class="mhow" style="margin-top:7px;"><b style="color:var(--text);">Movement</b> — Movement Mirage · Movement Hub · the climb / bhop sections in Aim Arena and CST Labs</p>'+
+      '<p class="mhow" style="margin-top:7px;"><b style="color:var(--text);">When training feels like a chore</b> — Fruit Ninja. Still aim training, just disguised.</p>'+
+      '<p class="help" style="margin-top:9px;">All free on the Steam Workshop — search the name. Where a title has several versions, take the one with the most subscribers. You do not need all of these: one all-in-one (Aim Arena or CST Labs) plus a prefire map for your main covers most of the plan.</p></div>';
   }
 
   /* ---------- PROGRESS: calendar + Leetify checkpoints ---------- */

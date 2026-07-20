@@ -47,12 +47,13 @@ vm.createContext(sandbox);
 vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
-        dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, sparkBars, sparkLine, MAPS } = sandbox.module.exports;
+        dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, sparkBars, sparkLine, MAPS,
+        buildTargets } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
 
-const KEYS = ['cstrafe','consistency','placement','spray','utility','positioning','clutch','entry','awp','rifle','match','rest'];
+const KEYS = ['cstrafe','consistency','placement','spray','utility','positioning','movement','clutch','entry','awp','rifle','match','rest'];
 function validWeekly(pl) {
   if (pl.weekly[0] !== 'rest' || pl.weekly[5] !== 'match' || pl.weekly[6] !== 'match') return false;
   for (var d = 1; d <= 4; d++) { if (KEYS.indexOf(pl.weekly[d]) < 0) return false; }
@@ -91,7 +92,7 @@ ok('high [cstrafe] only -> cstrafe (sole weakness)', generatePlan({ rank:'high',
 ok('high no-weak goal=rank -> placement', generatePlan({ rank:'high', weapon:'awp', weak:[], time:'10', days:'4', goal:'rank' }).keystone === 'placement');
 ok('mid [cstrafe,placement] -> cstrafe (unchanged)', generatePlan({ rank:'mid', weapon:'rifle', weak:['cstrafe','placement'], time:'30', days:'4', goal:'aim' }).keystone === 'cstrafe');
 
-['cstrafe','consistency','placement','spray','utility','positioning','clutch','entry'].forEach(function (w) {
+['cstrafe','consistency','placement','spray','utility','positioning','movement','clutch','entry'].forEach(function (w) {
   var P = generatePlan({ rank:'mid', weapon:'rifle', weak:[w], time:'30', days:'4', goal:'aim' });
   ok("weak '" + w + "' -> keystone + valid weekly", P.keystone === w && validWeekly(P));
 });
@@ -157,6 +158,27 @@ ok('drillList preserves original drill indices', (function () {
   var lite = drillList(FOCI.cstrafe, { profile: { time: '10' } });
   return lite.every(function (it) { return FOCI.cstrafe.drills[it.i] === it.d; });
 })());
+
+// --- v0.9.1: movement focus + workshop-map drills ---
+ok('movement focus exists with drills', !!(FOCI.movement && FOCI.movement.name && FOCI.movement.drills.length >= 3));
+ok('movement keystone builds a plan with a target (buildTargets must not throw)', (function () {
+  var P = generatePlan({ rank:'mid', weapon:'rifle', weak:['movement'], time:'30', days:'4', goal:'aim' });
+  return P.keystone === 'movement' && P.targets.length >= 2 && P.targets.every(function (t) { return t.n && t.h; });
+})());
+ok('every FOCI key has a buildTargets entry (no keystone can crash)', (function () {
+  return ['cstrafe','consistency','placement','spray','utility','positioning','movement','clutch','entry']
+    .every(function (k) { try { return buildTargets(k, ['awp']).length >= 2; } catch (e) { return false; } });
+})());
+ok('drills now reference the workshop kit', (function () {
+  var all = Object.keys(FOCI).map(function (k) {
+    return FOCI[k].drills.map(function (d) { return d.sub; }).join(' ');
+  }).join(' ');
+  return ['Aim Arena','Training 01','Movement Mirage','Movement Hub','Target Training','Reflex Dots','CST Labs','CS2 Labs']
+    .every(function (m) { return all.indexOf(m) >= 0; });
+})());
+ok('every drill still has text, measure and duration', Object.keys(FOCI).every(function (k) {
+  return FOCI[k].drills.every(function (d) { return d.t && d.m && typeof d.dur === 'number'; });
+}));
 
 // --- v0.8: map prep library (Active Duty pool verified Jul 2026) ---
 var MAPIDS = MAPS.map(function (m) { return m.id; });
