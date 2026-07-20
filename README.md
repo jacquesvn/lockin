@@ -53,7 +53,7 @@ a tray icon and a daily "go train" nudge.
 | **Web / PWA** | [jacquesvn.github.io/lockin](https://jacquesvn.github.io/lockin/) — works offline, "Install app" to keep it |
 | **Single file** | Download `docs/index.html`, double-click. No server, no install, nothing else needed. |
 | **Desktop** | Grab the installer from the [latest release](../../releases) — adds the tray, native reminders, and self-updating |
-| **Docker** | `docker build -t lockin . && docker run -d -p 8080:80 lockin` |
+| **Self-host** | `docs/` is a static folder — serve it with anything (`npx serve docs`, nginx, any static host) |
 
 The installer isn't code-signed, so Windows SmartScreen may warn on first run:
 **More info → Run anyway**. From v0.9.1 the desktop app updates itself, so that's a
