@@ -353,7 +353,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.9.4";
+  var VERSION="0.9.5";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -1531,7 +1531,21 @@
   if(isNative||("Notification" in window))setInterval(reminderTick,30000);
   // quiet auto-check shortly after launch; failures stay silent (offline is normal, not an error)
   if(isNative)setTimeout(function(){checkUpdate(false);},4000);
-  if('serviceWorker' in navigator && location.protocol.indexOf('http')===0 && !isNative){
+  // A stale service worker in the DESKTOP webview is catastrophic: it shadows every future
+  // build and survives reinstalls (that's what trapped the app on v1 — see the v0.9.4 self-heal).
+  // So this is checked two independent ways. isNative depends on window.__TAURI__ having loaded;
+  // the Tauri ORIGIN is knowable synchronously from location, so an injection race can't re-arm it.
+  function isTauriOrigin(loc){
+    var h=(loc&&loc.hostname)||"", p=(loc&&loc.protocol)||"";
+    return h==="tauri.localhost"||h==="tauri"||p==="tauri:";
+  }
+  function shouldRegisterSW(nav,loc,native){
+    if(!nav||!("serviceWorker" in nav))return false;   // unsupported
+    if(native)return false;                            // desktop bridge present
+    if(isTauriOrigin(loc))return false;                // desktop origin, even if the bridge hasn't loaded
+    return String((loc&&loc.protocol)||"").indexOf("http")===0;
+  }
+  if(shouldRegisterSW(navigator,location,isNative)){
     var hadController=!!navigator.serviceWorker.controller, refreshing=false;
     window.addEventListener('load',function(){navigator.serviceWorker.register('service-worker.js').catch(function(){});});
     navigator.serviceWorker.addEventListener('controllerchange',function(){
@@ -1539,7 +1553,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,sparkBars:sparkBars,sparkLine:sparkLine,MAPS:MAPS};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,sparkBars:sparkBars,sparkLine:sparkLine,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin};
 })();
 </script>
 </body>

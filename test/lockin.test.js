@@ -48,7 +48,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, sparkBars, sparkLine, MAPS,
-        buildTargets } = sandbox.module.exports;
+        buildTargets, shouldRegisterSW, isTauriOrigin } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -158,6 +158,27 @@ ok('drillList preserves original drill indices', (function () {
   var lite = drillList(FOCI.cstrafe, { profile: { time: '10' } });
   return lite.every(function (it) { return FOCI.cstrafe.drills[it.i] === it.d; });
 })());
+
+// --- v0.9.5: never register a service worker in the desktop webview ---
+// A stale SW there shadows every future build and survives reinstalls. It trapped the app on v1
+// for months. These lock the invariant so it can never regress.
+var NAV = { serviceWorker: {} };
+ok('SW registers on a normal https web origin',
+  shouldRegisterSW(NAV, { protocol: 'https:', hostname: 'jacquesvn.github.io' }, false) === true);
+ok('SW never registers when the Tauri bridge is present',
+  shouldRegisterSW(NAV, { protocol: 'http:', hostname: 'tauri.localhost' }, true) === false);
+ok('SW never registers on the Tauri origin EVEN IF __TAURI__ has not loaded yet (the race)',
+  shouldRegisterSW(NAV, { protocol: 'http:', hostname: 'tauri.localhost' }, false) === false);
+ok('SW never registers under the tauri: protocol (macOS/linux form)',
+  shouldRegisterSW(NAV, { protocol: 'tauri:', hostname: 'localhost' }, false) === false);
+ok('SW does not register from file://',
+  shouldRegisterSW(NAV, { protocol: 'file:', hostname: '' }, false) === false);
+ok('SW does not register where unsupported',
+  shouldRegisterSW({}, { protocol: 'https:', hostname: 'example.com' }, false) === false);
+ok('isTauriOrigin recognises the desktop origins',
+  isTauriOrigin({ hostname: 'tauri.localhost', protocol: 'http:' }) &&
+  isTauriOrigin({ hostname: 'x', protocol: 'tauri:' }) &&
+  !isTauriOrigin({ hostname: 'jacquesvn.github.io', protocol: 'https:' }));
 
 // --- v0.9.1: movement focus + workshop-map drills ---
 ok('movement focus exists with drills', !!(FOCI.movement && FOCI.movement.name && FOCI.movement.drills.length >= 3));
