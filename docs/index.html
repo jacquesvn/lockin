@@ -350,7 +350,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.8.1";
+  var VERSION="0.8.2";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -1447,6 +1447,21 @@
     celeKey=function(e){if(e.key==="Escape"||e.key==="Enter"||e.key===" ")done();};
     document.addEventListener("keydown",celeKey);
   }
+
+  /* ---------- last-resort failure surface ----------
+     The desktop app has no devtools, so an uncaught error used to leave a silent blank window
+     with nothing to report. If BOTH the app and the onboarding are empty, the user is staring at
+     nothing — take over with the recovery screen so the error names itself. */
+  function surfaceFailure(err){
+    try{
+      var app=document.getElementById("app"),main=document.getElementById("main"),ob=document.getElementById("onboard");
+      var appBlank=!main||!main.innerHTML.replace(/\s/g,"")||!app||app.style.display==="none";
+      var obBlank=!ob||!ob.innerHTML.replace(/\s/g,"")||ob.style.display==="none";
+      if(appBlank&&obBlank)renderRecovery(err);
+    }catch(_){}
+  }
+  window.addEventListener("error",function(e){surfaceFailure((e&&e.error)||(e&&e.message));});
+  window.addEventListener("unhandledrejection",function(e){surfaceFailure(e&&e.reason);});
 
   /* ---------- init ---------- */
   (function(){
