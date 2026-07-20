@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Lockin",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "identifier": "gg.lockin.desktop",
   "build": {
     "frontendDist": "../docs"
@@ -11,8 +11,8 @@
     "windows": [
       {
         "title": "Lockin — your pocket CS2 coach",
-        "width": 680,
-        "height": 920,
+        "width": 1040,
+        "height": 880,
         "minWidth": 380,
         "minHeight": 600
       }

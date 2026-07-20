@@ -353,7 +353,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.9.2";
+  var VERSION="0.9.3";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -793,7 +793,7 @@
     screen=scr||"today";
     document.getElementById("onboard").style.display="none";
     document.getElementById("app").style.display="";
-    document.getElementById("tabbar").style.display="flex";
+    document.getElementById("tabbar").style.display="";   // let the breakpoint decide: tabs on mobile, sidebar on desktop
     render();
   }
   function go(s){screen=s;render();}
@@ -833,7 +833,7 @@
   function renderRecovery(err){
     try{if(window.console)console.warn("Lockin render failed:",err);}catch(_){}
     var app=document.getElementById("app"),tb=document.getElementById("tabbar"),ob=document.getElementById("onboard");
-    if(ob)ob.style.display="none";if(app)app.style.display="";if(tb)tb.style.display="flex";
+    if(ob)ob.style.display="none";if(app)app.style.display="";if(tb)tb.style.display="";
     var main=document.getElementById("main");
     main.innerHTML='<div class="hd"><div><div class="ml" style="color:var(--bad);">DATA PROBLEM</div><h1 class="dsp">RECOVER</h1></div></div>'+
       '<div class="card rulecard"><div class="ml" style="color:var(--hero-ink);">WE HIT A SNAG</div>'+
