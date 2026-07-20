@@ -350,7 +350,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.8.0";
+  var VERSION="0.8.1";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -658,8 +658,16 @@
   }
 
   /* ---------- onboarding ---------- */
+  // error boundary: renderOnboard hides #app on its first line, so any throw after that
+  // would leave a blank screen. Route failures to the recovery screen instead.
   function renderOnboard(){
+    try{renderOnboardBody();}
+    catch(err){renderRecovery(err);}
+  }
+  function renderOnboardBody(){
     var host=document.getElementById("onboard");
+    if(!(step>=0))step=0;
+    if(step>QUIZ.length)step=QUIZ.length;       // never index past the quiz
     document.getElementById("app").style.display="none";
     document.getElementById("tabbar").style.display="none";
     host.style.display="block";
@@ -741,8 +749,16 @@
     render();
   }
   function go(s){screen=s;render();}
+  // some webviews (Tauri/WebView2) block or async-ify window.confirm; a missing dialog must not
+  // silently swallow this non-destructive action (your streak and sessions are kept either way).
+  function confirmRetake(msg){
+    try{var r=window.confirm(msg);
+      if(r&&typeof r.then==="function")return true;   // async native dialog — proceed
+      return r!==false;                                // undefined/blocked — proceed
+    }catch(e){return true;}
+  }
   function retake(){
-    if(!confirm("Retake the quiz and rebuild your plan? Your streak stays."))return;
+    if(!confirmRetake("Retake the quiz and rebuild your plan? Your streak stays."))return;
     var st=load();answers=st.plan?JSON.parse(JSON.stringify(st.plan.profile)):{};
     if(answers.weak&&!Array.isArray(answers.weak))answers.weak=[];
     step=1;revealed=null;generating=false;
@@ -774,6 +790,7 @@
     main.innerHTML='<div class="hd"><div><div class="ml" style="color:var(--bad);">DATA PROBLEM</div><h1 class="dsp">RECOVER</h1></div></div>'+
       '<div class="card rulecard"><div class="ml" style="color:var(--hero-ink);">WE HIT A SNAG</div>'+
       '<p>Your saved data couldn’t be displayed — usually a bad imported backup. Nothing is deleted. Export a copy, or rebuild your plan from the quiz.</p>'+
+      (err?'<p class="mhow" style="margin-top:10px;">Details: <code>'+esc(String((err&&err.message)||err).slice(0,200))+'</code></p>':'')+
       '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;"><button class="pbtn" data-rec="export">EXPORT MY DATA</button><button class="gbtn" data-rec="reset">REBUILD MY PLAN</button></div></div>';
     var ex=main.querySelector('[data-rec="export"]');if(ex)ex.onclick=exportData;
     var rs=main.querySelector('[data-rec="reset"]');if(rs)rs.onclick=function(){
