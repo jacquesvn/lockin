@@ -350,7 +350,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.8.2";
+  var VERSION="0.9.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -643,6 +643,46 @@
     if(isNative){nativeNotify(body);return;}
     try{if(notifyGranted())new window.Notification("Lockin",{body:body,icon:"icon-192.png"});}catch(e){}
   }
+  /* ---------- desktop auto-update (Tauri) ---------- */
+  var UPD={state:"idle",version:null,error:null};   // idle | checking | available | current | installing | error
+  function checkUpdate(manual){
+    if(!isNative||UPD.state==="checking"||UPD.state==="installing")return;
+    UPD.state="checking";UPD.error=null;if(manual)render();
+    TAURI.core.invoke("check_update").then(function(v){
+      if(v){UPD.state="available";UPD.version=v;}
+      else{UPD.state="current";UPD.version=null;}
+      render();
+    },function(e){UPD.state="error";UPD.error=String(e);if(manual)render();else UPD.state="idle";});
+  }
+  function installUpdate(){
+    if(!isNative||UPD.state==="installing")return;
+    UPD.state="installing";render();
+    // on success the app relaunches into the new version, so this promise usually never resolves
+    TAURI.core.invoke("install_update").then(function(){},function(e){
+      UPD.state="error";UPD.error=String(e);render();});
+  }
+  function updateSec(){
+    if(!isNative)return "";
+    var body;
+    if(UPD.state==="checking")body='<div class="help">Checking…</div>';
+    else if(UPD.state==="available")body='<div class="mname">Version '+esc(UPD.version)+' is available</div>'+
+      '<div class="help" style="margin-top:2px;">Downloads and relaunches Lockin. Your data is untouched.</div>'+
+      '<button class="pbtn" data-updinstall="1" style="margin-top:11px;">INSTALL &amp; RESTART</button>';
+    else if(UPD.state==="installing")body='<div class="mname">Installing…</div><div class="help" style="margin-top:2px;">Lockin will relaunch on its own.</div>';
+    else if(UPD.state==="current")body='<div class="help">You’re on the latest version.</div><button class="btncopy" data-updcheck="1" style="margin-top:11px;">CHECK AGAIN</button>';
+    else if(UPD.state==="error")body='<div class="help" style="color:var(--bad);">Couldn’t check: '+esc(UPD.error||"unknown error")+'</div><button class="btncopy" data-updcheck="1" style="margin-top:11px;">TRY AGAIN</button>';
+    else body='<button class="btncopy" data-updcheck="1">CHECK FOR UPDATES</button>';
+    return '<div class="divi"><span class="ml">UPDATES · DESKTOP</span></div>'+
+      '<div class="card"><div class="ml" style="color:var(--faint);">CURRENT · v'+VERSION+'</div>'+
+      '<div style="margin-top:8px;">'+body+'</div></div>';
+  }
+  function updateBanner(){
+    if(!isNative||UPD.state!=="available")return "";
+    return '<button class="cuebar prompt" data-go="setup" style="border-color:var(--hero-ink);">'+
+      '<span class="ml" style="color:var(--hero-ink);">⬆ UPDATE AVAILABLE · v'+esc(UPD.version)+'</span>'+
+      '<span>Install it from Setup — takes a few seconds and keeps your streak.</span></button>';
+  }
+
   function reminderTick(){
     if(!isNative&&!notifyGranted())return;
     var st=load(),r=st.settings.reminder;
@@ -906,7 +946,7 @@
         '<div class="card rulecard" style="margin-top:12px;"><div class="ml" style="color:var(--hero);">THE RULE</div>'+
         '<p>Ten focused minutes beats a skipped hour. Tick one drill and today counts.</p></div></div></div>';
     }
-    return hd+hero+cuebar+body+'<div class="motto">LOCKIN · TEN FOCUSED MINUTES BEATS A SKIPPED HOUR</div>';
+    return hd+hero+updateBanner()+cuebar+body+'<div class="motto">LOCKIN · TEN FOCUSED MINUTES BEATS A SKIPPED HOUR</div>';
   }
 
   /* ---------- PLAN ---------- */
@@ -1211,7 +1251,7 @@
       '<button class="datarow" data-act="reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span>Erase all data<small>Delete everything and start over — can’t be undone</small></span></button>'+
       '<input type="file" id="impF" accept="application/json" style="display:none;"></div>'+
       (storageOk?'':'<div class="ml" style="color:var(--bad);margin-top:8px;">⚠ STORAGE BLOCKED — EXPORT TO KEEP YOUR DATA</div>');
-    return hd+prof+cueSec+loadoutSec(st)+app+remSec+data+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
+    return hd+prof+cueSec+loadoutSec(st)+app+remSec+updateSec()+data+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
   }
 
   /* ---------- interactions ---------- */
@@ -1287,6 +1327,10 @@
       var lo=(load().settings.loadout)||{};copyText(lo[b.getAttribute("data-locopy")]||"",b);};})(lcp[lci]);
     var shc=root.querySelector("[data-sharecard]");
     if(shc)shc.onclick=function(){shareCard(load());};
+    var uck=root.querySelector("[data-updcheck]");
+    if(uck)uck.onclick=function(){checkUpdate(true);};
+    var uin=root.querySelector("[data-updinstall]");
+    if(uin)uin.onclick=installUpdate;
     /* ---- v0.8 map prep ---- */
     var mch=root.querySelectorAll("[data-map]");
     for(var mci=0;mci<mch.length;mci++)(function(b){b.onclick=function(){
@@ -1469,6 +1513,8 @@
     if(st.plan)boot("today");else renderOnboard();
   })();
   if(isNative||("Notification" in window))setInterval(reminderTick,30000);
+  // quiet auto-check shortly after launch; failures stay silent (offline is normal, not an error)
+  if(isNative)setTimeout(function(){checkUpdate(false);},4000);
   if('serviceWorker' in navigator && location.protocol.indexOf('http')===0 && !isNative){
     var hadController=!!navigator.serviceWorker.controller, refreshing=false;
     window.addEventListener('load',function(){navigator.serviceWorker.register('service-worker.js').catch(function(){});});

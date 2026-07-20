@@ -5,6 +5,7 @@ use tauri::{
 };
 use tauri_plugin_autostart::{ManagerExt as _, MacosLauncher};
 use tauri_plugin_notification::NotificationExt;
+use tauri_plugin_updater::UpdaterExt;
 
 // Fire a native OS notification. Wrapping the plugin in our own command means the
 // frontend only calls a normal app command (no plugin-permission ACL needed).
@@ -31,6 +32,29 @@ fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     }
 }
 
+// Is a newer release published? Returns Some(version) or None. Wrapped as an app command so the
+// frontend needs no plugin ACL (same pattern as notify/set_autostart).
+#[tauri::command]
+async fn check_update(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    let found = updater.check().await.map_err(|e| e.to_string())?;
+    Ok(found.map(|u| u.version))
+}
+
+// Download + install the pending update, then relaunch into the new version.
+#[tauri::command]
+async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    if let Some(update) = updater.check().await.map_err(|e| e.to_string())? {
+        update
+            .download_and_install(|_chunk, _total| {}, || {})
+            .await
+            .map_err(|e| e.to_string())?;
+        app.restart();
+    }
+    Ok(())
+}
+
 fn show_main(app: &tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
@@ -49,7 +73,13 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
-        .invoke_handler(tauri::generate_handler![notify, set_autostart])
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .invoke_handler(tauri::generate_handler![
+            notify,
+            set_autostart,
+            check_update,
+            install_update
+        ])
         .setup(|app| {
             let show = MenuItem::with_id(app, "show", "Open Lockin", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
