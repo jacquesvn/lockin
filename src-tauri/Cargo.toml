@@ -13,6 +13,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# generate_context! expands the updater config and emits serde_json paths, so the app crate
+# must declare these directly even though tauri already depends on them.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-notification = "2"
 tauri-plugin-autostart = "2"
