@@ -108,6 +108,24 @@ pub fn run() {
                 tb = tb.icon(icon.clone());
             }
             tb.build(app)?;
+
+            // SELF-HEAL: early desktop builds registered a service worker at tauri.localhost.
+            // Being cache-first, it then served that old app forever — surviving every reinstall,
+            // and refusing to serve the very code that stopped registering it. The frontend can't
+            // escape that on its own, so break the loop from the native side: unregister any SW,
+            // drop its caches, and reload into the real bundled app. No-ops on a clean install,
+            // and never touches localStorage, so streaks and plans are preserved.
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.eval(
+                    "(function(){try{if(!navigator.serviceWorker)return;\
+navigator.serviceWorker.getRegistrations().then(function(rs){\
+if(!rs.length)return;\
+Promise.all(rs.map(function(r){return r.unregister();}))\
+.then(function(){return caches.keys();})\
+.then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k);}));})\
+.then(function(){location.reload(true);});});}catch(e){}})()",
+                );
+            }
             Ok(())
         })
         // Closing the window hides it to the tray (so the reminder timer keeps running).
