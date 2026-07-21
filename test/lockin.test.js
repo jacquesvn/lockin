@@ -48,7 +48,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, sparkBars, sparkLine, MAPS,
-        buildTargets, shouldRegisterSW, isTauriOrigin } = sandbox.module.exports;
+        buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -157,6 +157,31 @@ ok('drillList lite tier is core-only and shorter', (function () {
 ok('drillList preserves original drill indices', (function () {
   var lite = drillList(FOCI.cstrafe, { profile: { time: '10' } });
   return lite.every(function (it) { return FOCI.cstrafe.drills[it.i] === it.d; });
+})());
+
+// --- v0.10: cues, rules, calm reset, coach protocols ---
+ok('every training drill carries a cue', (function () {
+  var skip = { match: 1, rest: 1 };
+  return Object.keys(FOCI).filter(function (k) { return !skip[k]; })
+    .every(function (k) { return FOCI[k].drills.every(function (d) { return d.cue && d.cue.length > 3; }); });
+})());
+ok('drill model keeps cue and rule as strings (never undefined)', Object.keys(FOCI).every(function (k) {
+  return FOCI[k].drills.every(function (d) { return typeof d.cue === 'string' && typeof d.rule === 'string'; });
+}));
+ok('CALM reset exists and is non-core', !!(CALM && CALM.t && CALM.cue && CALM.core === false));
+ok('the protocol is well-formed', (function () {
+  if (!PROTOCOLS.length) return false;
+  var P = PROTOCOLS[0];
+  return P.id && P.name && P.by && P.model && P.after && P.blocks.length >= 8 &&
+         P.blocks.every(function (b) { return b.t && b.sub && b.m && typeof b.dur === 'number'; });
+})());
+ok('protocol runs 30-35 min as advertised', (function () {
+  var t = 0; PROTOCOLS[0].blocks.forEach(function (b) { t += b.dur || 0; });
+  return t >= 30 && t <= 35;
+})());
+ok('the protocol ends on the calm reset', (function () {
+  var b = PROTOCOLS[0].blocks;
+  return b[b.length - 1].t === CALM.t;
 })());
 
 // --- v0.9.5: never register a service worker in the desktop webview ---
