@@ -48,7 +48,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, sparkBars, sparkLine, MAPS,
-        buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay } = sandbox.module.exports;
+        buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -157,6 +157,35 @@ ok('drillList lite tier is core-only and shorter', (function () {
 ok('drillList preserves original drill indices', (function () {
   var lite = drillList(FOCI.cstrafe, { profile: { time: '10' } });
   return lite.every(function (it) { return FOCI.cstrafe.drills[it.i] === it.d; });
+})());
+
+// --- v0.10.2: rank language follows the platform the player actually uses ---
+ok('quiz asks which platform before asking rank', (function () {
+  var ids = QUIZ.map(function (q) { return q.id; });
+  return ids.indexOf('platform') >= 0 && ids.indexOf('platform') < ids.indexOf('rank');
+})());
+ok('rank options adapt to the chosen platform', (function () {
+  var rank = QUIZ.filter(function (q) { return q.id === 'rank'; })[0];
+  if (typeof rank.opts !== 'function') return false;
+  var f = rank.opts({ platform: 'faceit' }), pr = rank.opts({ platform: 'premier' }), es = rank.opts({ platform: 'esea' });
+  return /Level 7–8/.test(f[2][1]) && /15–20k/.test(pr[2][1]) && !/k|Level/.test(es[2][1]);
+})());
+ok('every platform still yields the same four rank VALUES the logic needs', (function () {
+  var rank = QUIZ.filter(function (q) { return q.id === 'rank'; })[0];
+  return ['premier','faceit','esea','mix','casual',undefined].every(function (pf) {
+    var vals = rank.opts({ platform: pf }).map(function (o) { return o[0]; });
+    return ['new','mid','good','high','unsure'].every(function (v) { return vals.indexOf(v) >= 0; });
+  });
+})());
+ok('rank label follows platform', rankLabel({ platform:'faceit', rank:'good' }) === 'LEVEL 7–8' &&
+   rankLabel({ platform:'premier', rank:'good' }) === '15–20K' &&
+   rankLabel({ platform:'esea', rank:'good' }) === 'SOLID');
+ok('a pre-platform profile still reads as Premier (what it answered against)',
+  rankLabel({ rank:'high' }) === '20K+');
+ok('bench hint flags that its numbers are Premier-derived off-platform', (function () {
+  var onPrem = benchHint('Counter-strafing %', { rank:'good', platform:'premier' });
+  var offPrem = benchHint('Counter-strafing %', { rank:'good', platform:'faceit' });
+  return onPrem.indexOf('Premier data') < 0 && offPrem.indexOf('Premier data') >= 0;
 })());
 
 // --- v0.10.1: match nights are the user's, not Fri/Sat by assumption ---

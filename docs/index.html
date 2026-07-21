@@ -359,7 +359,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.10.1";
+  var VERSION="0.10.2";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -534,7 +534,13 @@
   ];
 
   var QUIZ=[
-    {id:"rank",q:"Where are you roughly?",hint:"Sets the language and how hard we push.",multi:false,opts:[["new","New / Silver (under ~10k)"],["mid","Mid (10–15k)"],["good","Good (15–20k)"],["high","High (20k+)"],["unsure","Not sure"]]},
+    {id:"platform",q:"Where do you play?",hint:"So the next question uses ranks you actually recognise.",multi:false,opts:[["premier","CS2 Premier"],["faceit","FACEIT"],["esea","ESEA"],["mix","A mix of them"],["casual","Casual / just matchmaking"]]},
+    {id:"rank",q:"Where are you roughly?",hint:"Sets the language and how hard we push.",multi:false,opts:function(a){
+      var pf=a&&a.platform;
+      if(pf==="faceit")return [["new","Level 1–3 — still learning the basics"],["mid","Level 4–6 — you trade duels, but it swings"],["good","Level 7–8 — consistently useful"],["high","Level 9–10 — small edges decide games"],["unsure","Not sure"]];
+      if(pf==="premier")return [["new","Under ~10k — still learning the basics"],["mid","10–15k — you trade duels, but it swings"],["good","15–20k — consistently useful"],["high","20k+ — small edges decide games"],["unsure","Not sure"]];
+      return [["new","Still learning the basics — util, spray, callouts"],["mid","You trade duels, but it swings game to game"],["good","Consistently useful — you lose to fundamentals, not aim"],["high","Near the top — small edges decide games"],["unsure","Not sure"]];
+    }},
     {id:"weapon",q:"What do you main?",hint:"",multi:false,opts:[["awp","AWP"],["rifle","Rifles"],["both","A bit of both"]]},
     {id:"role",q:"Your role in a team?",hint:"",multi:false,opts:[["entry","Entry / aggressive"],["lurk","Lurk / solo"],["support","Support / anchor"],["igl","IGL / caller"],["unsure","Not sure"]]},
     {id:"weak",q:"What lets you down most?",hint:"Pick any that ring true — this drives your plan.",multi:true,opts:[["consistency","Inconsistent night to night"],["spray","Spray / recoil control"],["cstrafe","Moving when I shoot"],["placement","Crosshair placement"],["movement","Movement / air-strafing"],["utility","Utility (smokes/flashes)"],["positioning","Positioning / game sense"],["clutch","Clutching under pressure"],["entry","Getting opening kills"]]},
@@ -543,6 +549,13 @@
     {id:"goal",q:"Your #1 goal right now?",hint:"",multi:false,opts:[["consistency","Just be consistent"],["rank","Climb the rank"],["aim","Sharpen my aim"],["sense","Game sense / utility"],["fun","More fun, less tilt"]]}
   ];
   var RANKL={new:"UNDER 10K",mid:"10–15K",good:"15–20K",high:"20K+",unsure:"UNRANKED"};
+  var RANKL_FACEIT={new:"LEVEL 1–3",mid:"LEVEL 4–6",good:"LEVEL 7–8",high:"LEVEL 9–10",unsure:"UNRANKED"};
+  var RANKL_GENERIC={new:"STARTING OUT",mid:"MID",good:"SOLID",high:"HIGH",unsure:"UNRANKED"};
+  // a profile saved before the platform question existed answered against Premier brackets
+  function rankLabel(p){var pf=p&&p.platform,r=p&&p.rank;
+    if(pf==="faceit")return RANKL_FACEIT[r]||"";
+    if(pf&&pf!=="premier")return RANKL_GENERIC[r]||"";
+    return RANKL[r]||"";}
   var TIMEL={"10":"10–15 MIN","30":"20–30 MIN","45":"45+ MIN"};
   var DAYSL={"2":"1–2 DAYS/WK","4":"3–4 DAYS/WK","5":"5+ DAYS/WK"};
 
@@ -790,7 +803,8 @@
     var qi=step-1,item=QUIZ[qi];
     var sel=answers[item.id]||(item.multi?[]:null);
     var segs="";for(var s2=0;s2<QUIZ.length;s2++)segs+='<div class="seg'+(s2<step?" on":"")+'"></div>';
-    var opts=item.opts.map(function(o){
+    var itemOpts=(typeof item.opts==="function")?item.opts(answers):item.opts;
+    var opts=itemOpts.map(function(o){
       var on=item.multi?(sel.indexOf(o[0])>=0):(sel===o[0]);
       return '<button class="opt'+(on?" on":"")+'" data-v="'+o[0]+'" role="'+(item.multi?"checkbox":"radio")+'" aria-checked="'+(on?"true":"false")+'"><span class="tick '+(item.multi?"s":"c")+'">'+CHK+'</span><span>'+o[1]+'</span></button>';
     }).join("");
@@ -1127,7 +1141,7 @@
     var pw=programWeek(plan,now);
     var due=pw>=12?"w12":pw>=8?"w8":pw>=4?"w4":"base";
     var mx='<div class="divi"><span class="ml">LEETIFY CHECKPOINTS · WK '+pw+'/12</span></div><div class="card">';
-    mx+='<p class="mhow" style="margin-top:0;">Type your Leetify numbers in at the start (BASE) and again at weeks 4 / 8 / 12. The chip shows movement from base.</p>';
+    mx+='<p class="mhow" style="margin-top:0;">Type your Leetify numbers in at the start (BASE) and again at weeks 4 / 8 / 12. The chip shows movement from base.</p>'+'<p class="help" style="margin:0 0 12px;">Optional — Leetify’s free tier covers these. Skip it if you don’t use it: your streak, calendar and drills work without any of it.</p>';
     plan.targets.forEach(function(t,ti){
       var key=tkey(t.n), v=(st.metrics||{})[key]||{};
       var lb=/\(°\)|deaths/i.test(t.n);
@@ -1136,18 +1150,22 @@
       if(v.base==null||latest==null)chip='<span class="delta na">—</span>';
       else{var dlt=Math.round((latest-v.base)*100)/100;var better=lb?dlt<0:dlt>0;
         chip=dlt===0?'<span class="delta na">±0</span>':'<span class="delta '+(better?"good":"bad")+'">'+(dlt>0?"+":"")+dlt+(better?" ▲":" ▼")+'</span>';}
-      mx+='<div class="metric"><div class="mh"><span class="mname">'+esc(t.n)+'</span>'+chip+'</div><div class="mhow">'+esc(t.h)+benchHint(t.n,plan.profile.rank)+'</div><div class="cps">';
+      mx+='<div class="metric"><div class="mh"><span class="mname">'+esc(t.n)+'</span>'+chip+'</div><div class="mhow">'+esc(t.h)+benchHint(t.n,plan.profile)+'</div><div class="cps">';
       [["base","BASE"],["w4","WK 4"],["w8","WK 8"],["w12","WK 12"]].forEach(function(cp){
         mx+='<div class="'+(due===cp[0]?"due":"")+'"><label>'+cp[1]+'</label><input type="number" inputmode="decimal" step="any" aria-label="'+esc(t.n)+' — '+cp[1]+'" data-mk="'+key+'" data-mp="'+cp[0]+'" value="'+esc(v[cp[0]]!=null?v[cp[0]]:"")+'" placeholder="—"></div>';});
       mx+='</div></div>';});
     mx+='</div>';
     return hd+insightsCard(st)+cal+deathCard(st)+mx+glossary();
   }
-  function benchHint(name,rank){
-    var b=null;
+  // These averages come from Premier/Leetify data. The skill bands transfer, but the numbers
+  // aren't measured on FACEIT or ESEA — say so rather than passing them off as native.
+  function benchHint(name,profile){
+    var rank=profile&&profile.rank,pf=profile&&profile.platform,b=null;
     if(/Counter-strafing/i.test(name))b={new:"~62%",mid:"~73%",good:"~76%",high:"~78% (plateau)",unsure:"~74%"}[rank];
     else if(/Crosshair placement/i.test(name))b={new:"~12.4°",mid:"~10.5°",good:"~9.9°",high:"~9.0°",unsure:"~10°"}[rank];
-    return b?' <span style="color:var(--muted);">— your bracket ('+(RANKL[rank]||"?")+') averages '+b+'.</span>':'';
+    if(!b)return "";
+    var note=(pf&&pf!=="premier")?" (Premier data — treat as a ballpark)":"";
+    return ' <span style="color:var(--muted);">— your bracket ('+(rankLabel(profile)||"?")+') averages '+b+note+'.</span>';
   }
   function glossary(){
     return '<div class="divi"><span class="ml">WHERE TO FIND THESE</span></div><div class="card">'+
@@ -1331,7 +1349,7 @@
     var wp=p.weapon==="awp"?"AWP":p.weapon==="rifle"?"RIFLER":"FLEX";
     var role=(p.role&&p.role!=="unsure")?(" · "+esc(String(p.role).toUpperCase())):"";
     var prof='<div class="card"><div class="prof"><div class="avatar">'+RET+'</div><div style="flex:1;">'+
-      '<div class="ph">'+wp+role+'</div><div class="pm">'+(RANKL[p.rank]||"")+' · FOCUS '+esc(plan.keystoneName).toUpperCase()+' · STREAK '+streak+'</div></div>'+
+      '<div class="ph">'+wp+role+'</div><div class="pm">'+rankLabel(p)+' · FOCUS '+esc(plan.keystoneName).toUpperCase()+' · STREAK '+streak+'</div></div>'+
       '<button class="gbtn" data-act="retake">RETAKE</button></div></div>';
     var cueSec='<div class="divi"><span class="ml">YOUR DAILY CUE</span></div>'+
       '<div class="card"><div class="field"><label>“After ___, I do the ten.”</label>'+
@@ -1681,7 +1699,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,sparkBars:sparkBars,sparkLine:sparkLine,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,sparkBars:sparkBars,sparkLine:sparkLine,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint};
 })();
 </script>
 </body>
