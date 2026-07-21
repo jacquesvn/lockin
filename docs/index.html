@@ -377,12 +377,26 @@
   #session .sctr{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;}
   #session .sname{font-size:26px;max-width:16ch;line-height:1.05;}
   #session .scue{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.01em;font-size:clamp(15px,3.4vw,19px);color:var(--hero-ink);max-width:22ch;margin:10px 0 2px;}
-  #session .srule{font-family:var(--fm);font-size:11px;color:var(--bad);max-width:34ch;margin-top:6px;line-height:1.5;}
-  #session .ssub{color:var(--muted);font-size:14px;max-width:30ch;}
-  #session .smeas{font-family:var(--fm);font-size:11px;color:var(--faint);margin-bottom:4px;}
+  #session .srule{font-family:var(--fm);font-size:12px;color:var(--bad);max-width:36ch;margin-top:6px;line-height:1.5;}
+  /* full-strength text, not --muted: this is read mid-drill at a glance, so it
+     is content rather than caption and the grey was the main legibility fault */
+  #session .ssub{color:var(--text);font-size:15px;max-width:34ch;line-height:1.45;}
+  #session .smeas{font-family:var(--fm);font-size:12px;color:var(--muted);margin-bottom:4px;}
   #session .stime{font-family:var(--fd);font-weight:800;font-size:clamp(64px,20vw,92px);letter-spacing:-0.03em;color:var(--hero);font-variant-numeric:tabular-nums;line-height:1;margin:4px 0;}
   #session .stime.zero{color:var(--good);}
   #session .sctrls{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;justify-content:center;}
+  /* Every size above is phone-tuned and never grew, so on a maximised desktop
+     window the drill sat as a ~200px ribbon of small text in a field of black.
+     Scale up past the phone breakpoint and let the lines actually run. */
+  @media (min-width:720px){
+    #session{padding:28px 32px;}
+    #session .sctr{gap:11px;}
+    #session .sname{font-size:clamp(34px,3.2vw,50px);max-width:24ch;}
+    #session .ssub{font-size:clamp(17px,1.3vw,21px);max-width:54ch;}
+    #session .scue{font-size:clamp(21px,1.9vw,29px);max-width:36ch;margin:14px 0 2px;}
+    #session .smeas{font-size:13px;}
+    #session .srule{font-size:15px;max-width:62ch;}
+  }
 
   /* ---------- celebrate overlay ---------- */
   #cele{position:fixed;inset:0;z-index:80;display:none;place-items:center;background:color-mix(in oklab,var(--bg) 88%, transparent);overflow:hidden;}
@@ -414,7 +428,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.11.4";
+  var VERSION="0.11.5";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -435,7 +449,7 @@
       D("Duels under fire","Aim Arena or Training 01 combat — the bots shoot back, so you have to strafe, stop, then shoot","stopped before every shot, even while being shot at",5,false,"Strafe, plant, then fire.","No shooting mid-strafe, even under pressure.")]},
     consistency:{name:"Aim consistency",why:"Your aim's already there on good nights. The job is a routine that makes it show up every night — not new skill.",drills:[
       D("Fixed warm-up","CST Labs or Aim Arena — same modes, same order, every session","completed before anything else",10,true,"Same order, every time.","No skipping ahead to the fun one."),
-      D("100 micro-adjust one-taps","aim_botz headshot-only, or the CS2 Labs fast-micro-adjust mode — settle, confirm, click","slow + clean beats fast + sloppy",6,true,"Settle. Confirm. Click.","A rushed rep is a wasted rep — redo it."),
+      D("100 micro-adjust one-taps","aim_botz headshot-only, or the CS2 Labs fast-micro-adjust mode","slow + clean beats fast + sloppy",6,true,"Settle. Confirm. Click.","A rushed rep is a wasted rep — redo it."),
       D("Reaction baseline","Aim Training Reflex Dots — reaction mode, note the average","same ballpark as usual = you are warm; slower = keep warming up",4,false,"React. Do not predict.","Log the number even when it is bad.")]},
     placement:{name:"Crosshair placement",why:"Keep the dot at head height and pre-aimed, so you win the first shot before it's a fight.",drills:[
       D("Prefire lines","Yprac Prefire, or a timed prefire course for your map — the clock makes clean-and-fast measurable","head height the whole route, time dropping week to week",8,true,"Head height, the whole way.","Crosshair drops below head height? Restart the route."),
@@ -460,9 +474,9 @@
     entry:{name:"Opening duels",why:"Win the opening pick on your terms, not on a 50/50 wide-swing.",drills:[
       D("Opening-angle prefires","Aim Arena prefire or a timed prefire course — the first-contact angles","first bullet already on the head",8,true,"Already aimed when you arrive.",""),
       D("Info jiggles","shoulder-peek to bait, then commit","info first, duel second",5,true,"Info first. Duel second.","Never commit off a jiggle."),
-      D("Trade timing","with a duo, or Training 01 rush for the pressure — die traded, never alone","refrag inside 2 seconds",6,false,"Die traded, never alone.","")]},
+      D("Trade timing","with a duo, or Training 01 rush for the pressure","refrag inside 2 seconds",6,false,"Die traded, never alone.","")]},
     awp:{name:"AWP",why:"The AWP needs a near-full stop to be pinpoint — stricter than rifles — so counter-strafe into the shot; add repeek so a miss isn't a death.",drills:[
-      D("One-taps → flicks","aim_botz statics, then Target Training moving dots at 0.5 scale — aim where it is going, not where it is","hit rate over speed",8,true,"Aim where it is going.","Overflicked? Slow the next five."),
+      D("One-taps → flicks","aim_botz statics, then Target Training moving dots at 0.5 scale","hit rate over speed",8,true,"Aim where it is going.","Overflicked? Slow the next five."),
       D("Stop-into-shot","counter-strafe into the scoped shot","near-full stop before the click",6,true,"Full stop, then click.","A moving shot does not count."),
       D("Repeek discipline","shot → reposition → new angle","never re-peek the same pixel",5,false,"Never the same pixel twice.","")]},
     rifle:{name:"Rifling",why:"A reliable rifle so you stop bleeding the rounds you can't play for picks.",drills:[

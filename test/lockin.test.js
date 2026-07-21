@@ -480,5 +480,40 @@ PROTOCOLS.forEach(function (p) {
      summed >= lo && summed <= hi);
 });
 
+// --- v0.11.5: drill copy shown on the session screen ---
+// The cue is displayed directly under the description, so a description that
+// restates it is noise on a screen read at a glance mid-drill.
+function normSub(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim(); }
+ok('no drill description restates its own cue', (function () {
+  var bad = [];
+  Object.keys(FOCI).forEach(function (k) {
+    FOCI[k].drills.forEach(function (d) {
+      var sub = normSub(d.sub), cue = normSub(d.cue);
+      if (cue && sub && sub.indexOf(cue) >= 0) bad.push(k + '/' + d.t);
+    });
+  });
+  return bad.length === 0;
+})());
+// Bound comes from the layout, not taste: .ssub is capped at 54ch on desktop,
+// so 108 is two full lines. Longer than that and the drill card starts to
+// ribbon again, which was the original complaint.
+ok('drill descriptions fit two lines at the rendered width', (function () {
+  var over = [];
+  Object.keys(FOCI).forEach(function (k) {
+    FOCI[k].drills.forEach(function (d) { if (d.sub && d.sub.length > 108) over.push(d.t + ' (' + d.sub.length + ')'); });
+  });
+  if (over.length) console.log('      over: ' + over.join(', '));
+  return over.length === 0;
+})());
+ok('session description is not left at caption-grey', (function () {
+  var m = html.match(/#session \.ssub\{[^}]*\}/);
+  return !!m && /color:var\(--text\)/.test(m[0]) && !/--muted|--faint/.test(m[0]);
+})());
+ok('session type scales up past the phone breakpoint', (function () {
+  return /#session \.sname\{font-size:clamp\(3\d/.test(html) &&
+         /#session \.ssub\{font-size:clamp/.test(html);
+})());
+
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
