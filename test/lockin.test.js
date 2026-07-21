@@ -445,5 +445,19 @@ ok('profile url points back at leetify for attribution',
   /^https:\/\/leetify\.com\//.test(lfyProfileUrl(LFY_SAMPLE)) &&
   lfyProfileUrl(null) === 'https://leetify.com/');
 
+// --- v0.11.3: quiz progress bar must not be pinned to a question count ---
+// It was grid-template-columns:repeat(7,1fr) while QUIZ had 8 entries, so the
+// last segment silently wrapped to a second row. Source-level guards, because
+// the sandbox has no layout engine to measure with.
+ok('progress bar does not hardcode a column count', (function () {
+  var m = html.match(/\.segs\{[^}]*\}/);
+  return !!m && !/repeat\(\s*\d+/.test(m[0]) && /grid-auto-flow:\s*column/.test(m[0]);
+})());
+ok('intro copy derives its question count from QUIZ', (function () {
+  return html.indexOf("Answer '+QUIZ.length+' quick questions") >= 0 &&
+         !/Answer \d+ quick questions/.test(html);
+})());
+ok('every quiz entry is a real question', QUIZ.length >= 7 && QUIZ.every(function (q) { return !!q.id; }));
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

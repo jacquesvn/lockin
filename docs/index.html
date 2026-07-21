@@ -140,7 +140,9 @@
   .rulecard p{font-size:13px;color:var(--muted);margin-top:6px;}
 
   /* ---------- quiz ---------- */
-  .segs{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin:16px 0 22px;}
+  /* auto-flow so the bar stays one row whatever QUIZ.length is — this was pinned
+     to 7 columns and the 8th question silently wrapped onto a second line */
+  .segs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:5px;margin:16px 0 22px;}
   .seg{height:4px;border-radius:2px;background:var(--surface2);} .seg.on{background:var(--hero);}
   .qq{font-size:24px;margin:6px 0 4px;}
   .qhint{font-size:13px;color:var(--muted);margin-bottom:16px;}
@@ -409,7 +411,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.11.2";
+  var VERSION="0.11.3";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -843,7 +845,7 @@
       host.innerHTML='<div class="wrap" style="max-width:480px;"><div class="cstage" style="min-height:74vh;">'+
         '<div class="brand" style="justify-content:center;"><span style="width:30px;height:30px;color:var(--hero);display:inline-block;">'+RET+'</span><span class="wordmark" style="font-size:24px;">LOCK<b>IN</b></span></div>'+
         '<div class="dsp" style="font-size:clamp(26px,7vw,34px);">YOUR POCKET CS2 COACH.</div>'+
-        '<p style="color:var(--muted);font-size:15px;max-width:42ch;">Answer 7 quick questions and Lockin builds you a personalised training plan you can actually stick to — free, forever. No coach required.</p>'+
+        '<p style="color:var(--muted);font-size:15px;max-width:42ch;">Answer '+QUIZ.length+' quick questions and Lockin builds you a personalised training plan you can actually stick to — free, forever. No coach required.</p>'+
         '<button class="pbtn" id="beginBtn" style="padding:14px 30px;">BUILD MY PLAN ▸</button>'+
         '<div class="ml">YOUR ANSWERS STAY ON YOUR DEVICE</div>'+
         '</div></div>';
