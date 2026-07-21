@@ -459,5 +459,26 @@ ok('intro copy derives its question count from QUIZ', (function () {
 })());
 ok('every quiz entry is a real question', QUIZ.length >= 7 && QUIZ.every(function (q) { return !!q.id; }));
 
+// --- v0.11.4: grids must not pin a column count to a data array's length ---
+// Same class as the .segs wrap: a repeat(N,...) that silently tracked how many
+// items the JS happened to produce. These four follow arrays that can grow.
+['segs','stats4','causes','cps'].forEach(function (cls) {
+  var m = html.match(new RegExp('\.' + cls + '\{[^}]*\}'));
+  ok(cls + ' grid is not pinned to a fixed column count',
+     !!m && !/grid-template-columns:\s*repeat\(\s*\d/.test(m[0]));
+});
+// the death-audit grid follows CAUSES; the checkpoint grid follows its own list
+ok('causes grid can hold every CAUSES entry', Object.keys(reviewTotals({ reviews: {} })).length === 5);
+
+// --- stated protocol length must still match the blocks it is made of ---
+PROTOCOLS.forEach(function (p) {
+  var summed = 0;
+  (p.blocks || []).forEach(function (b) { summed += parseInt(b.mins || b.dur || 0, 10) || 0; });
+  var range = String(p.mins).split(/[^0-9]+/).filter(Boolean).map(Number);
+  var lo = range[0], hi = range.length > 1 ? range[1] : range[0];
+  ok(p.name + ' stated length (' + p.mins + ') matches its blocks (' + summed + ')',
+     summed >= lo && summed <= hi);
+});
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
