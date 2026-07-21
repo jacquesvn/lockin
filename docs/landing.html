@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b1b18">
+<title>Lockin — a free CS2 coach that actually holds you to it</title>
+<meta name="description" content="A real CS2 coach costs $50 an hour. Lockin asks seven questions, builds you a 12-week training plan, and keeps you on it. Free, no account, your data never leaves your device.">
+<meta property="og:title" content="Lockin — your pocket CS2 coach">
+<meta property="og:description" content="Seven questions, a personalised 12-week CS2 training plan, and the daily tracker to actually run it. Free, no account, local-only.">
+<meta property="og:type" content="website">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<style>
+  :root{
+    --stage:oklch(0.128 0.004 100);--bg:oklch(0.168 0.004 100);
+    --surface:oklch(0.205 0.005 100);--surface2:oklch(0.248 0.006 100);
+    --line:oklch(0.315 0.006 100);--line2:oklch(0.40 0.008 100);
+    --text:oklch(0.965 0.004 100);--muted:oklch(0.665 0.006 100);--faint:oklch(0.625 0.006 100);
+    --hero:oklch(0.865 0.165 96);--hero2:oklch(0.80 0.16 96);--onhero:oklch(0.20 0.03 96);--hero-ink:oklch(0.865 0.165 96);
+    --good:oklch(0.805 0.15 152);--bad:oklch(0.685 0.19 27);
+    --fd:'Helvetica Neue',Helvetica,Arial,sans-serif;
+    --fb:system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif;
+    --fm:ui-monospace,'SF Mono','Cascadia Mono',Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:light){
+    :root{
+      --stage:oklch(0.90 0.005 95);--bg:oklch(0.948 0.004 95);
+      --surface:oklch(0.995 0.003 95);--surface2:oklch(0.922 0.006 95);
+      --line:oklch(0.855 0.006 95);--line2:oklch(0.77 0.008 95);
+      --text:oklch(0.205 0.006 95);--muted:oklch(0.44 0.006 95);--faint:oklch(0.435 0.006 95);
+      /* gold as FILL stays bright; gold as small TEXT must go darker to clear AA on near-white */
+      --hero:oklch(0.845 0.17 91);--hero2:oklch(0.79 0.16 91);--onhero:oklch(0.18 0.035 91);--hero-ink:oklch(0.475 0.11 80);
+      --good:oklch(0.55 0.14 152);--bad:oklch(0.53 0.20 27);
+    }
+  }
+  *{box-sizing:border-box;margin:0;}
+  html{scroll-behavior:smooth;}
+  body{background:var(--bg);color:var(--text);font-family:var(--fb);line-height:1.6;-webkit-font-smoothing:antialiased;}
+  .dsp{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;line-height:1.02;text-wrap:balance;}
+  .ml{font-family:var(--fm);font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--faint);font-weight:600;}
+  .wrap{max-width:940px;margin:0 auto;padding:0 20px;}
+  a{color:var(--hero-ink);}
+  section{padding:64px 0;border-top:1px solid var(--line);}
+  h2.sh{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;font-size:clamp(24px,4vw,32px);margin-bottom:10px;text-wrap:balance;}
+  .lead{color:var(--muted);font-size:16px;max-width:62ch;}
+
+  /* ---------- hero ---------- */
+  header{padding:26px 0 0;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand svg{width:26px;height:26px;color:var(--hero);}
+  .wordmark{font-family:var(--fd);font-weight:800;font-size:19px;letter-spacing:-0.02em;}
+  .wordmark b{color:var(--hero);}
+  .hero{padding:56px 0 64px;position:relative;}
+  .hero .eyebrow{margin-bottom:18px;color:var(--hero-ink);}
+  .hero h1{font-size:clamp(38px,8vw,74px);}
+  .hero h1 em{font-style:normal;color:var(--hero);}
+  .hero p.pitch{margin-top:22px;font-size:clamp(16px,2.2vw,19px);color:var(--muted);max-width:56ch;}
+  .cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px;align-items:center;}
+  .btn{display:inline-flex;align-items:center;gap:9px;border-radius:12px;padding:15px 26px;font-family:var(--fm);
+    font-size:12.5px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;text-decoration:none;cursor:pointer;border:1px solid transparent;}
+  .btn.primary{background:var(--hero);color:var(--onhero);border-color:var(--hero);}
+  .btn.primary:hover{background:var(--hero2);}
+  .btn.ghost{background:transparent;color:var(--text);border-color:var(--line2);}
+  .btn.ghost:hover{border-color:var(--hero-ink);color:var(--hero-ink);}
+  .cta .note{font-family:var(--fm);font-size:11px;color:var(--faint);letter-spacing:0.06em;}
+
+  /* ---------- reticle frame around the preview ---------- */
+  .frame{position:relative;margin-top:52px;padding:20px;}
+  .frame::before,.frame::after,.frame>i::before,.frame>i::after{content:"";position:absolute;width:22px;height:22px;border:2px solid var(--hero);opacity:.55;}
+  .frame::before{top:0;left:0;border-right:0;border-bottom:0;}
+  .frame::after{top:0;right:0;border-left:0;border-bottom:0;}
+  .frame>i::before{bottom:0;left:0;border-right:0;border-top:0;}
+  .frame>i::after{bottom:0;right:0;border-left:0;border-top:0;}
+
+  /* ---------- the "your plan" preview ---------- */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;}
+  .prev-top{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start;}
+  .big-n{font-family:var(--fd);font-weight:800;font-size:56px;line-height:.95;letter-spacing:-0.03em;color:var(--hero);}
+  .wk7{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:16px;}
+  .wc{height:28px;border-radius:8px;display:grid;place-items:center;font-family:var(--fm);font-size:12px;font-weight:700;border:1px solid transparent;}
+  .wc.done{background:var(--hero);color:var(--onhero);}
+  .wc.today{border:1.5px solid var(--hero);color:var(--hero);}
+  .wc.rest{border:1px dashed var(--line2);color:var(--faint);}
+  .wc.up{background:var(--surface2);color:var(--faint);}
+  .drow{display:flex;gap:12px;align-items:flex-start;color:var(--text);background:var(--surface);border:1px solid var(--line);
+    border-left:3px solid var(--line);border-radius:11px;padding:13px 14px;margin-top:8px;}
+  .drow.done{border-left-color:var(--hero);opacity:.72;}
+  .dbox{width:24px;height:24px;border-radius:7px;flex:0 0 auto;display:grid;place-items:center;border:1.5px solid var(--line2);}
+  .drow.done .dbox{background:var(--hero);border-color:var(--hero);}
+  .dbox svg{width:13px;height:13px;color:var(--onhero);opacity:0;}
+  .drow.done .dbox svg{opacity:1;}
+  .dname{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .chip{font-family:var(--fm);font-size:9px;letter-spacing:0.12em;color:var(--hero-ink);border:1px solid var(--hero-ink);border-radius:4px;padding:1px 5px;font-weight:700;}
+  .dsub{font-size:12.5px;color:var(--muted);margin-top:2px;}
+  .dmeas{font-family:var(--fm);font-size:11px;color:var(--faint);margin-top:5px;}
+
+  /* ---------- feature grid ---------- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:30px;}
+  .feat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;}
+  .feat h3{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.01em;font-size:15px;margin-bottom:7px;}
+  .feat p{font-size:13.5px;color:var(--muted);}
+
+  /* ---------- proof rows ---------- */
+  .proof{margin-top:26px;}
+  .prow{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--line);align-items:flex-start;}
+  .prow:last-child{border-bottom:0;}
+  .prow .k{font-family:var(--fm);font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--hero-ink);flex:0 0 96px;padding-top:2px;text-transform:uppercase;}
+  .prow p{font-size:14px;color:var(--muted);}
+  .prow b{color:var(--text);font-weight:600;}
+
+  /* ---------- get it ---------- */
+  .ways{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:28px;}
+  .way{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:8px;}
+  .way .ml{color:var(--hero-ink);}
+  .way h3{font-family:var(--fd);font-weight:800;text-transform:uppercase;font-size:16px;letter-spacing:-0.01em;}
+  .way p{font-size:13.5px;color:var(--muted);flex:1;}
+  .way a{font-family:var(--fm);font-size:11.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;text-decoration:none;}
+  .way a:hover{text-decoration:underline;}
+
+  footer{border-top:1px solid var(--line);padding:36px 0 60px;}
+  .foot-in{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center;}
+  .foot-in .ml{color:var(--faint);}
+  .foot-in a{font-family:var(--fm);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:none;color:var(--muted);}
+  .foot-in a:hover{color:var(--hero-ink);}
+  a:focus-visible,.btn:focus-visible{outline:2px solid var(--hero);outline-offset:3px;}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto;}*{transition:none!important;animation:none!important;}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true">
+        <path d="M3 9V3h6M23 3h6v6M3 23v6h6M29 23v6h-6"/><path d="M16 8.5v3.5M16 20v3.5M8.5 16h3.5M20 16h3.5"/><circle cx="16" cy="16" r="1.9" fill="currentColor" stroke="none"/>
+      </svg>
+      <span class="wordmark">LOCK<b>IN</b></span>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="ml eyebrow">Free · No account · Runs on your device</div>
+    <h1 class="dsp">A coach is $50<br>an hour.<br><em>This isn't.</em></h1>
+    <p class="pitch">
+      Lockin asks you seven questions, works out the one habit costing you the most rounds,
+      and builds a 12-week plan around it. Then it does the harder part — getting you to
+      actually run it on a Tuesday when you'd rather just queue.
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="index.html">Build my plan ▸</a>
+      <a class="btn ghost" href="#inside">See what's inside</a>
+      <span class="note">Takes about two minutes</span>
+    </div>
+
+    <div class="frame"><i></i>
+      <div class="card">
+        <div class="prev-top">
+          <div>
+            <div class="ml">Current streak</div>
+            <div class="big-n">6</div>
+            <div class="ml" style="color:var(--muted);">Days locked in</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="ml">This week</div>
+            <div class="dsp" style="font-size:24px;">3<span style="color:var(--faint);">/4</span></div>
+            <div class="ml" style="color:var(--good);">On pace</div>
+          </div>
+        </div>
+        <div class="wk7">
+          <div class="wc done">✓</div><div class="wc done">✓</div><div class="wc done">✓</div>
+          <div class="wc today">●</div><div class="wc up"></div><div class="wc up"></div><div class="wc rest">—</div>
+        </div>
+        <div class="drow done">
+          <span class="dbox"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" aria-hidden="true"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg></span>
+          <span>
+            <span class="dname">Peek-stop-tap <span class="chip">CORE</span></span>
+            <span class="dsub" style="display:block;">aim_botz + cl_showpos — peek, counter-strafe, fire as you stop</span>
+            <span class="dmeas" style="display:block;">◎ velocity under ~34% max at the shot</span>
+          </span>
+        </div>
+        <div class="drow">
+          <span class="dbox"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" aria-hidden="true"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg></span>
+          <span>
+            <span class="dname">Duels under fire <span class="chip">CORE</span></span>
+            <span class="dsub" style="display:block;">Aim Arena combat — the bots shoot back, so the stop has to hold</span>
+            <span class="dmeas" style="display:block;">◎ stopped before every shot, even while being shot at</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section id="inside">
+  <div class="wrap">
+    <h2 class="sh">It's not a drill list. It's a plan that argues with you.</h2>
+    <p class="lead">Anyone can hand you drills. The reason people don't improve is that they train hard for four days and then stop. Lockin is built around that failure, not around the drills.</p>
+    <div class="grid">
+      <div class="feat"><h3>One keystone</h3><p>It picks the single habit costing you the most and makes it the spine of your week — instead of spreading you thin across eight things you'll half-do.</p></div>
+      <div class="feat"><h3>Ten minutes counts</h3><p>A five-minute escape hatch runs one core drill and still marks the day. A skipped hour is worse than a short session, so the app makes the short one easy.</p></div>
+      <div class="feat"><h3>A cue, not a wish</h3><p>"After dinner, I do the ten." Plans with a specific <em>when</em> get done; plans with a vague intention don't.</p></div>
+      <div class="feat"><h3>Never miss twice</h3><p>Missing one day is noise. Missing two is how it ends. Miss yesterday and today's screen says so.</p></div>
+      <div class="feat"><h3>The gate</h3><p>Match nights get a checklist — warmed up, not tilted, one process goal — and a stop-loss that calls it after two bad ones, before the third costs you more.</p></div>
+      <div class="feat"><h3>Death audit</h3><p>Tag what actually killed you across a month and the pattern surfaces. Usually it isn't aim, and that's the point.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2 class="sh">The coaching is checked, not vibes</h2>
+    <p class="lead">Most CS advice is folklore repeated confidently. These are things Lockin gets right that common wisdom often doesn't — and the app will tell you when a metric stops being worth chasing.</p>
+    <div class="proof">
+      <div class="prow"><span class="k">Stopping</span><p>Your rifle's first shot is accurate below <b>~34% of max speed</b> — a counter-strafe, not a dead stop. The AWP is stricter and wants a near-full stop.</p></div>
+      <div class="prow"><span class="k">Plateaus</span><p>Counter-strafing <b>plateaus around 78%</b>. Past that it stops separating players, so Lockin moves your reps to crosshair placement instead of pushing a number that no longer pays.</p></div>
+      <div class="prow"><span class="k">Ratings</span><p><b>Leetify Rating is roughly zero-sum</b> — it's relative to your lobby. Chase the skill numbers underneath it, not the rating.</p></div>
+      <div class="prow"><span class="k">Maps</span><p>Map prep gives you the utility <b>jobs</b> and prefire routes, not step-by-step lineups. Exact throws are patch-specific, and a lineup that's quietly wrong is worse than none — so you save your own as you learn them.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2 class="sh">No account. No server. No catch.</h2>
+    <p class="lead">
+      Lockin is one HTML file. Your plan, your streak and your numbers live in your browser's
+      storage on your machine — there's nowhere for them to be uploaded, because there's no
+      backend at all. Nothing to sign up for, nothing tracking you, and you can export the lot
+      to a file whenever you like.
+    </p>
+    <p class="lead" style="margin-top:14px;">
+      It's <b style="color:var(--text);">MIT licensed</b> and the whole thing is on GitHub — including
+      the tests that run before every release.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2 class="sh">Three ways to run it</h2>
+    <div class="ways">
+      <div class="way">
+        <div class="ml">In your browser</div>
+        <h3>Web &amp; PWA</h3>
+        <p>Open it and go. Works offline, and installs as a proper app on phone or desktop if you want it on your home screen.</p>
+        <a href="index.html">Open Lockin ▸</a>
+      </div>
+      <div class="way">
+        <div class="ml">One file</div>
+        <h3>Standalone</h3>
+        <p>Download a single HTML file and double-click it. No server, no install, no internet. Share it however you like.</p>
+        <a href="https://github.com/jacquesvn/lockin/blob/main/docs/index.html">Get the file ▸</a>
+      </div>
+      <div class="way">
+        <div class="ml">Windows</div>
+        <h3>Desktop app</h3>
+        <p>Adds a tray icon and a daily "go train" nudge at a time you pick — the version that catches you on the nights you'd skip. Updates itself.</p>
+        <a href="https://github.com/jacquesvn/lockin/releases/latest">Download ▸</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-in">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true" style="width:20px;height:20px;color:var(--hero);">
+        <path d="M3 9V3h6M23 3h6v6M3 23v6h6M29 23v6h-6"/><path d="M16 8.5v3.5M16 20v3.5M8.5 16h3.5M20 16h3.5"/><circle cx="16" cy="16" r="1.9" fill="currentColor" stroke="none"/>
+      </svg>
+      <span class="ml">Lockin · Free forever · No account</span>
+    </div>
+    <div style="display:flex;gap:18px;flex-wrap:wrap;">
+      <a href="index.html">Open the app</a>
+      <a href="https://github.com/jacquesvn/lockin">Source</a>
+      <a href="https://github.com/jacquesvn/lockin/releases/latest">Releases</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

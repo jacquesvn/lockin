@@ -1,6 +1,6 @@
 # Lockin — your pocket CS2 coach
 
-**[Open Lockin →](https://jacquesvn.github.io/lockin/)**
+**[Open Lockin →](https://jacquesvn.github.io/lockin/)** · [What it is](https://jacquesvn.github.io/lockin/landing.html)
 
 A free coach for Counter-Strike 2. Answer seven questions and Lockin builds you a
 personalised 12-week training plan plus the daily tracker to actually run it — because a

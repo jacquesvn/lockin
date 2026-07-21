@@ -1,7 +1,7 @@
 /* Lockin service worker — offline app shell.
    Navigations are network-first so a redeploy lands immediately (falls back to cache offline);
    static assets are cache-first. Bump CACHE to the app version on every release. */
-const CACHE = 'lockin-0.9.6';
+const CACHE = 'lockin-0.9.7';
 const ASSETS = ['./index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
