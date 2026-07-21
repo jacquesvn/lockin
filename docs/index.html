@@ -38,12 +38,21 @@
   }
   *{box-sizing:border-box;margin:0;}
   html,body{height:100%;}
+  /* reserve the scrollbar always, or short screens (Today) sit 15px wider than
+     long ones and the whole layout jumps sideways when you switch tabs */
+  html{scrollbar-gutter:stable;}
   body{background:var(--bg);color:var(--text);font-family:var(--fb);line-height:1.5;-webkit-font-smoothing:antialiased;}
   button{font-family:var(--fb);}
   .dsp{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;}
   .ml{font-family:var(--fm);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--faint);font-weight:600;}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;}
   .wrap{max-width:640px;margin:0 auto;padding:18px 16px 96px;}
+  /* Vertical rhythm on these screens comes from .divi (20px above, 10px below).
+     Where two blocks stack with no divider between them they collided at 0px —
+     these are the three places that happens. */
+  .hero-card + .cuebar{margin-top:10px;}
+  .diagcard + .plan-cols{margin-top:10px;}
+  .btncopy + .card{margin-top:10px;}
   a{color:var(--hero-ink);}
 
   /* ---------- app shell ---------- */
@@ -400,7 +409,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.11.1";
+  var VERSION="0.11.2";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
