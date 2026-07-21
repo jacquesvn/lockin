@@ -188,7 +188,7 @@
   .segctl{display:grid;grid-template-columns:1fr 1fr;gap:5px;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:4px;}
   .segctl button{border:none;border-radius:8px;padding:9px;font-family:var(--fm);font-size:11px;font-weight:700;letter-spacing:0.1em;cursor:pointer;background:transparent;color:var(--muted);}
   .segctl button.on{background:var(--hero);color:var(--onhero);}
-  .datarow{display:flex;align-items:center;gap:12px;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:13px 14px;cursor:pointer;color:var(--text);font-size:14px;text-align:left;}
+  .datarow{display:flex;align-items:center;gap:12px;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:13px 14px;cursor:pointer;color:var(--text);font-size:14px;text-align:left;text-decoration:none;}
   .datarow svg{width:17px;height:17px;color:var(--muted);flex:0 0 auto;}
   .datarow small{color:var(--faint);font-size:11.5px;display:block;}
   .foot{text-align:center;font-family:var(--fm);font-size:9.5px;letter-spacing:0.18em;color:var(--faint);margin-top:26px;}
@@ -353,7 +353,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.9.7";
+  var VERSION="0.9.8";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -1232,6 +1232,27 @@
       '<p class="help" style="margin-top:10px;">Your settings live here so a reinstall, a new PC or a Steam reset never costs you your muscle memory. Stored on this device only.</p></div>';
   }
 
+  /* ---------- feedback ----------
+     Reports are far more useful with the version + surface attached, so prefill them.
+     On desktop we must NOT render a plain external link: navigating the Tauri webview to
+     github.com would strand the user inside the app window with no way back. So native gets
+     a copy-to-clipboard button instead, and the browser gets a real new-tab link. */
+  var FEEDBACK_URL="https://github.com/jacquesvn/lockin/issues/new";
+  function feedbackLink(){
+    var body="\n\n---\nLockin v"+VERSION+"\n"+(isNative?"Desktop app":"Browser / installed web app")+
+      "\n\nWhat were you doing when it happened?";
+    return FEEDBACK_URL+"?labels=feedback&title="+encodeURIComponent("Feedback: ")+"&body="+encodeURIComponent(body);
+  }
+  function feedbackSec(){
+    var SPEECH='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-5a8 8 0 0 1 8-11h2a8 8 0 0 1 8 8z"/></svg>';
+    var action=isNative
+      ? '<button class="datarow" data-fbcopy>'+SPEECH+'<span>Send feedback<small>Copies the link — paste it in your browser</small></span></button>'
+      : '<a class="datarow" href="'+esc(feedbackLink())+'" target="_blank" rel="noopener noreferrer">'+SPEECH+'<span>Send feedback<small>Opens GitHub in a new tab</small></span></a>';
+    return '<div class="divi"><span class="ml">FEEDBACK</span></div>'+
+      '<div style="display:flex;flex-direction:column;gap:8px;">'+action+'</div>'+
+      '<p class="help">Found a bug, or the plan doesn’t fit? Tell me. Your version is filled in automatically — nothing else about you is sent.</p>';
+  }
+
   /* ---------- SETUP ---------- */
   function htmlSetup(st){
     var plan=st.plan,p=plan.profile,streak=computeStreak(st,new Date());
@@ -1267,7 +1288,7 @@
       '<button class="datarow" data-act="reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span>Erase all data<small>Delete everything and start over — can’t be undone</small></span></button>'+
       '<input type="file" id="impF" accept="application/json" style="display:none;"></div>'+
       (storageOk?'':'<div class="ml" style="color:var(--bad);margin-top:8px;">⚠ STORAGE BLOCKED — EXPORT TO KEEP YOUR DATA</div>');
-    return hd+prof+cueSec+loadoutSec(st)+app+remSec+updateSec()+data+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
+    return hd+prof+cueSec+loadoutSec(st)+app+remSec+updateSec()+data+feedbackSec()+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
   }
 
   /* ---------- interactions ---------- */
@@ -1347,6 +1368,8 @@
     if(uck)uck.onclick=function(){checkUpdate(true);};
     var uin=root.querySelector("[data-updinstall]");
     if(uin)uin.onclick=installUpdate;
+    var fbc=root.querySelector("[data-fbcopy]");
+    if(fbc)fbc.onclick=function(){copyText(feedbackLink(),fbc.querySelector("small")||fbc);};
     /* ---- v0.8 map prep ---- */
     var mch=root.querySelectorAll("[data-map]");
     for(var mci=0;mci<mch.length;mci++)(function(b){b.onclick=function(){
