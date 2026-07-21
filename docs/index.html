@@ -170,7 +170,9 @@
   .phrow .wl{font-family:var(--fm);font-size:10px;letter-spacing:0.12em;color:var(--faint);margin-left:8px;}
   .phrow p{font-size:12.5px;color:var(--muted);margin-top:3px;}
   .rotgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .rotc{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px 12px;}
+  .rotc{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px 12px;width:100%;text-align:left;color:var(--text);font-family:var(--fb);cursor:pointer;}
+  .rotc:hover{border-color:var(--hero-ink);}
+  .rotc.editing{border:1.5px solid var(--hero-ink);}
   .rotc.now{border:1.5px solid var(--hero);background:color-mix(in oklab,var(--hero) 10%, transparent);}
   .rotc .dl2{font-family:var(--fm);font-size:9.5px;letter-spacing:0.14em;color:var(--faint);}
   .rotc .fn2{font-weight:600;font-size:13px;margin-top:3px;}
@@ -357,7 +359,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.10.0";
+  var VERSION="0.10.1";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -560,6 +562,7 @@
     var pool=[keystone,weaponFoci[0],keystone].concat(others.length?others:[weaponFoci[weaponFoci.length-1]]);
     // stated availability drives how many weekday slots are training vs rest (was always 4)
     var numTrain=(p.days==="2")?2:4;
+    // a sensible default only — match nights are personal, so the whole week is editable on Plan
     var weekly={0:"rest",5:"match",6:"match"};
     for(var d=0;d<4;d++)weekly[1+d]=(d<numTrain)?pool[d%pool.length]:"rest";
     var kName=FOCI[keystone].name, wName=weaponFoci.map(function(f){return FOCI[f].name;}).join(" & ");
@@ -610,7 +613,9 @@
   function isTrainingDay(plan,d){var wk=plan&&plan.weekly,f=wk?wk[d.getDay()]:null;if(f)return f!=="rest"&&f!=="match";return !isFreebie(d);}
   function computeStreak(st,today){var s=0,d=new Date(today),t=st.sessions[dateKey(d)];if(!t||!t.warm)d=addDays(d,-1);
     while(true){var x=st.sessions[dateKey(d)];if(x&&x.warm){s++;d=addDays(d,-1);}else if(!isTrainingDay(st.plan,d)){d=addDays(d,-1);}else break;}return s;}
-  function weekdayCount(st,mon){var c=0;for(var i=0;i<4;i++){var x=st.sessions[dateKey(addDays(mon,i))];if(x&&x.warm)c++;}return c;}
+  // how many training days the plan defines (a user can put them anywhere in the week)
+  function trainingDayCount(plan){var wk=plan&&plan.weekly;if(!wk)return 4;var n=0;for(var d=0;d<7;d++){var f=wk[d];if(f&&f!=="rest"&&f!=="match")n++;}return n;}
+  function weekdayCount(st,mon){var c=0;for(var i=0;i<7;i++){var day=addDays(mon,i);if(!isTrainingDay(st.plan,day))continue;var x=st.sessions[dateKey(day)];if(x&&x.warm)c++;}return c;}
   function programWeek(plan,today){if(!plan||!plan.created)return 1;var days=Math.round((midnight(today)-parseKey(plan.created))/86400000);var wk=Math.floor(days/7)+1;return Math.max(1,Math.min(12,wk));}
 
   /* ---------- storage ---------- */
@@ -651,6 +656,7 @@
   function setTheme(t){var st=load();st.settings.theme=t;save(st);applyTheme(t);render();}
 
   /* ---------- ui state ---------- */
+  var editDay=null;
   var screen="today", backfill=false, answers={}, step=0, generating=false, revealed=null, viewDate=new Date();
   function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
   // richText: escape everything, then restore ONLY our own bold markers — so an imported/hostile
@@ -925,7 +931,7 @@
     var act=backfill?addDays(now,-1):now,actK=dateKey(act),actDow=act.getDay();
     var focusKey=plan.weekly[actDow],F=FOCI[focusKey];
     var sess=st.sessions[actK]||{warm:false,deep:false,feel:0,drills:{}};
-    var streak=computeStreak(st,now),mon=mondayOf(now),wd=weekdayCount(st,mon),target=Math.min(4,plan.days);
+    var streak=computeStreak(st,now),mon=mondayOf(now),wd=weekdayCount(st,mon),target=trainingDayCount(plan);
     var dstr=now.toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"short"});
     // backfill toggle (only if yesterday was a trainable day)
     var ydTrainable=plan.weekly[addDays(now,-1).getDay()]!=="rest";
@@ -1001,10 +1007,27 @@
     for(var i=0;i<plan.phases.length;i++){var P=plan.phases[i];
       ph+='<div class="phrow"><div class="phnum">'+(i+1)+'</div><div><b>'+esc(P.t)+'</b><span class="wl">'+esc(P.w)+'</span><p>'+esc(P.d)+'</p></div></div>';}
     ph+='</div>';
+    // The week is EDITABLE — match nights are personal. Friday/Saturday is only a starting guess.
     var rn=["MON","TUE","WED","THU","FRI","SAT","SUN"],map=[1,2,3,4,5,6,0],rot="";
-    for(var r=0;r<7;r++){var fk=plan.weekly[map[r]],F=FOCI[fk],isNow=map[r]===dow;
-      rot+='<div class="rotc'+(isNow?" now":"")+'"><div class="dl2">'+rn[r]+'</div><div class="fn2">'+(fk==="rest"?"Rest":esc(F.name))+'</div></div>';}
-    var rotc='<div class="divi"><span class="ml">WEEKLY FOCUS ROTATION</span></div><div class="rotgrid">'+rot+'</div>';
+    function dayLabel(fk){return fk==="rest"?"Rest":fk==="match"?"Match night":(FOCI[fk]?FOCI[fk].name:fk);}
+    for(var r=0;r<7;r++){var dn=map[r],fk=plan.weekly[dn],isNow=dn===dow;
+      rot+='<button class="rotc'+(isNow?" now":"")+(editDay===dn?" editing":"")+'" data-editday="'+dn+'" '+
+        'aria-expanded="'+(editDay===dn?"true":"false")+'" aria-label="'+rn[r]+' — '+esc(dayLabel(fk))+'. Change it">'+
+        '<div class="dl2">'+rn[r]+'</div><div class="fn2">'+esc(dayLabel(fk))+'</div></button>';}
+    var picker="";
+    if(editDay!==null&&editDay!==undefined){
+      var choices=uniq(plan.used.concat([plan.keystone])).filter(function(k){return FOCI[k];});
+      var chips=choices.map(function(k){
+        return '<button class="mchip'+(plan.weekly[editDay]===k?" on":"")+'" data-setday="'+k+'">'+esc(FOCI[k].name)+'</button>';}).join("")+
+        '<button class="mchip'+(plan.weekly[editDay]==="match"?" on":"")+'" data-setday="match">Match night</button>'+
+        '<button class="mchip'+(plan.weekly[editDay]==="rest"?" on":"")+'" data-setday="rest">Rest</button>';
+      picker='<div class="card" style="margin-top:10px;"><div class="ml" style="color:var(--hero-ink);">SET '+rn[map.indexOf(editDay)]+' TO</div>'+
+        '<div class="mapchips" style="margin-top:10px;">'+chips+'</div>'+
+        '<p class="help" style="margin-top:4px;">Put your match nights wherever you actually play. Training days drive your weekly target and your streak.</p></div>';
+    }
+    var rotc='<div class="divi"><span class="ml">WEEKLY FOCUS ROTATION</span></div>'+
+      '<p class="mhow" style="margin:0 0 10px;">Tap any day to change it — match nights are yours to set.</p>'+
+      '<div class="rotgrid">'+rot+'</div>'+picker;
     var lib='<div class="divi"><span class="ml">DRILL LIBRARY</span></div><div class="card">';
     plan.used.forEach(function(k){var F=FOCI[k];
       F.drills.forEach(function(d){
@@ -1354,6 +1377,16 @@
     for(var mii=0;mii<mi.length;mii++)(function(el){el.onchange=function(){setMetric(el.getAttribute("data-mk"),el.getAttribute("data-mp"),el.value);};})(mi[mii]);
     var bft=root.querySelectorAll("[data-backfill]");
     for(var bi=0;bi<bft.length;bi++)bft[bi].onclick=function(){backfill=!backfill;render();};
+    var eds=root.querySelectorAll("[data-editday]");
+    for(var edi=0;edi<eds.length;edi++)(function(b){b.onclick=function(){
+      var d=parseInt(b.getAttribute("data-editday"),10);
+      editDay=(editDay===d)?null:d;render();};})(eds[edi]);
+    var sds=root.querySelectorAll("[data-setday]");
+    for(var sdi=0;sdi<sds.length;sdi++)(function(b){b.onclick=function(){
+      if(editDay===null||editDay===undefined)return;
+      var s2=load();if(!s2.plan)return;
+      s2.plan.weekly[editDay]=b.getAttribute("data-setday");save(s2);
+      editDay=null;render();};})(sds[sdi]);
     var pro=root.querySelector("[data-protocol]");
     if(pro)pro.onclick=function(){startProtocol(pro.getAttribute("data-protocol"));};
     var ssb=root.querySelector("[data-startsession]");
@@ -1648,7 +1681,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,sparkBars:sparkBars,sparkLine:sparkLine,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,sparkBars:sparkBars,sparkLine:sparkLine,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount};
 })();
 </script>
 </body>

@@ -48,7 +48,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, sparkBars, sparkLine, MAPS,
-        buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS } = sandbox.module.exports;
+        buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -157,6 +157,25 @@ ok('drillList lite tier is core-only and shorter', (function () {
 ok('drillList preserves original drill indices', (function () {
   var lite = drillList(FOCI.cstrafe, { profile: { time: '10' } });
   return lite.every(function (it) { return FOCI.cstrafe.drills[it.i] === it.d; });
+})());
+
+// --- v0.10.1: match nights are the user's, not Fri/Sat by assumption ---
+var oddWeek = { weekly: { 0:'cstrafe', 1:'match', 2:'awp', 3:'rest', 4:'match', 5:'rest', 6:'cstrafe' } };
+ok('trainingDayCount counts the plan\'s training days wherever they fall',
+  trainingDayCount(oddWeek) === 3);                                  // Sun, Tue, Sat
+ok('trainingDayCount ignores match and rest', trainingDayCount({ weekly: { 0:'match',1:'rest',2:'rest',3:'rest',4:'rest',5:'rest',6:'rest' } }) === 0);
+ok('a Sunday training day counts toward the week (was excluded by the Mon-Thu assumption)', (function () {
+  // week of Mon 2026-07-13; Sunday is 2026-07-19
+  var st = { plan: oddWeek, sessions: { '2026-07-19': { warm: true } } };
+  return weekdayCount(st, new Date('2026-07-13T00:00:00')) === 1;
+})());
+ok('a match night does NOT count toward the training target', (function () {
+  var st = { plan: oddWeek, sessions: { '2026-07-13': { warm: true } } };  // Mon = match in oddWeek
+  return weekdayCount(st, new Date('2026-07-13T00:00:00')) === 0;
+})());
+ok('isTrainingDay follows the edited week', (function () {
+  var sun = new Date('2026-07-19T12:00:00'), mon = new Date('2026-07-13T12:00:00');
+  return isTrainingDay(oddWeek, sun) === true && isTrainingDay(oddWeek, mon) === false;
 })());
 
 // --- v0.10: cues, rules, calm reset, coach protocols ---
