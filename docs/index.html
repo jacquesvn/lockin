@@ -125,6 +125,7 @@
   .dname{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .drow.done .dname{color:var(--muted);}
   .chip{font-family:var(--fm);font-size:9px;letter-spacing:0.12em;color:var(--hero-ink);border:1px solid var(--hero-ink);border-radius:4px;padding:1px 5px;font-weight:700;}
+  .dwhere{font-family:var(--fm);font-size:11px;color:var(--hero-ink);margin-top:3px;}
   .dsub{font-size:12.5px;color:var(--muted);margin-top:2px;}
   .dmeas{font-family:var(--fm);font-size:11px;color:var(--faint);margin-top:5px;}
   .ddur{font-family:var(--fm);font-size:12px;color:var(--faint);white-space:nowrap;margin-top:2px;}
@@ -374,13 +375,22 @@
   #session .sdots{display:flex;gap:6px;margin:16px 0;}
   #session .sdot{flex:1;height:4px;border-radius:2px;background:var(--surface2);}
   #session .sdot.past{background:var(--hero);opacity:.5;} #session .sdot.cur{background:var(--hero);}
-  #session .sctr{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;}
+  /* scrolls rather than clips if a wordy drill meets a short screen */
+  #session .sctr{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;}
   #session .sname{font-size:26px;max-width:16ch;line-height:1.05;}
   #session .scue{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.01em;font-size:clamp(15px,3.4vw,19px);color:var(--hero-ink);max-width:22ch;margin:10px 0 2px;}
   #session .srule{font-family:var(--fm);font-size:12px;color:var(--bad);max-width:36ch;margin-top:6px;line-height:1.5;}
   /* full-strength text, not --muted: this is read mid-drill at a glance, so it
      is content rather than caption and the grey was the main legibility fault */
   #session .ssub{color:var(--text);font-size:15px;max-width:34ch;line-height:1.45;}
+  /* One labelled fact per row, left-aligned so the labels form a column the eye
+     runs down. Centred prose forced you to re-read to find anything. */
+  #session .sfacts{display:grid;gap:9px;text-align:left;margin:16px 0 4px;max-width:38ch;}
+  #session .sfact{display:grid;grid-template-columns:56px 1fr;gap:12px;align-items:baseline;}
+  #session .sk{font-family:var(--fm);font-size:10px;letter-spacing:0.14em;color:var(--faint);}
+  #session .sv{color:var(--text);font-size:15px;line-height:1.4;}
+  #session .sv.tip{color:var(--hero-ink);font-weight:700;}
+  #session .sv.warn{color:var(--bad);}
   #session .smeas{font-family:var(--fm);font-size:12px;color:var(--muted);margin-bottom:4px;}
   #session .stime{font-family:var(--fd);font-weight:800;font-size:clamp(64px,20vw,92px);letter-spacing:-0.03em;color:var(--hero);font-variant-numeric:tabular-nums;line-height:1;margin:4px 0;}
   #session .stime.zero{color:var(--good);}
@@ -396,6 +406,10 @@
     #session .scue{font-size:clamp(21px,1.9vw,29px);max-width:36ch;margin:14px 0 2px;}
     #session .smeas{font-size:13px;}
     #session .srule{font-size:15px;max-width:62ch;}
+    #session .sfacts{gap:13px;max-width:62ch;margin:24px 0 8px;}
+    #session .sfact{grid-template-columns:74px 1fr;gap:18px;}
+    #session .sk{font-size:12px;}
+    #session .sv{font-size:clamp(17px,1.3vw,21px);}
   }
 
   /* ---------- celebrate overlay ---------- */
@@ -428,7 +442,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.11.5";
+  var VERSION="0.12.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -441,65 +455,66 @@
   var CAL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
 
   /* ---------- coaching catalog (research-corrected Jul 2026) ---------- */
-  function D(t,sub,m,dur,core,cue,rule){return {t:t,sub:sub,m:m,dur:dur,core:!!core,cue:cue||"",rule:rule||""};}
+  // where = the map or server you load; sub = how to approach it once there.
+  function D(t,where,sub,m,dur,core,cue,rule){return {t:t,where:where||"",sub:sub,m:m,dur:dur,core:!!core,cue:cue||"",rule:rule||""};}
   var FOCI={
     cstrafe:{name:"Counter-strafing",why:"Your rifle regains accuracy the instant you slow below ~34% of top speed — a counter-strafe gets you there instantly (not a dead stop, just a slow walk). Highest-leverage fix up to the mid ranks; it matters less at the very top.",drills:[
-      D("Peek-stop-tap","aim_botz + cl_showpos — peek, counter-strafe, fire as you stop","velocity under ~34% max at the shot",8,true,"Stop, then shoot. Never both.","A shot while still moving does not count."),
-      D("Stop-then-shoot","Recoil Master — A-stop-fire / D-stop-fire, both directions","first bullet inside the head circle",7,true,"The stop IS the shot.","First bullet misses? Slow the next five."),
-      D("Duels under fire","Aim Arena or Training 01 combat — the bots shoot back, so you have to strafe, stop, then shoot","stopped before every shot, even while being shot at",5,false,"Strafe, plant, then fire.","No shooting mid-strafe, even under pressure.")]},
+      D("Peek-stop-tap","aim_botz, with cl_showpos 1","Peek out, counter-strafe, fire the instant you stop","velocity under ~34% max at the shot",8,true,"Stop, then shoot. Never both.","A shot while still moving does not count."),
+      D("Stop-then-shoot","Recoil Master","A-stop-fire, then D-stop-fire — both directions","first bullet inside the head circle",7,true,"The stop IS the shot.","First bullet misses? Slow the next five."),
+      D("Duels under fire","Aim Arena, or Training 01 combat","Bots that shoot back, so you strafe under pressure","stopped before every shot, even while being shot at",5,false,"Strafe, plant, then fire.","No shooting mid-strafe, even under pressure.")]},
     consistency:{name:"Aim consistency",why:"Your aim's already there on good nights. The job is a routine that makes it show up every night — not new skill.",drills:[
-      D("Fixed warm-up","CST Labs or Aim Arena — same modes, same order, every session","completed before anything else",10,true,"Same order, every time.","No skipping ahead to the fun one."),
-      D("100 micro-adjust one-taps","aim_botz headshot-only, or the CS2 Labs fast-micro-adjust mode","slow + clean beats fast + sloppy",6,true,"Settle. Confirm. Click.","A rushed rep is a wasted rep — redo it."),
-      D("Reaction baseline","Aim Training Reflex Dots — reaction mode, note the average","same ballpark as usual = you are warm; slower = keep warming up",4,false,"React. Do not predict.","Log the number even when it is bad.")]},
+      D("Fixed warm-up","CST Labs, or Aim Arena","The same modes in the same order, every session","completed before anything else",10,true,"Same order, every time.","No skipping ahead to the fun one."),
+      D("100 micro-adjust one-taps","aim_botz, or CS2 Labs","Headshot-only, in the fast micro-adjust mode","slow + clean beats fast + sloppy",6,true,"Settle. Confirm. Click.","A rushed rep is a wasted rep — redo it."),
+      D("Reaction baseline","Aim Training Reflex Dots","Reaction mode — write the average down","same ballpark as usual = you are warm; slower = keep warming up",4,false,"React. Do not predict.","Log the number even when it is bad.")]},
     placement:{name:"Crosshair placement",why:"Keep the dot at head height and pre-aimed, so you win the first shot before it's a fight.",drills:[
-      D("Prefire lines","Yprac Prefire, or a timed prefire course for your map — the clock makes clean-and-fast measurable","head height the whole route, time dropping week to week",8,true,"Head height, the whole way.","Crosshair drops below head height? Restart the route."),
-      D("Head-height resets","aim_botz — re-place to head level between taps","no floor-aiming between kills",6,true,"Reset before you look.","No floor-aiming between kills."),
-      D("Randomised prefire","Aim Arena prefire — bots land on common angles at random, so you cannot memorise a line","pre-aimed before the angle opens, not after",5,false,"Pre-aim it, do not react to it.","If you had to flick, the placement failed.")]},
+      D("Prefire lines","Yprac Prefire, or a timed prefire course","Run your map's route against the clock","head height the whole route, time dropping week to week",8,true,"Head height, the whole way.","Crosshair drops below head height? Restart the route."),
+      D("Head-height resets","aim_botz","Re-place to head level between every tap","no floor-aiming between kills",6,true,"Reset before you look.","No floor-aiming between kills."),
+      D("Randomised prefire","Aim Arena prefire","Random angles, so no line can be memorised","pre-aimed before the angle opens, not after",5,false,"Pre-aim it, do not react to it.","If you had to flick, the placement failed.")]},
     spray:{name:"Spray / recoil",why:"Learn the pattern so your held sprays land instead of leaking off target.",drills:[
-      D("AK / M4 patterns","Recoil Master — guided pattern reps","grouping tightens set to set",8,true,"Pull the shape, do not fight it.","Reset fully between sprays."),
-      D("Spray transfers","aim_botz, or Reflex Dots burst-and-spray with hits-to-kill raised","second kill inside the same spray",6,true,"Drag through. Do not re-aim.","Releasing mid-transfer ends the rep."),
-      D("Range bursts","Reflex Dots — push the distance out and shrink the target","burst lands inside the ring",5,false,"Four rounds, then breathe.","A burst longer than six does not count.")]},
+      D("AK / M4 patterns","Recoil Master","Guided pattern reps, one weapon at a time","grouping tightens set to set",8,true,"Pull the shape, do not fight it.","Reset fully between sprays."),
+      D("Spray transfers","aim_botz, or Reflex Dots","Burst and spray with hits-to-kill raised","second kill inside the same spray",6,true,"Drag through. Do not re-aim.","Releasing mid-transfer ends the rep."),
+      D("Range bursts","Reflex Dots","Push the distance out, shrink the target","burst lands inside the ring",5,false,"Four rounds, then breathe.","A burst longer than six does not count.")]},
     utility:{name:"Utility",why:"Good util wins duels before they're duels — fewer coinflips, more rounds on your terms.",drills:[
-      D("5 core smokes","your best map — own server or Yprac","5/5 land without checking lineups",8,true,"Line it up, then throw.","Checking the lineup mid-throw = redo it."),
-      D("2 entry pop-flashes","flashes that support YOUR entries","peek lands before the flash fades",6,true,"Flash for the peek, not the kill.","Peeked before it popped? Redo."),
-      D("Molotov denials","the standard clears for your map","bounce + spread land correctly",5,false,"Deny the spot, not the player.","")]},
+      D("5 core smokes","Your best map — own server, or Yprac","The five smokes that decide rounds, until automatic","5/5 land without checking lineups",8,true,"Line it up, then throw.","Checking the lineup mid-throw = redo it."),
+      D("2 entry pop-flashes","Your best map — own server","Only the flashes that support your own entries","peek lands before the flash fades",6,true,"Flash for the peek, not the kill.","Peeked before it popped? Redo."),
+      D("Molotov denials","Your best map — own server","The standard clears, thrown from cover","bounce + spread land correctly",5,false,"Deny the spot, not the player.","")]},
     positioning:{name:"Positioning & game sense",why:"Being in the right place beats out-aiming from the wrong one. Cheaper wins, less variance.",drills:[
-      D("Death audit","demo review — one death per round","was the fight avoidable? tally it",10,true,"Was this fight mine to take?","One death per round. Write the real cause."),
-      D("Pro POV study","watch your role on your map","note 3 positions you never use",8,true,"Watch the position, not the aim.",""),
-      D("Off-angle setups","set crossfires, not head-on holds","first contact on your terms",5,false,"First contact on your terms.","")]},
+      D("Death audit","Your own demos","One death per round — name what actually killed you","was the fight avoidable? tally it",10,true,"Was this fight mine to take?","One death per round. Write the real cause."),
+      D("Pro POV study","A pro demo on your map","Follow one player in your role, start to finish","note 3 positions you never use",8,true,"Watch the position, not the aim.",""),
+      D("Off-angle setups","Your main map — own server","Build crossfires instead of head-on holds","first contact on your terms",5,false,"First contact on your terms.","")]},
     clutch:{name:"Clutch craft",why:"Clutches are won on info, isolation and time — all trainable, not luck.",drills:[
-      D("Retake 1vX reps","retake servers, or Training 01 combat offline — the bots shoot back, so you must isolate","isolate one fight at a time",10,true,"One fight at a time.","No double-peeking the same angle."),
-      D("Clock craft","play the timer — fake defuse, sound baits","win by time, not just aim",6,true,"The timer is a weapon.",""),
-      D("Sound-only reads","call positions from audio before peeking","read confirmed on the peek",5,false,"Call it before you look.","Peeked before calling? Redo.")]},
+      D("Retake 1vX reps","Retake servers, or Training 01 offline","Bots that shoot back, so the fights stack up","isolate one fight at a time",10,true,"One fight at a time.","No double-peeking the same angle."),
+      D("Clock craft","Your own server, or a retake server","Fake defuses and sound baits against the timer","win by time, not just aim",6,true,"The timer is a weapon.",""),
+      D("Sound-only reads","Your own demos, or a live match","Name the position from audio before you peek","read confirmed on the peek",5,false,"Call it before you look.","Peeked before calling? Redo.")]},
     entry:{name:"Opening duels",why:"Win the opening pick on your terms, not on a 50/50 wide-swing.",drills:[
-      D("Opening-angle prefires","Aim Arena prefire or a timed prefire course — the first-contact angles","first bullet already on the head",8,true,"Already aimed when you arrive.",""),
-      D("Info jiggles","shoulder-peek to bait, then commit","info first, duel second",5,true,"Info first. Duel second.","Never commit off a jiggle."),
-      D("Trade timing","with a duo, or Training 01 rush for the pressure","refrag inside 2 seconds",6,false,"Die traded, never alone.","")]},
+      D("Opening-angle prefires","Aim Arena prefire, or a timed prefire course","Only the angles you meet on first contact","first bullet already on the head",8,true,"Already aimed when you arrive.",""),
+      D("Info jiggles","Your main map — own server","Shoulder-peek to bait, then commit","info first, duel second",5,true,"Info first. Duel second.","Never commit off a jiggle."),
+      D("Trade timing","With a duo, or Training 01 rush","Enter together and refrag immediately","refrag inside 2 seconds",6,false,"Die traded, never alone.","")]},
     awp:{name:"AWP",why:"The AWP needs a near-full stop to be pinpoint — stricter than rifles — so counter-strafe into the shot; add repeek so a miss isn't a death.",drills:[
-      D("One-taps → flicks","aim_botz statics, then Target Training moving dots at 0.5 scale","hit rate over speed",8,true,"Aim where it is going.","Overflicked? Slow the next five."),
-      D("Stop-into-shot","counter-strafe into the scoped shot","near-full stop before the click",6,true,"Full stop, then click.","A moving shot does not count."),
-      D("Repeek discipline","shot → reposition → new angle","never re-peek the same pixel",5,false,"Never the same pixel twice.","")]},
+      D("One-taps → flicks","aim_botz, then Target Training","Statics first, then moving dots at 0.5 scale","hit rate over speed",8,true,"Aim where it is going.","Overflicked? Slow the next five."),
+      D("Stop-into-shot","aim_botz, or your main map","Counter-strafe straight into the scoped shot","near-full stop before the click",6,true,"Full stop, then click.","A moving shot does not count."),
+      D("Repeek discipline","Your main map — own server","Shot, then reposition before the next angle","never re-peek the same pixel",5,false,"Never the same pixel twice.","")]},
     rifle:{name:"Rifling",why:"A reliable rifle so you stop bleeding the rounds you can't play for picks.",drills:[
-      D("Pattern reps","Recoil Master — AK / M4","grouping tightens set to set",8,true,"Pull the shape, do not fight it.",""),
-      D("Transfers","multi-bot spray transfers","second kill in the spray",6,true,"Drag through the second man.",""),
-      D("Prefire angles","Yprac or a timed prefire course — your main map","head-height the whole route, time improving",5,false,"Head height, the whole way.","")]},
+      D("Pattern reps","Recoil Master","AK first, then M4 — full patterns","grouping tightens set to set",8,true,"Pull the shape, do not fight it.",""),
+      D("Transfers","aim_botz","Multi-bot spray transfers, no re-aiming","second kill in the spray",6,true,"Drag through the second man.",""),
+      D("Prefire angles","Yprac, or a timed prefire course","Your main map, the full route every run","head-height the whole route, time improving",5,false,"Head height, the whole way.","")]},
     movement:{name:"Movement",why:"Clean air-strafes and efficient jump pathing get you between fights faster and make you harder to hit inside them — and a peek you do not have to think about is a peek you win.",drills:[
-      D("Air-strafe laps","Movement Mirage — jump the objects and hold the strafe through every corner","no speed lost on the turns",8,true,"Hold the curve. Do not tap it.","Lost speed on a corner? Run the lap again."),
-      D("Jump pathing","Movement Hub time trial — follow the guide line, then beat your own time","same route, faster each session",7,true,"Same line, faster.","A new route resets the timer."),
-      D("Crouch-jump timings","CST Labs, or the climb / bhop section in Aim Arena","land it five in a row before you move on",5,false,"Crouch late, not early.","Five clean in a row or start over.")]},
+      D("Air-strafe laps","Movement Mirage","Jump the objects, hold the strafe through corners","no speed lost on the turns",8,true,"Hold the curve. Do not tap it.","Lost speed on a corner? Run the lap again."),
+      D("Jump pathing","Movement Hub","Time trial — follow the guide line, then beat it","same route, faster each session",7,true,"Same line, faster.","A new route resets the timer."),
+      D("Crouch-jump timings","CST Labs, or Aim Arena climb / bhop","Repeat one jump until it lands every time","land it five in a row before you move on",5,false,"Crouch late, not early.","Five clean in a row or start over.")]},
     match:{name:"Match night",why:"",drills:[
-      D("Full warm-up first","the fixed routine before you queue","no cold queues",10,true),
-      D("One process goal","e.g. stop before every shot","graded on the goal, not the scoreboard",1,true),
-      D("The gate","only queue warm + not tilted","honest check before you hit play",1,true),
-      D("Stop-loss armed","2 tilted losses = done for tonight","protect the rating",1,false)]},
+      D("Full warm-up first","","the fixed routine before you queue","no cold queues",10,true),
+      D("One process goal","","e.g. stop before every shot","graded on the goal, not the scoreboard",1,true),
+      D("The gate","","only queue warm + not tilted","honest check before you hit play",1,true),
+      D("Stop-loss armed","","2 tilted losses = done for tonight","protect the rating",1,false)]},
     rest:{name:"Rest",why:"",drills:[
-      D("Rest day","recovery is part of consistency — nothing required","come back tomorrow",0,false)]}
+      D("Rest day","","recovery is part of consistency — nothing required","come back tomorrow",0,false)]}
   };
   var KEYSTONE_ORDER=["cstrafe","consistency","placement","spray","utility","positioning","movement","clutch","entry"];
 
   // Every session closes on slow, perfect reps. You consolidate whatever you did LAST, so ending
   // on the hardest block bakes in the sloppiest mechanics. (Coach's idea — it's the right one.)
-  var CALM=D("Calm reset","slow the pace right down — perfect reps only, end on clean taps",
+  var CALM=D("Calm reset","","Slow the pace right down — perfect reps only, end on clean taps",
     "the last thing you do is the thing you keep",2,false,
     "I have time.","Only clean reps count. Miss one and keep going until three in a row land.");
 
@@ -510,16 +525,16 @@
     model:"Angle first → body second → shot last",
     after:"Finish with a Premier match treated purely as application — apply the angle discipline and first-bullet confirmation under live pressure, and do not care about the result.",
     blocks:[
-      D("Warm-up · linear control","aim_treeni_fps — Linear Area, 3 targets, size 13, ~200 reps","smooth path, no overcorrection",3,true,"Smooth, not fast.","One motion per target. No sawing back and forth."),
-      D("Micro-adjustments","Linear Area, 10 targets, size 7, distance 5, ~100–150 reps","minimal mouse travel per correction",3,true,"Small corrections only.","If the mouse travelled far, the placement was already wrong."),
-      D("Flicking","Round Area, 90°, 2 targets, size 12, ~200–300 reps","stops dead on the target",3,true,"Snap, then stop.","No follow-through drift past the target."),
-      D("Floating heads","Round Area, 90°, 5 targets, size 10, moving on — speed 100 / 150 / 170+","clean first shot, no spraying",3,true,"Confirm, then click.","No firing before the target is actually confirmed."),
-      D("Tracking","Tracking mode on, 90°, 5 targets, size 10, moving — ~100 reps","crosshair stays on through the move",3,true,"Steady pressure.","Losing the target means slow down, not swing harder."),
-      D("Bursts · sprays · movement","Round Area, health 4, 90°, 5 targets, size 10, moving","controlled bursts while moving",3,true,"Move, stop, burst.","No holding the trigger through a strafe."),
-      D("Angle discipline","aim_rush · AK — hold ONE angle at head height and wait","target walks into the crosshair",3,true,"If I move my crosshair, I failed.","Do not chase. Wait for the target to enter the crosshair."),
-      D("Micro-peek confirmation","step out just enough to see, counter-strafe, one tap, reset","head appears before shoulders",3,true,"Show less. Decide faster.","No wide swings. Reset to cover after every peek."),
-      D("Reactive angle transfer","hold one angle, target appears elsewhere — transfer deliberately","no shots fired mid-transfer",4,true,"See first. Shoot second.","Shooting mid-transfer voids the rep. A miss means slow down."),
-      D("Controlled entry peeks","wider peeks, one angle each, fully stopped before the shot","confirmed before the click",3,true,"Commit after confirmation.","Never fix bad placement mid-peek — reset and go again."),
+      D("Warm-up · linear control","aim_treeni_fps","Linear Area, 3 targets, size 13, ~200 reps","smooth path, no overcorrection",3,true,"Smooth, not fast.","One motion per target. No sawing back and forth."),
+      D("Micro-adjustments","aim_treeni_fps","Linear Area, 10 targets, size 7, distance 5, ~100–150 reps","minimal mouse travel per correction",3,true,"Small corrections only.","If the mouse travelled far, the placement was already wrong."),
+      D("Flicking","aim_treeni_fps","Round Area, 90°, 2 targets, size 12, ~200–300 reps","stops dead on the target",3,true,"Snap, then stop.","No follow-through drift past the target."),
+      D("Floating heads","aim_treeni_fps","Round Area, 90°, 5 targets, size 10, moving — speed 100 / 150 / 170+","clean first shot, no spraying",3,true,"Confirm, then click.","No firing before the target is actually confirmed."),
+      D("Tracking","aim_treeni_fps","Tracking mode on, 90°, 5 targets, size 10, moving — ~100 reps","crosshair stays on through the move",3,true,"Steady pressure.","Losing the target means slow down, not swing harder."),
+      D("Bursts · sprays · movement","aim_treeni_fps","Round Area, health 4, 90°, 5 targets, size 10, moving","controlled bursts while moving",3,true,"Move, stop, burst.","No holding the trigger through a strafe."),
+      D("Angle discipline","aim_rush · AK","Hold ONE angle at head height and wait","target walks into the crosshair",3,true,"If I move my crosshair, I failed.","Do not chase. Wait for the target to enter the crosshair."),
+      D("Micro-peek confirmation","aim_rush · AK","Step out just enough to see, counter-strafe, one tap, reset","head appears before shoulders",3,true,"Show less. Decide faster.","No wide swings. Reset to cover after every peek."),
+      D("Reactive angle transfer","aim_rush · AK","Hold one angle, then transfer deliberately when it appears elsewhere","no shots fired mid-transfer",4,true,"See first. Shoot second.","Shooting mid-transfer voids the rep. A miss means slow down."),
+      D("Controlled entry peeks","aim_rush · AK","Wider peeks, one angle each, fully stopped before the shot","confirmed before the click",3,true,"Commit after confirmation.","Never fix bad placement mid-peek — reset and go again."),
       CALM
     ]
   }];
@@ -1091,6 +1106,7 @@
         rows+='<button class="drow'+(done?" done":"")+'" data-drill="'+dix+'" aria-pressed="'+(done?"true":"false")+'">'+
           '<span class="dbox">'+CHK+'</span>'+
           '<span class="dbody"><span class="dname">'+esc(d.t)+(d.core?'<span class="chip">CORE</span>':'')+'</span>'+
+          (d.where?'<span class="dwhere" style="display:block;">▸ '+esc(d.where)+'</span>':'')+
           '<span class="dsub" style="display:block;">'+esc(d.sub)+'</span>'+
           '<span class="dmeas" style="display:block;">◎ '+esc(d.m)+'</span></span>'+
           (d.dur?'<span class="ddur">'+d.dur+'′</span>':'')+
@@ -1888,10 +1904,16 @@
     ov.innerHTML='<div class="sbar"><span class="ml">SESSION · '+head+(SESS.quick?" · QUICK":"")+'</span><button class="siconx" data-sess="end" aria-label="End session">✕</button></div>'+
       '<div class="sdots">'+dots+'</div>'+
       '<div class="sctr"><div class="ml">DRILL '+(SESS.idx+1)+' / '+SESS.list.length+(d.core?" · CORE":"")+'</div>'+
-      '<div class="sname dsp">'+esc(d.t)+'</div><div class="ssub">'+esc(d.sub)+'</div>'+
-      (d.cue?'<div class="scue">“'+esc(d.cue)+'”</div>':'')+
-      '<div class="smeas">◎ '+esc(d.m)+'</div>'+
-      (d.rule?'<div class="srule">✕ '+esc(d.rule)+'</div>':'')+
+      '<div class="sname dsp">'+esc(d.t)+'</div>'+
+      // one fact per line, each labelled, in the order you actually need them:
+      // where to go, what to do there, how to execute, what good looks like.
+      '<div class="sfacts">'+
+        (d.where?'<div class="sfact"><span class="sk">MAP</span><span class="sv">'+esc(d.where)+'</span></div>':'')+
+        (d.sub?'<div class="sfact"><span class="sk">DO</span><span class="sv">'+esc(d.sub)+'</span></div>':'')+
+        (d.cue?'<div class="sfact"><span class="sk">TIP</span><span class="sv tip">'+esc(d.cue)+'</span></div>':'')+
+        (d.m?'<div class="sfact"><span class="sk">GOOD</span><span class="sv">'+esc(d.m)+'</span></div>':'')+
+        (d.rule?'<div class="sfact"><span class="sk">WATCH</span><span class="sv warn">'+esc(d.rule)+'</span></div>':'')+
+      '</div>'+
       '<div class="stime'+(SESS.remain<=0?" zero":"")+'" id="sTime">'+fmtT(SESS.remain)+'</div>'+
       '<div class="sctrls"><button class="gbtn" data-sess="pause">'+(SESS.paused?"RESUME":"PAUSE")+'</button>'+
       '<button class="gbtn" data-sess="skip">SKIP ▸</button><button class="pbtn" data-sess="done">DONE ✓</button></div></div>';

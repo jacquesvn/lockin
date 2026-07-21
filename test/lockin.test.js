@@ -325,7 +325,7 @@ ok('every FOCI key has a buildTargets entry (no keystone can crash)', (function 
 })());
 ok('drills now reference the workshop kit', (function () {
   var all = Object.keys(FOCI).map(function (k) {
-    return FOCI[k].drills.map(function (d) { return d.sub; }).join(' ');
+    return FOCI[k].drills.map(function (d) { return d.where + ' ' + d.sub; }).join(' ');
   }).join(' ');
   return ['Aim Arena','Training 01','Movement Mirage','Movement Hub','Target Training','Reflex Dots','CST Labs','CS2 Labs']
     .every(function (m) { return all.indexOf(m) >= 0; });
@@ -512,6 +512,43 @@ ok('session description is not left at caption-grey', (function () {
 ok('session type scales up past the phone breakpoint', (function () {
   return /#session \.sname\{font-size:clamp\(3\d/.test(html) &&
          /#session \.ssub\{font-size:clamp/.test(html);
+})());
+
+
+// --- v0.12: the session screen reads as labelled facts, not a prose blob ---
+// Every drill answers: which map, what to do there, how to execute, what good
+// looks like. `where` and `sub` must stay separate or it collapses back to prose.
+ok('every real drill names a map or venue', (function () {
+  var missing = [];
+  Object.keys(FOCI).forEach(function (k) {
+    if (k === 'match' || k === 'rest') return;   // these are not workshop work
+    FOCI[k].drills.forEach(function (d) { if (!d.where) missing.push(k + '/' + d.t); });
+  });
+  if (missing.length) console.log('      no map: ' + missing.join(', '));
+  return missing.length === 0;
+})());
+ok('map and method are separate fields, not one blob', (function () {
+  var fused = [];
+  Object.keys(FOCI).forEach(function (k) {
+    FOCI[k].drills.forEach(function (d) {
+      // an em-dash join was the old "map — approach" shape
+      if (d.where && d.sub && d.sub.indexOf(d.where) >= 0) fused.push(k + '/' + d.t);
+    });
+  });
+  return fused.length === 0;
+})());
+ok('protocol blocks carry a map too (same screen renders them)', (function () {
+  return PROTOCOLS.every(function (p) {
+    return (p.blocks || []).filter(function (b) { return !!b.where; }).length >= (p.blocks || []).length - 1;
+  });
+})());
+ok('every drill still has title, method, measure and duration', Object.keys(FOCI).every(function (k) {
+  return FOCI[k].drills.every(function (d) {
+    return d.t && d.sub && d.m && typeof d.dur === 'number' && typeof d.where === 'string';
+  });
+}));
+ok('session renders each fact under its own label', (function () {
+  return ['>MAP<', '>DO<', '>TIP<', '>GOOD<', '>WATCH<'].every(function (l) { return html.indexOf(l) >= 0; });
 })());
 
 
