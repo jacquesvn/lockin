@@ -2,9 +2,12 @@
 
 **[Open Lockin →](https://jacquesvn.github.io/lockin/)** · [What it is](https://jacquesvn.github.io/lockin/landing.html)
 
-A free coach for Counter-Strike 2. Answer seven questions and Lockin builds you a
+A free coach for Counter-Strike 2. Answer eight questions and Lockin builds you a
 personalised 12-week training plan plus the daily tracker to actually run it — because a
 good plan and the discipline to follow it shouldn't cost $50 an hour.
+
+It asks where you play first, so the rank question uses brackets you actually recognise —
+Premier ratings, FACEIT levels, or plain descriptions if you are on ESEA or a mix.
 
 No account. No server. No telemetry. Your data lives on your device and nowhere else.
 
@@ -17,12 +20,23 @@ No account. No server. No telemetry. Your data lives on your device and nowhere 
 Your stated availability actually shapes it: two days a week gets you a two-day plan, and
 the 10-minute tier gets a core-only session, not a trimmed 45-minute one.
 
+**The week is yours to set.** Fri/Sat match nights are only a starting guess — tap any day
+on Plan to make it a training focus, a match night, or rest. Your training days drive the
+weekly target and the streak, wherever in the week they fall.
+
 **Gets you to actually train.**
-- **Guided session** — a timed drill runner, one drill at a time
+- **Guided session** — a timed drill runner, one drill at a time, with a **cue** to hold in
+  your head and a **rule** you can break ("a shot while still moving does not count")
+- **Every session ends on a calm reset** — slow, perfect reps, because you keep whatever
+  you did last
 - **"I've got 5 minutes"** — one core drill, five minutes, and the day still counts
 - **Daily cue** — *"after ___, I do the ten"*, because a plan with a *when* happens
 - **Streak + never-miss-twice**, with weekends and your own rest days forgiven
 - **Log yesterday** for the night you trained and forgot to tick it
+
+**A coach-built session, as written.** The Oblivion Protocol — 33 minutes of aim
+foundations then angle discipline, with the exact map settings and per-block cues, runnable
+straight from Plan. Written by a coach for a real player and kept as it was.
 
 **Match nights get their own screen.** The Gate: warmed up, not tilted, one process goal —
 then a loss counter that calls a stop-loss at two, before the third one costs you more.
@@ -32,6 +46,8 @@ then a loss counter that calls a stop-loss at two, before the third one costs yo
 - Sparklines for sessions-per-week and hand-feel trend
 - Month calendar of every session
 - **Leetify checkpoints** at base / week 4 / 8 / 12, with your bracket's average alongside
+  — entirely optional, and the averages say when they are Premier-derived rather than
+  native to your platform
 - **Death audit** — tag each death by cause and Lockin names your biggest leak
 
 **Preps your maps.** For all seven Active Duty maps: what your utility is actually *for*,
@@ -41,8 +57,8 @@ for the lineups you learn, in your own words.
 **Remembers your setup.** Sens, DPI (with eDPI), crosshair code, launch options — so a
 reinstall never costs you your muscle memory.
 
-Also: light/dark, a shareable progress card, full export/restore, and a desktop build with
-a tray icon and a daily "go train" nudge.
+Also: light/dark, a shareable progress card, full export/restore, a feedback link that
+prefills your version, and a desktop build with a tray icon and a daily "go train" nudge.
 
 ---
 
