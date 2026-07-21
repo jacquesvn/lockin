@@ -1,6 +1,6 @@
 [package]
 name = "lockin"
-version = "0.11.0"
+version = "0.11.1"
 description = "Lockin — your pocket CS2 coach"
 authors = ["jacquesvn"]
 edition = "2021"

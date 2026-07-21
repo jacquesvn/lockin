@@ -47,7 +47,7 @@ vm.createContext(sandbox);
 vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
-        dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, sparkBars, sparkLine, MAPS,
+        dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, MAPS,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
         lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH } = sandbox.module.exports;
 
@@ -145,9 +145,40 @@ ok('reviewTotals aggregates causes', rt.aim === 2 && rt.pos === 3 && rt.util ===
 ok('reviewTotals ignores days outside the window', reviewTotals({ reviews: { '2020-01-01': { aim: 9 } } }, 30).aim === 0);
 ok('reviewTotals is safe with no reviews', reviewTotals({}, 30).aim === 0);
 
-ok('sparkBars renders an svg for data', /^<svg/.test(sparkBars([1, 2, 3])));
-ok('sparkBars is empty with no data', sparkBars([]) === '');
-ok('sparkLine needs 2+ points', sparkLine([3]) === '' && /^<svg/.test(sparkLine([3, 4])));
+
+// --- v0.11.1: charts carry their own numbers (testers found the old ones ambiguous) ---
+ok('barChart prints a value under every bar', (function () {
+  var h = barChart([0, 2, 3]);
+  return (h.match(/class="bval/g) || []).length === 3 &&
+         h.indexOf('>0<') >= 0 && h.indexOf('>2<') >= 0 && h.indexOf('>3<') >= 0;
+})());
+ok('barChart is empty with no data', barChart([]) === '' && barChart(null) === '');
+ok('all-zero data shows the empty message, not a row of bars', (function () {
+  var h = barChart([0, 0, 0], { emptyMsg: 'nothing yet' });
+  return h.indexOf('nothing yet') >= 0 && h.indexOf('bfill') < 0;
+})());
+ok('zero bars render as a baseline, never as a fill', (function () {
+  var h = barChart([0, 4]);
+  return (h.match(/bzero/g) || []).length === 1 && (h.match(/bfill/g) || []).length === 1;
+})());
+ok('a fixed scale keeps bar height absolute', (function () {
+  // on a 1-5 scale a 4 is 80% tall; auto-scaling would inflate it to full height
+  var fixed = barChart([2, 4], { scale: 5 }), auto = barChart([2, 4]);
+  return /height:40%/.test(fixed) && /height:80%/.test(fixed) &&
+         /height:50%/.test(auto) && /height:100%/.test(auto);
+})());
+ok('only the most recent bar is highlighted', (function () {
+  var h = barChart([1, 2, 3]);
+  return (h.match(/bfill now/g) || []).length === 1 && h.lastIndexOf('bfill now') > h.indexOf('bfill');
+})());
+ok('axis is dropped when it would be wider than the chart', (function () {
+  var few = barChart([1, 2], { from: 'a', to: 'b' }), many = barChart([1, 2, 3, 4], { from: 'a', to: 'b' });
+  return few.indexOf('baxis') < 0 && many.indexOf('baxis') >= 0;
+})());
+ok('chart labels are escaped', (function () {
+  var h = barChart([1, 2, 3, 4], { label: '<img src=x>', from: '<b>', to: 'y' });
+  return h.indexOf('<img src=x>') < 0 && h.indexOf('&lt;img') >= 0;
+})());
 
 ok('drillList lite tier is core-only and shorter', (function () {
   var F = FOCI.cstrafe;
