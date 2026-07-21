@@ -359,7 +359,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.10.2";
+  var VERSION="0.10.3";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -918,6 +918,22 @@
   }
 
   /* ---------- TODAY ---------- */
+  // "Never miss twice" must not scold someone for a day before their plan existed — a
+  // brand-new user has no history to have missed. Same plan.created floor the calendar uses.
+  function missedYesterday(st,now){
+    var plan=st&&st.plan;if(!plan)return false;
+    var yday=addDays(now,-1);
+    if(!isTrainingDay(plan,yday))return false;
+    var createdMid=plan.created?parseKey(plan.created).getTime():0;
+    if(midnight(yday).getTime()<createdMid)return false;      // before this plan existed
+    // "never miss twice" protects a habit you've started. Nagging someone who has never
+    // trained isn't a reminder, it's just discouraging — they get the cue prompt instead.
+    var sess=st.sessions||{},started=false;
+    for(var k in sess){if(sess[k]&&sess[k].warm){started=true;break;}}
+    if(!started)return false;
+    var s=sess[dateKey(yday)];
+    return !(s&&s.warm);
+  }
   function weekCells(st,now){
     var mon=mondayOf(now),tk=dateKey(now),sh=["M","T","W","T","F","S","S"],full=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],todayMid=midnight(now).getTime(),h="";
     var createdMid=(st.plan&&st.plan.created)?parseKey(st.plan.created).getTime():0; // don't mark days before the plan existed as missed
@@ -963,7 +979,7 @@
       '<button class="cuebar prompt" data-go="setup"><span class="ml" style="color:var(--hero);">⚡ SET YOUR CUE</span><span>“After ___, I do the ten.” A plan with a <em>when</em> actually happens — set it in Setup.</span></button>';
     // never-miss-twice
     var yday=addDays(now,-1),yk=dateKey(yday);
-    var ydMissed=isTrainingDay(plan,yday)&&!(st.sessions[yk]&&st.sessions[yk].warm);
+    var ydMissed=missedYesterday(st,now);
     var todayDone=st.sessions[tk]&&st.sessions[tk].warm;
     // only nag on a day the user can actually act on (a training day)
     var nmt=(ydMissed&&!todayDone&&!backfill&&isTrainingDay(plan,now))?'<div class="warnbanner">⚠ You missed yesterday — <b>never miss twice.</b> Today is non-negotiable: tick one drill.</div>':'';
@@ -1699,7 +1715,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,sparkBars:sparkBars,sparkLine:sparkLine,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,sparkBars:sparkBars,sparkLine:sparkLine,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint};
 })();
 </script>
 </body>

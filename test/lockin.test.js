@@ -48,7 +48,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, sparkBars, sparkLine, MAPS,
-        buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint } = sandbox.module.exports;
+        buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -157,6 +157,34 @@ ok('drillList lite tier is core-only and shorter', (function () {
 ok('drillList preserves original drill indices', (function () {
   var lite = drillList(FOCI.cstrafe, { profile: { time: '10' } });
   return lite.every(function (it) { return FOCI.cstrafe.drills[it.i] === it.d; });
+})());
+
+// --- v0.10.3: don't scold a brand-new user for days before their plan existed ---
+var everyDayPlan = { weekly: { 0:'cstrafe',1:'cstrafe',2:'cstrafe',3:'cstrafe',4:'cstrafe',5:'cstrafe',6:'cstrafe' } };
+ok('a plan created TODAY never claims you missed yesterday', (function () {
+  var st = { plan: Object.assign({ created: '2026-07-21' }, everyDayPlan), sessions: {} };
+  return missedYesterday(st, new Date('2026-07-21T12:00:00')) === false;
+})());
+ok('a plan created yesterday does not scold you for the day before it', (function () {
+  var st = { plan: Object.assign({ created: '2026-07-20' }, everyDayPlan), sessions: {} };
+  return missedYesterday(st, new Date('2026-07-21T12:00:00')) === false; // yesterday IS the created day
+})());
+ok('an established user who actually missed yesterday still gets nagged', (function () {
+  var st = { plan: Object.assign({ created: '2026-07-01' }, everyDayPlan), sessions: { '2026-07-15': { warm: true } } };
+  return missedYesterday(st, new Date('2026-07-21T12:00:00')) === true;
+})());
+ok('no nag when yesterday was trained', (function () {
+  var st = { plan: Object.assign({ created: '2026-07-01' }, everyDayPlan), sessions: { '2026-07-20': { warm: true } } };
+  return missedYesterday(st, new Date('2026-07-21T12:00:00')) === false;
+})());
+ok('no nag when yesterday was a rest or match day', (function () {
+  var restWeek = { created: '2026-07-01', weekly: { 0:'rest',1:'rest',2:'rest',3:'rest',4:'rest',5:'rest',6:'match' } };
+  return missedYesterday({ plan: restWeek, sessions: {} }, new Date('2026-07-21T12:00:00')) === false;
+})());
+
+ok('someone who has never trained is never nagged, however old the plan', (function () {
+  var st = { plan: Object.assign({ created: '2026-01-01' }, everyDayPlan), sessions: {} };
+  return missedYesterday(st, new Date('2026-07-21T12:00:00')) === false;
 })());
 
 // --- v0.10.2: rank language follows the platform the player actually uses ---
