@@ -48,7 +48,8 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, sparkBars, sparkLine, MAPS,
-        buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday } = sandbox.module.exports;
+        buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
+        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -318,6 +319,100 @@ ok('Cache carries its rework caveat', (function () {
   var cache = MAPS.filter(function (m) { return m.id === 'cache'; })[0];
   return !!(cache && cache.note && /rework/i.test(cache.note));
 })());
+
+// --- v0.11: optional Leetify read (guidelines: no storing, no rescaling) ---
+ok('parses a steam64 out of a pasted profile link',
+  (lfyParseId('https://leetify.com/app/player/76561198012345678') || {}).id === '76561198012345678');
+ok('parses a bare steam64', (lfyParseId('  76561198012345678 ') || {}).kind === 'steam64');
+ok('parses a leetify uuid link',
+  (lfyParseId('https://leetify.com/app/profile/3f2504e0-4f89-11d3-9a0c-0305e82c3301') || {}).kind === 'id');
+ok('rejects junk', lfyParseId('hello') === null && lfyParseId('') === null && lfyParseId(null) === null);
+ok('normalises 0-1 ratios and leaves 0-100 alone',
+  lfyPct(0.62) === 62 && lfyPct(73) === 73 && lfyPct(1) === 100 && lfyPct(undefined) === null);
+
+// Shaped like a real response — verified against live profiles Jul 2026.
+// Note clutch/opening come back ~0.05 while aim/positioning/utility are 0-100.
+var LFY_SAMPLE = {
+  steam64_id: '76561198012345678', name: 'tester',
+  rating: { aim: 89.4, positioning: 62.5, utility: 73.9, clutch: 0.106, opening: 0.044 },
+  stats: { counter_strafing_good_shots_ratio: 77.8, preaim: 10.28, spray_accuracy: 44.2, reaction_time_ms: 640 }
+};
+ok('suggests the standout-weakest of the three comparable 0-100 scores', (function () {
+  var t = lfySuggest(LFY_SAMPLE, { rank: 'mid' }).ticks;   // positioning 62.5 vs aim 89.4
+  return t.indexOf('positioning') >= 0 && t.indexOf('utility') < 0;
+})());
+// REGRESSION: clutch(0.106) and opening(0.044) are on a different scale from the
+// 0-100 scores. Ranking them together ticked both for every player alive.
+ok('never ranks clutch/opening against the 0-100 scores', (function () {
+  var t = lfySuggest(LFY_SAMPLE, { rank: 'mid' }).ticks;
+  return t.indexOf('clutch') < 0 && t.indexOf('entry') < 0;
+})());
+ok('a balanced profile gets no tick at all', (function () {
+  var d = JSON.parse(JSON.stringify(LFY_SAMPLE));
+  d.rating.aim = 74; d.rating.positioning = 71; d.rating.utility = 70;  // gap < 8
+  d.stats.counter_strafing_good_shots_ratio = 81; d.stats.preaim = 8.1;
+  return lfySuggest(d, { rank: 'mid' }).ticks.length === 0;
+})());
+ok('flags counter-strafing below the bracket benchmark', (function () {
+  var d = JSON.parse(JSON.stringify(LFY_SAMPLE));
+  d.stats.counter_strafing_good_shots_ratio = 55;          // vs ~73 for mid
+  return lfySuggest(d, { rank: 'mid' }).ticks.indexOf('cstrafe') >= 0;
+})());
+ok('flags crosshair placement worse than the bracket benchmark', (function () {
+  var d = JSON.parse(JSON.stringify(LFY_SAMPLE));
+  d.stats.preaim = 13.2;                                   // vs ~10.5 for mid, higher is worse
+  return lfySuggest(d, { rank: 'mid' }).ticks.indexOf('placement') >= 0;
+})());
+ok('mechanics that beat the benchmark are left alone', (function () {
+  var d = JSON.parse(JSON.stringify(LFY_SAMPLE));
+  d.stats.counter_strafing_good_shots_ratio = 81; d.stats.preaim = 8.1;
+  var t = lfySuggest(d, { rank: 'mid' }).ticks;
+  return t.indexOf('cstrafe') < 0 && t.indexOf('placement') < 0;
+})());
+ok('mechanics are judged independently of the aim score', (function () {
+  var d = JSON.parse(JSON.stringify(LFY_SAMPLE));
+  d.rating.aim = 98;                                       // great aim overall...
+  d.stats.counter_strafing_good_shots_ratio = 55;          // ...but still moving when shooting
+  return lfySuggest(d, { rank: 'mid' }).ticks.indexOf('cstrafe') >= 0;
+})());
+ok('benchmarks follow the player bracket, not a fixed number', (function () {
+  var d = JSON.parse(JSON.stringify(LFY_SAMPLE));
+  d.stats.counter_strafing_good_shots_ratio = 68;          // under mid(73), over new(62)
+  return lfySuggest(d, { rank: 'mid' }).ticks.indexOf('cstrafe') >= 0 &&
+         lfySuggest(d, { rank: 'new' }).ticks.indexOf('cstrafe') < 0;
+})());
+ok('never suggests consistency or movement (no API signal for either)', (function () {
+  var d = JSON.parse(JSON.stringify(LFY_SAMPLE));
+  d.rating.positioning = 10; d.stats.counter_strafing_good_shots_ratio = 20; d.stats.preaim = 20;
+  var t = lfySuggest(d, { rank: 'mid' }).ticks;
+  return t.indexOf('consistency') < 0 && t.indexOf('movement') < 0;
+})());
+ok('every suggested tick is a real quiz option', (function () {
+  var weak = QUIZ.filter(function (q) { return q.id === 'weak'; })[0];
+  var valid = weak.opts.map(function (o) { return o[0]; });
+  var d = JSON.parse(JSON.stringify(LFY_SAMPLE));
+  d.rating.positioning = 10; d.stats.counter_strafing_good_shots_ratio = 20; d.stats.preaim = 20;
+  var r = lfySuggest(d, { rank: 'mid' });
+  return r.ticks.length > 0 && r.ticks.every(function (t) { return valid.indexOf(t) >= 0; });
+})());
+ok('every suggestion carries a reason the user can read', (function () {
+  var d = JSON.parse(JSON.stringify(LFY_SAMPLE));
+  d.rating.positioning = 30; d.stats.preaim = 14;
+  var r = lfySuggest(d, { rank: 'mid' });
+  return r.ticks.length > 0 && r.ticks.every(function (t) { return typeof r.why[t] === 'string' && r.why[t].length > 10; });
+})());
+ok('survives an empty or partial payload', (function () {
+  return lfySuggest(null, {}).ticks.length === 0 &&
+         lfySuggest({}, {}).ticks.length === 0 &&
+         lfySuggest({ rating: { aim: 50 } }, { rank: 'mid' }).ticks.length === 0;
+})());
+ok('benchmark table matches the numbers benchHint already shows', (function () {
+  return /~73%/.test(benchHint('Counter-strafing %', { rank: 'mid' })) && LFY_BENCH.cstrafe.mid === 73 &&
+         /~10\.5/.test(benchHint('Crosshair placement (°)', { rank: 'mid' })) && LFY_BENCH.placement.mid === 10.5;
+})());
+ok('profile url points back at leetify for attribution',
+  /^https:\/\/leetify\.com\//.test(lfyProfileUrl(LFY_SAMPLE)) &&
+  lfyProfileUrl(null) === 'https://leetify.com/');
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

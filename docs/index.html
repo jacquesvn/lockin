@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#1b1b18">
 <meta name="description" content="Lockin — a free pocket CS2 coach. A quick quiz builds you a personalised training plan and a daily tracker to stick to it.">
 <title>Lockin — your pocket CS2 coach</title>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api-public.cs-prod.leetify.com; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20fill%3D%22%23EAC54F%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23322D14%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22square%22%3E%3Cpath%20d%3D%22M3%209V3h6M23%203h6v6M3%2023v6h6M29%2023v6h-6%22%2F%3E%3Cpath%20d%3D%22M16%208.5v3.5M16%2020v3.5M8.5%2016h3.5M20%2016h3.5%22%2F%3E%3C%2Fg%3E%3Ccircle%20cx%3D%2216%22%20cy%3D%2216%22%20r%3D%221.9%22%20fill%3D%22%23322D14%22%2F%3E%3C%2Fsvg%3E">
 <link rel="apple-touch-icon" href="data:image/png;base64,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">
@@ -135,6 +135,21 @@
   .seg{height:4px;border-radius:2px;background:var(--surface2);} .seg.on{background:var(--hero);}
   .qq{font-size:24px;margin:6px 0 4px;}
   .qhint{font-size:13px;color:var(--muted);margin-bottom:16px;}
+  .lfy{margin-bottom:16px;padding:14px;}
+  .lfyin{display:flex;gap:8px;}
+  .lfyin input{flex:1;min-width:0;background:var(--sunk);border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:10px 11px;font:inherit;font-size:13px;}
+  .lfyin input:focus{outline:none;border-color:var(--hero);}
+  .lfyname{font-weight:800;margin:10px 0 8px;font-size:15px;}
+  .lfynums{display:grid;grid-template-columns:1fr;gap:2px;}
+  .lfyrow{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;
+    color:var(--muted);padding:3px 0;border-bottom:1px solid var(--line);}
+  .lfyrow b{color:var(--text);font-variant-numeric:tabular-nums;}
+  .lfyattr{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;}
+  .lfylink{color:#F84982;font-weight:700;text-decoration:underline;font-size:12px;}
+  .lfywhy{font-size:12.5px;color:var(--muted);padding:3px 0;}
+  .lfywhy:before{content:"▸ ";color:var(--hero);}
+  .lfyerr{margin-top:9px;font-size:12.5px;color:var(--warn,#e5a03c);}
   .opts{display:flex;flex-direction:column;gap:9px;}
   .opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:14px 15px;cursor:pointer;color:var(--text);font-size:14.5px;transition:border-color .12s,background .12s;}
   .opt.on{border-color:var(--hero);background:color-mix(in oklab,var(--hero) 10%, transparent);}
@@ -815,6 +830,7 @@
       '<div class="ml" style="color:var(--hero);">CALIBRATION</div>'+
       '<div class="dsp qq">'+item.q+'</div>'+
       (item.hint?'<div class="qhint">'+item.hint+'</div>':'<div style="height:10px;"></div>')+
+      (item.id==="weak"?lfyPanel(answers):'')+
       '<div class="opts">'+opts+'</div>'+
       '<div class="qnav"><button class="gbtn" id="backB"'+(step>1?"":' style="visibility:hidden;"')+'>◂ BACK</button>'+
       '<button class="pbtn" id="nextB"'+(canNext?"":" disabled")+'>'+(step<QUIZ.length?"NEXT ▸":"LOCK IT IN ▸")+'</button></div></div>';
@@ -825,6 +841,27 @@
       else answers[item.id]=v;
       renderOnboard();
     };})(os[i]);
+    var lfyGo=document.getElementById("lfyGo");
+    if(lfyGo){
+      var run=function(){
+        var inp=document.getElementById("lfyUrl"),val=inp?inp.value:"";
+        LFY.state="loading";LFY.err="";renderOnboard();
+        lfyFetch(val,function(err,data){
+          if(err){LFY.state="err";LFY.err=err;LFY.data=null;renderOnboard();return;}
+          LFY.state="ok";LFY.data=data;
+          if(!LFY.applied){ // suggest once; never fight the user's later edits
+            LFY.applied=true;
+            var arr=(answers.weak||[]).slice(),t=lfySuggest(data,answers).ticks;
+            for(var i=0;i<t.length;i++)if(arr.indexOf(t[i])<0)arr.push(t[i]);
+            answers.weak=arr;
+          }
+          renderOnboard();
+        });
+      };
+      lfyGo.onclick=run;
+      var lfyIn=document.getElementById("lfyUrl");
+      if(lfyIn)lfyIn.onkeydown=function(e){if(e.key==="Enter"){e.preventDefault();run();}};
+    }
     if(step>1)document.getElementById("backB").onclick=function(){step--;renderOnboard();};
     document.getElementById("nextB").onclick=function(){
       if(step<QUIZ.length){step++;renderOnboard();}
@@ -833,6 +870,9 @@
         setTimeout(function(){
           var st=load();var plan=generatePlan(answers);plan.created=(st.plan&&st.plan.created)?st.plan.created:dateKey(new Date());
           st.plan=plan;save(st);
+          // Leetify's guidelines ask that their data not be stored. The plan above is
+          // built from the user's own answers; the response itself is dropped here.
+          LFY={state:"idle",data:null,err:"",applied:false};
           generating=false;revealed=plan;renderOnboard();
         },1400);
       }
@@ -1182,6 +1222,135 @@
     if(!b)return "";
     var note=(pf&&pf!=="premier")?" (Premier data — treat as a ballpark)":"";
     return ' <span style="color:var(--muted);">— your bracket ('+(rankLabel(profile)||"?")+') averages '+b+note+'.</span>';
+  }
+  /* ---------- leetify (optional, opt-in, never stored) ----------
+     Leetify's developer guidelines section 6 asks integrators not to store data
+     returned by their API. So nothing here is ever written to localStorage: the
+     response lives in LFY.data for the length of the quiz and is dropped after.
+     What we DO persist is the user's own tick-selections, which are their answers,
+     not Leetify's data. Section 5 forbids renaming or rescaling their metrics, so
+     lfyRows() prints the values as returned, with our own commentary kept visibly
+     separate. Attribution is required wherever the data is shown. */
+  var LFY_API="https://api-public.cs-prod.leetify.com";
+  var LFY_PINK="#F84982";
+  var LFY={state:"idle",data:null,err:"",applied:false};
+  // mirrors benchHint's numbers (same researched source), in numeric form
+  var LFY_BENCH={
+    cstrafe:{new:62,mid:73,good:76,high:78,unsure:74},      // % good shots, higher is better
+    placement:{new:12.4,mid:10.5,good:9.9,high:9.0,unsure:10} // degrees, lower is better
+  };
+  // accept a pasted profile link, or a bare id, in whatever shape it arrives
+  function lfyParseId(s){
+    s=String(s||"").trim();
+    if(!s)return null;
+    var m=s.match(/\b(7656\d{13})\b/);            // steam64 anywhere in the string
+    if(m)return {kind:"steam64",id:m[1]};
+    m=s.match(/\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i); // leetify uuid
+    if(m)return {kind:"id",id:m[1]};
+    return null;
+  }
+  // the API is inconsistent about 0-1 vs 0-100 for ratio-ish fields; normalise to %
+  function lfyPct(v){
+    if(typeof v!=="number"||!isFinite(v))return null;
+    return v<=1?Math.round(v*1000)/10:Math.round(v*10)/10;
+  }
+  function lfyNum(v){return (typeof v==="number"&&isFinite(v))?v:null;}
+  // Which weakness options does the data actually argue for?
+  //
+  // Only aim / positioning / utility come back on Leetify's 0-100 skill scale, so
+  // only those three can be ranked against each other. clutch and opening are
+  // returned on a different, rating-style scale (~0.05 where the others are ~80) —
+  // verified against live profiles Jul 2026. Comparing across the two scales would
+  // tick "clutch" and "entry" for every player alive, so those two options are
+  // deliberately left to the user. Same for consistency and movement, which the
+  // API has no field for at all.
+  //
+  // Counter-strafing and crosshair placement are judged on their own against the
+  // per-bracket benchmarks the app already ships, independent of the aim score.
+  function lfySuggest(d,profile){
+    if(!d)return {ticks:[],why:{}};
+    var rt=d.rating||{},s=d.stats||{},ticks=[],why={},rank=(profile&&profile.rank)||"unsure";
+    var cats=[["_aim",lfyNum(rt.aim)],["positioning",lfyNum(rt.positioning)],["utility",lfyNum(rt.utility)]];
+    var have=cats.filter(function(c){return c[1]!==null;});
+    if(have.length>=2){
+      have.sort(function(a,b){return a[1]-b[1];});
+      var lo=have[0],hi=have[have.length-1];
+      // only call something a weakness if it actually stands apart from the rest
+      if(hi[1]-lo[1]>=8&&lo[0]!=="_aim"){
+        ticks.push(lo[0]);
+        why[lo[0]]="Leetify scores this "+Math.round(lo[1])+" where your strongest area is "+Math.round(hi[1]);
+      }
+    }
+    var cs=lfyPct(s.counter_strafing_good_shots_ratio),bcs=LFY_BENCH.cstrafe[rank];
+    if(cs!==null&&bcs&&cs<bcs){ticks.push("cstrafe");why.cstrafe="Counter-strafing "+cs+" against roughly "+bcs+"% average for your bracket";}
+    var pa=lfyNum(s.preaim),bpa=LFY_BENCH.placement[rank];
+    if(pa!==null&&bpa&&pa>bpa){ticks.push("placement");why.placement="Crosshair placement "+(Math.round(pa*10)/10)+" against roughly "+bpa+"° average for your bracket";}
+    return {ticks:ticks,why:why};
+  }
+  function lfyProfileUrl(d){
+    var sid=d&&d.steam64_id;
+    return sid?"https://leetify.com/app/player/"+encodeURIComponent(sid):"https://leetify.com/";
+  }
+  function lfyFetch(input,cb){
+    var p=lfyParseId(input);
+    if(!p)return cb("That doesn't look like a Leetify link. Copy the address of your Leetify profile page.");
+    if(typeof fetch!=="function")return cb("Not available here — pick manually below.");
+    var q=(p.kind==="steam64"?"steam64_id=":"id=")+encodeURIComponent(p.id),done=false;
+    var to=setTimeout(function(){if(!done){done=true;cb("Leetify didn't answer in time. Pick manually below.");}},9000);
+    fetch(LFY_API+"/v3/profile?"+q,{method:"GET",credentials:"omit"}).then(function(r){
+      if(r.status===404)throw new Error("nf");
+      if(!r.ok)throw new Error("http");
+      return r.json();
+    }).then(function(j){
+      if(done)return;done=true;clearTimeout(to);
+      var pm=j&&j.privacy_mode?String(j.privacy_mode).toLowerCase():"";
+      if(pm&&pm!=="public")return cb("That Leetify profile is private. Make it public, or pick manually below.");
+      if(!j||(!j.stats&&!j.rating))return cb("Leetify has no stats for that profile yet. Pick manually below.");
+      cb(null,j);
+    })["catch"](function(e){
+      if(done)return;done=true;clearTimeout(to);
+      cb((e&&e.message==="nf")?"No Leetify profile found for that link.":"Couldn't reach Leetify — you may be offline. Pick manually below.");
+    });
+  }
+  // Values are printed exactly as the API returns them — no rescaling, no added
+  // units, no renaming (their section 5). Our reading of them is kept separate.
+  function lfyRows(d){
+    var s=d.stats||{},rt=d.rating||{},rows=[
+      ["Aim",lfyNum(rt.aim)],["Positioning",lfyNum(rt.positioning)],["Utility",lfyNum(rt.utility)],
+      ["Preaim",lfyNum(s.preaim)],["Spray accuracy",lfyNum(s.spray_accuracy)],
+      ["Counter strafing good shots ratio",lfyNum(s.counter_strafing_good_shots_ratio)],
+      ["Reaction time ms",lfyNum(s.reaction_time_ms)]
+    ].filter(function(r){return r[1]!==null;});
+    return rows.map(function(r){
+      var v=Math.round(r[1]*100)/100;
+      return '<div class="lfyrow"><span>'+esc(r[0])+'</span><b>'+v+'</b></div>';
+    }).join("");
+  }
+  function lfyPanel(profile){
+    var head='<div class="ml" style="color:'+LFY_PINK+';">OPTIONAL · USE YOUR REAL NUMBERS</div>';
+    if(LFY.state==="loading")
+      return '<div class="card lfy">'+head+'<p class="qhint" style="margin:8px 0 0;">Asking Leetify…</p></div>';
+    if(LFY.state==="ok"&&LFY.data){
+      var d=LFY.data,sug=lfySuggest(d,profile),notes="";
+      for(var k in sug.why)notes+='<div class="lfywhy">'+esc(sug.why[k])+'</div>';
+      if(!notes)notes='<div class="lfywhy">Nothing in your numbers stands out as clearly weakest — pick what rings true.</div>';
+      return '<div class="card lfy">'+head+
+        '<div class="lfyname">'+esc(d.name||"Profile")+'</div>'+
+        '<div class="lfynums">'+lfyRows(d)+'</div>'+
+        '<div class="lfyattr">'+
+          '<a href="'+esc(lfyProfileUrl(d))+'" target="_blank" rel="noopener noreferrer" class="lfylink">View on Leetify</a>'+
+          '<a href="https://leetify.com/" target="_blank" rel="noopener noreferrer" class="lfylink">Data Provided by Leetify</a>'+
+        '</div>'+
+        '<div class="divi" style="margin:12px 0 8px;"><span class="ml">WHAT LOCKIN READS FROM THIS</span></div>'+
+        notes+
+        '<p class="qhint" style="margin:8px 0 0;">Ticked below — change anything that doesn\'t fit. You know your game better than a number does.</p>'+
+        '</div>';
+    }
+    var err=LFY.state==="err"?'<div class="lfyerr">'+esc(LFY.err)+'</div>':'';
+    return '<div class="card lfy">'+head+
+      '<p class="qhint" style="margin:8px 0 10px;">Use <b style="color:var(--text);">Leetify</b>? Paste your profile link and Lockin will suggest what to tick. Entirely optional — the plan works without it, and nothing is saved.</p>'+
+      '<div class="lfyin"><input id="lfyUrl" type="text" inputmode="url" autocomplete="off" spellcheck="false" aria-label="Your Leetify profile link" placeholder="leetify.com/app/player/…"><button class="gbtn" id="lfyGo">USE IT</button></div>'+
+      err+'</div>';
   }
   function glossary(){
     return '<div class="divi"><span class="ml">WHERE TO FIND THESE</span></div><div class="card">'+
@@ -1715,7 +1884,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,sparkBars:sparkBars,sparkLine:sparkLine,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,sparkBars:sparkBars,sparkLine:sparkLine,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH};
 })();
 </script>
 </body>

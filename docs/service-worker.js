@@ -17,6 +17,10 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
+  // Cross-origin (the optional Leetify read) goes straight to the network, never
+  // through our cache. Leetify's guidelines ask that their data not be stored, and
+  // the cache-first branch below would otherwise be a place it could land.
+  try { if (new URL(req.url).origin !== self.location.origin) return; } catch (_) { return; }
   const accept = req.headers.get('accept') || '';
   const isNav = req.mode === 'navigate' || accept.indexOf('text/html') >= 0;
   if (isNav) {
