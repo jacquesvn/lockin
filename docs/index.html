@@ -107,7 +107,7 @@
 
   /* ---------- drill rows ---------- */
   .dlist{display:flex;flex-direction:column;gap:8px;}
-  .drow{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:11px;padding:13px 14px;cursor:pointer;transition:border-color .15s,opacity .15s;text-align:left;width:100%;}
+  .drow{display:flex;gap:12px;align-items:flex-start;color:var(--text);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:11px;padding:13px 14px;cursor:pointer;transition:border-color .15s,opacity .15s;text-align:left;width:100%;}
   .drow.done{border-left-color:var(--hero);opacity:.72;}
   .dbox{width:26px;height:26px;border-radius:7px;flex:0 0 auto;display:grid;place-items:center;border:1.5px solid var(--line2);background:transparent;transition:all .15s;margin-top:1px;}
   .drow.done .dbox{background:var(--hero);border-color:var(--hero);}
@@ -226,7 +226,7 @@
   /* ---------- v0.5: banners, cue, session, practice, glossary ---------- */
   .warnbanner{background:color-mix(in oklab,var(--bad) 9%,transparent);border:1px solid color-mix(in oklab,var(--bad) 40%,transparent);border-left:3px solid var(--bad);border-radius:11px;padding:11px 13px;font-size:13px;color:var(--text);margin-bottom:12px;}
   .warnbanner b{font-weight:700;}
-  .cuebar{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:14px;font-size:13px;color:var(--ink);}
+  .cuebar{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:14px;font-size:13px;color:var(--text);}
   .cuebar.prompt{cursor:pointer;border-style:dashed;}
   .cuebar.prompt:hover{border-color:var(--hero);}
   .bftoggle{background:transparent;border:1px solid var(--line);border-radius:9px;color:var(--muted);cursor:pointer;font-family:var(--fm);font-size:10px;font-weight:700;letter-spacing:0.08em;padding:8px 11px;text-transform:uppercase;}
@@ -247,7 +247,7 @@
   .glo b{display:block;font-size:12.5px;} .glo span{display:block;font-size:12px;color:var(--muted);margin-top:2px;}
   .btncopy{background:var(--surface2);border:1px solid var(--line);border-radius:8px;color:var(--muted);cursor:pointer;font-family:var(--fm);font-size:10px;font-weight:700;letter-spacing:0.08em;padding:6px 12px;text-transform:uppercase;}
   .btncopy:hover{border-color:var(--hero);color:var(--text);}
-  .pcfg{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;font-family:var(--fm);font-size:11.5px;line-height:1.7;color:var(--ink-soft,var(--muted));white-space:pre;margin:0;}
+  .pcfg{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;font-family:var(--fm);font-size:11.5px;line-height:1.7;color:var(--muted);white-space:pre;margin:0;}
   code{font-family:var(--fm);font-size:0.88em;background:var(--surface2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;}
 
   /* ---------- v0.7: insights, gate, death audit, loadout ---------- */
@@ -353,7 +353,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.9.5";
+  var VERSION="0.9.6";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
