@@ -548,7 +548,7 @@ ok('every drill still has title, method, measure and duration', Object.keys(FOCI
   });
 }));
 ok('session renders each fact under its own label', (function () {
-  return ['>MAP<', '>DO<', '>TIP<', '>GOOD<', '>WATCH<'].every(function (l) { return html.indexOf(l) >= 0; });
+  return ['>MAP<', '>DO<', '>GOAL<', '>MINDSET<', '>RIGHT<', '>WRONG<'].every(function (l) { return html.indexOf(l) >= 0; });
 })());
 
 
@@ -642,6 +642,50 @@ ok('update banner mounts in the app shell, above the screen content', (function 
 ok('the banner is sticky so it stays visible while scrolling', (function () {
   var m = html.match(/#updbar\{[^}]*\}/);
   return !!m && /position:sticky/.test(m[0]) && /top:0/.test(m[0]);
+})());
+
+
+// --- v0.12.3: every drill states goal + mindset + a good rep vs a bad rep ---
+ok('every real drill has a goal', (function () {
+  var m = [];
+  Object.keys(FOCI).forEach(function (k) {
+    if (k === 'match' || k === 'rest') return;
+    FOCI[k].drills.forEach(function (d) { if (!d.goal || d.goal.length < 12) m.push(k + '/' + d.t); });
+  });
+  if (m.length) console.log('      no goal: ' + m.join(', '));
+  return m.length === 0;
+})());
+ok('every real drill states BOTH a good rep and a bad rep', (function () {
+  var m = [];
+  function chk(list, tag) { list.forEach(function (d) {
+    if (!d.m || d.m.length < 8) m.push(tag + '/' + d.t + ' (RIGHT)');
+    if (!d.rule || d.rule.length < 8) m.push(tag + '/' + d.t + ' (WRONG)');
+  }); }
+  Object.keys(FOCI).forEach(function (k) { if (k === 'match' || k === 'rest') return; chk(FOCI[k].drills, k); });
+  PROTOCOLS.forEach(function (p) { chk(p.blocks || [], 'proto'); });
+  if (m.length) console.log('      missing: ' + m.join(', '));
+  return m.length === 0;
+})());
+ok('the previously-empty WRONG lines are now filled', (function () {
+  var rp = FOCI.awp.drills.filter(function (d) { return d.t === 'Repeek discipline'; })[0];
+  var cc = FOCI.clutch.drills.filter(function (d) { return d.t === 'Clock craft'; })[0];
+  return rp && rp.rule.length > 10 && cc && cc.rule.length > 10;
+})());
+ok('goal appended without shifting any field', Object.keys(FOCI).every(function (k) {
+  if (k === 'match' || k === 'rest') return true;
+  return FOCI[k].drills.every(function (d) {
+    return typeof d.where === 'string' && typeof d.sub === 'string' && typeof d.cue === 'string' &&
+           typeof d.m === 'string' && typeof d.rule === 'string' && typeof d.why === 'string' &&
+           typeof d.goal === 'string' && typeof d.dur === 'number';
+  });
+}));
+ok('drill screen labels the right-vs-wrong contrast', (function () {
+  return html.indexOf('>RIGHT<') >= 0 && html.indexOf('>WRONG<') >= 0 &&
+         html.indexOf('sv good') >= 0 && html.indexOf('sv warn') >= 0;
+})());
+ok('Plan surfaces carry the same depth (drillDepth)', (function () {
+  return html.indexOf('function drillDepth') >= 0 &&
+         html.indexOf('ld-mind') >= 0 && html.indexOf('ld-right') >= 0 && html.indexOf('ld-wrong') >= 0;
 })());
 
 
