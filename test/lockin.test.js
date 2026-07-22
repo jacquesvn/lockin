@@ -552,5 +552,41 @@ ok('session renders each fact under its own label', (function () {
 })());
 
 
+// --- v0.12.1: every drill carries a read-ahead "why" (Plan library), distinct
+// from its live cue (TIP). The cue is the compressed reminder; why is the fuller
+// explanation. They must not be the same string, or one surface is redundant.
+ok('every real drill has a why', (function () {
+  var missing = [];
+  Object.keys(FOCI).forEach(function (k) {
+    if (k === 'match' || k === 'rest') return;
+    FOCI[k].drills.forEach(function (d) { if (!d.why || d.why.length < 40) missing.push(k + '/' + d.t); });
+  });
+  if (missing.length) console.log('      thin/no why: ' + missing.join(', '));
+  return missing.length === 0;
+})());
+ok('every protocol block has a why', (function () {
+  return PROTOCOLS.every(function (p) {
+    return (p.blocks || []).every(function (b) { return b.why && b.why.length >= 40; });
+  });
+})());
+ok('the why is fuller than the cue, never a copy of it', (function () {
+  var bad = [];
+  function all(list) { list.forEach(function (d) {
+    if (d.cue && d.why && (d.why === d.cue || d.why.length <= d.cue.length)) bad.push(d.t);
+  }); }
+  Object.keys(FOCI).forEach(function (k) { all(FOCI[k].drills); });
+  PROTOCOLS.forEach(function (p) { all(p.blocks || []); });
+  return bad.length === 0;
+})());
+ok('adding why did not shift any drill field', Object.keys(FOCI).every(function (k) {
+  return FOCI[k].drills.every(function (d) {
+    return typeof d.t === 'string' && typeof d.where === 'string' && typeof d.sub === 'string' &&
+           typeof d.m === 'string' && typeof d.dur === 'number' && typeof d.cue === 'string' &&
+           typeof d.rule === 'string' && typeof d.why === 'string';
+  });
+}));
+ok('Plan library renders the why line', html.indexOf('class="lwhy"') >= 0);
+
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
