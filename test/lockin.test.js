@@ -49,7 +49,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, MAPS,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
-        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH } = sandbox.module.exports;
+        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -586,6 +586,63 @@ ok('adding why did not shift any drill field', Object.keys(FOCI).every(function 
   });
 }));
 ok('Plan library renders the why line', html.indexOf('class="lwhy"') >= 0);
+
+
+// --- v0.12.2: top-of-app update banner (desktop only) ---
+// updateBanner()/UPD are gated on isNative, which is a closure const set from
+// window.__TAURI__ at boot. The default sandbox boots web (no bridge), so build a
+// SECOND sandbox with a mocked bridge to exercise the native path.
+(function () {
+  var nsb = {
+    module: { exports: {} },
+    window: { matchMedia: () => ({ matches: false }), addEventListener() {}, __TAURI__: { core: { invoke: () => Promise.resolve() } } },
+    document: documentStub,
+    localStorage: { _d: {}, getItem(k){return this._d[k]||null;}, setItem(k,v){this._d[k]=String(v);}, removeItem(k){delete this._d[k];} },
+    navigator: {}, location: { protocol: 'http:', hostname: 'localhost' },
+    setInterval: () => 0, clearInterval(){}, setTimeout: () => 0, clearTimeout(){}, console,
+  };
+  nsb.window.document = nsb.document;
+  vm.createContext(nsb);
+  vm.runInContext(script, nsb, { filename: 'docs/index.html#native' });
+  var nUPD = nsb.module.exports.UPD, nBanner = nsb.module.exports.updateBanner;
+
+  ok('web build never shows the update banner', updateBanner() === '' && (function () {
+    // in the web sandbox (this file's own), even forcing state yields nothing
+    var w = sandbox.module.exports; w.UPD.state = 'available'; w.UPD.version = '9.9.9';
+    var out = w.updateBanner() === ''; w.UPD.state = 'idle'; return out;
+  })());
+  ok('native + available renders the banner with the version and an update action', (function () {
+    nUPD.state = 'available'; nUPD.version = '0.12.2'; nUPD.dismissed = null;
+    var h = nBanner();
+    return h.indexOf('0.12.2') >= 0 && h.indexOf('data-updnow') >= 0 && h.indexOf('data-upddismiss') >= 0;
+  })());
+  ok('native + idle/current shows nothing', (function () {
+    nUPD.state = 'current'; var a = nBanner();
+    nUPD.state = 'idle'; var b = nBanner();
+    return a === '' && b === '';
+  })());
+  ok('dismissing this version hides the banner; a newer one brings it back', (function () {
+    nUPD.state = 'available'; nUPD.version = '0.12.2'; nUPD.dismissed = '0.12.2';
+    var hidden = nBanner() === '';
+    nUPD.version = '0.12.3';                       // a newer release arrives
+    var backAgain = nBanner().indexOf('0.12.3') >= 0;
+    nUPD.dismissed = null;
+    return hidden && backAgain;
+  })());
+  ok('installing state shows progress, not the update button', (function () {
+    nUPD.state = 'installing';
+    var h = nBanner();
+    nUPD.state = 'idle';
+    return /UPDATING/i.test(h) && h.indexOf('data-updnow') < 0;
+  })());
+})();
+ok('update banner mounts in the app shell, above the screen content', (function () {
+  return html.indexOf('id="updbar"') >= 0 && html.indexOf('id="updbar"') < html.indexOf('id="main"');
+})());
+ok('the banner is sticky so it stays visible while scrolling', (function () {
+  var m = html.match(/#updbar\{[^}]*\}/);
+  return !!m && /position:sticky/.test(m[0]) && /top:0/.test(m[0]);
+})());
 
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

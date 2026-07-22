@@ -267,6 +267,27 @@
   /* ---------- v0.5: banners, cue, session, practice, glossary ---------- */
   .warnbanner{background:color-mix(in oklab,var(--bad) 9%,transparent);border:1px solid color-mix(in oklab,var(--bad) 40%,transparent);border-left:3px solid var(--bad);border-radius:11px;padding:11px 13px;font-size:13px;color:var(--text);margin-bottom:12px;}
   .warnbanner b{font-weight:700;}
+  /* update notice — sticks to the top of the content column on every tab, so it's
+     obvious without covering anything. Slim, yellow-tinted, dismissible. #updbar
+     is empty (collapsed) unless there's an update, so it costs no space normally. */
+  #updbar{position:sticky;top:0;z-index:30;}
+  #updbar:empty{display:none;}
+  .updbar-in{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    background:color-mix(in oklab,var(--hero) 15%,var(--bg));
+    border-bottom:1px solid color-mix(in oklab,var(--hero) 55%,transparent);
+    padding:10px 16px;}
+  .updbar-in .ml{color:var(--hero-ink);font-size:11px;letter-spacing:0.12em;}
+  .updbar-sub{font-size:12.5px;color:var(--muted);flex:1;min-width:120px;}
+  .updbar-act{display:flex;align-items:center;gap:8px;margin-left:auto;}
+  .updbar-go{background:var(--hero);border:1px solid var(--hero);color:var(--onhero);
+    border-radius:9px;padding:8px 16px;font-family:var(--fm);font-size:11px;font-weight:800;
+    letter-spacing:0.08em;cursor:pointer;}
+  .updbar-x{background:transparent;border:none;color:var(--muted);font-size:13px;
+    cursor:pointer;padding:6px 8px;line-height:1;}
+  .updbar-x:hover{color:var(--text);}
+  @media (min-width:720px){.updbar-in{padding:11px 30px;}}
+  /* mobile: drop the reassurance line so the bar stays one slim row (label + action) */
+  @media (max-width:719px){.updbar-sub{display:none;} .updbar-in{padding:9px 14px;}}
   .cuebar{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:14px;font-size:13px;color:var(--text);}
   .cuebar.prompt{cursor:pointer;border-style:dashed;}
   .cuebar.prompt:hover{border-color:var(--hero);}
@@ -434,7 +455,7 @@
 <div id="onboard"></div>
 <div id="app" style="display:none;">
   <aside id="side"></aside>
-  <div id="maincol"><div class="wrap" id="main"></div></div>
+  <div id="maincol"><div id="updbar"></div><div class="wrap" id="main"></div></div>
 </div>
 <nav id="tabbar" style="display:none;"></nav>
 <div id="session"></div>
@@ -444,7 +465,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.12.1";
+  var VERSION="0.12.2";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -824,11 +845,21 @@
       '<div class="card"><div class="ml" style="color:var(--faint);">CURRENT · v'+VERSION+'</div>'+
       '<div style="margin-top:8px;">'+body+'</div></div>';
   }
+  // Top-of-app update notice. Desktop only — the web/PWA build auto-updates
+  // through the service worker, so it never needs one. Rendered into #updbar on
+  // every tab (not just Today) so a new version can't hide in Setup. Dismiss is a
+  // session-only flag: it reappears next launch or if a newer version is found.
   function updateBanner(){
-    if(!isNative||UPD.state!=="available")return "";
-    return '<button class="cuebar prompt" data-go="setup" style="border-color:var(--hero-ink);">'+
-      '<span class="ml" style="color:var(--hero-ink);">⬆ UPDATE AVAILABLE · v'+esc(UPD.version)+'</span>'+
-      '<span>Install it from Setup — takes a few seconds and keeps your streak.</span></button>';
+    if(!isNative)return "";
+    if(UPD.state==="installing")
+      return '<div class="updbar-in"><span class="ml">⬆ UPDATING…</span>'+
+        '<span class="updbar-sub">Lockin will relaunch on its own.</span></div>';
+    if(UPD.state!=="available"||UPD.dismissed===UPD.version)return "";
+    return '<div class="updbar-in">'+
+      '<span class="ml">⬆ UPDATE READY · v'+esc(UPD.version)+'</span>'+
+      '<span class="updbar-sub">A few seconds, and your streak is kept.</span>'+
+      '<span class="updbar-act"><button class="updbar-go" data-updnow="1">UPDATE NOW</button>'+
+      '<button class="updbar-x" data-upddismiss="1" aria-label="Dismiss until next launch">✕</button></span></div>';
   }
 
   function reminderTick(){
@@ -986,6 +1017,7 @@
     var _f=focusSig(document.activeElement);
     try{
       renderSide(st);renderTabs();
+      var ub=document.getElementById("updbar");if(ub)ub.innerHTML=updateBanner();
       var main=document.getElementById("main");
       if(screen==="today")main.innerHTML=htmlToday(st);
       else if(screen==="plan")main.innerHTML=htmlPlan(st);
@@ -1140,7 +1172,7 @@
         '<div class="card rulecard" style="margin-top:12px;"><div class="ml" style="color:var(--hero);">THE RULE</div>'+
         '<p>Ten focused minutes beats a skipped hour. Tick one drill and today counts.</p></div></div></div>';
     }
-    return hd+hero+updateBanner()+cuebar+body+'<div class="motto">LOCKIN · TEN FOCUSED MINUTES BEATS A SKIPPED HOUR</div>';
+    return hd+hero+cuebar+body+'<div class="motto">LOCKIN · TEN FOCUSED MINUTES BEATS A SKIPPED HOUR</div>';
   }
 
   /* ---------- PLAN ---------- */
@@ -1763,6 +1795,10 @@
     if(uck)uck.onclick=function(){checkUpdate(true);};
     var uin=root.querySelector("[data-updinstall]");
     if(uin)uin.onclick=installUpdate;
+    var ubg=root.querySelector("[data-updnow]");
+    if(ubg)ubg.onclick=installUpdate;
+    var ubx=root.querySelector("[data-upddismiss]");
+    if(ubx)ubx.onclick=function(){UPD.dismissed=UPD.version;render();};
     var fbc=root.querySelector("[data-fbcopy]");
     if(fbc)fbc.onclick=function(){copyText(feedbackLink(),fbc.querySelector("small")||fbc);};
     /* ---- v0.8 map prep ---- */
@@ -1999,7 +2035,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD};
 })();
 </script>
 </body>
