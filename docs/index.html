@@ -236,6 +236,14 @@
   .lapsestats{font-family:var(--fm);font-size:11px;color:var(--faint);letter-spacing:0.04em;margin-top:9px;line-height:1.7;}
   .lapsestats b{color:var(--text);}
   .lapseback{font-size:13px;color:var(--muted);line-height:1.5;margin-top:11px;}
+  /* reappraisal script — read, not skimmed, so it gets body-text weight; the
+     citation stays visible rather than hidden, because the caveats are the point */
+  .reapp{border-color:color-mix(in oklab,var(--hero) 40%,transparent);}
+  .reapp-body{font-size:14px;color:var(--text);line-height:1.55;margin-top:10px;}
+  .reapp-body b{color:var(--hero-ink);}
+  .reapp-cite{font-size:11.5px;color:var(--faint);line-height:1.55;margin-top:13px;
+    border-top:1px solid var(--line);padding-top:10px;}
+  .reapp-cite b{color:var(--muted);}
   /* mindset / right / wrong, read before training — mirrors the live drill screen */
   .ldwrap{margin-top:8px;display:grid;gap:4px;}
   .ld{display:grid;grid-template-columns:58px 1fr;gap:9px;align-items:baseline;font-size:12px;line-height:1.4;}
@@ -491,7 +499,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.14.0";
+  var VERSION="0.15.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -1345,7 +1353,8 @@
         ?'<div class="sessrow"><button class="startsession" data-startsession="1">▸ START SESSION · '+totMin+' MIN</button>'+
          '<button class="quickbtn" data-quickstart="1">⚡ 5 MIN</button></div>'
         :'';
-      var gate=(focusKey==="match"&&!backfill)?gateCard(sess):"";
+      // the reappraisal script is read BEFORE the gate checklist, as in the study
+      var gate=(focusKey==="match"&&!backfill)?(reappraisalCard()+gateCard(sess)):"";
       body='<div class="divi"><span class="ml">'+(backfill?'YESTERDAY':'TODAY')+' ▸ '+esc(F.name).toUpperCase()+kx+'</span></div>'+
         bfBanner+nmt+gate+sessRow+
         '<div class="cols"><div><div class="dlist">'+rows+'</div></div>'+
@@ -1805,6 +1814,26 @@
   }
 
   /* ---------- v0.7: match-night gate + stop-loss ---------- */
+  /* ---------- arousal reappraisal (match nights) ----------
+     The one psychological intervention in this app with FPS-specific, pre-registered
+     evidence behind it: Sharpe et al. (2024), Applied Psychology 73(4), N=44 Counter-
+     Strike players, within-subjects, counterbalanced. Reading a reappraisal script
+     before playing under pressure raised shooting ACCURACY 66%→72% (d=0.51, p=.001).
+     It did NOT significantly improve completion time (p=.111), so this must never be
+     sold as making you faster — that null is underpowered, i.e. unproven rather than
+     disproven. Raw means are shown rather than effect sizes because they are what a
+     player can actually interpret. */
+  function reappraisalCard(){
+    return '<div class="card reapp" style="margin-bottom:12px;">'+
+      '<div class="ml" style="color:var(--hero-ink);">NERVES · READ THIS BEFORE YOU QUEUE</div>'+
+      '<p class="reapp-body">Heart up. Hands tense. Breathing gone shallow.</p>'+
+      // deliberately no claim about reaction speed here: the study found no speed
+      // benefit, so the script must not imply one either
+      '<p class="reapp-body">That is not a warning that you are about to lose — it is your body getting ready. A racing heart is delivering more oxygen to your brain and your arm. That is what preparing to compete feels like, and the players who hold up under pressure feel it too.</p>'+
+      '<p class="reapp-body"><b>You do not need to calm down. You need to let it work.</b></p>'+
+      '<p class="reapp-cite">In the one controlled Counter-Strike experiment on this — 44 players, pre-registered — reading a script like this before playing under pressure raised shooting accuracy from <b>66% to 72%</b>. It did <b>not</b> make them faster, only more accurate. University-level players, on a practice map rather than ranked 5v5, measured on a single occasion.</p>'+
+      '</div>';
+  }
   function gateCard(sess){
     var g=sess.gate||{},losses=sess.losses||0;
     function chk(k,label){return '<button class="gcheck'+(g[k]?" on":"")+'" data-gate="'+k+'" aria-pressed="'+(g[k]?"true":"false")+'"><span class="gbox">'+CHK+'</span><span>'+label+'</span></button>';}
@@ -2239,7 +2268,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard};
 })();
 </script>
 </body>

@@ -49,7 +49,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, MAPS,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
-        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard } = sandbox.module.exports;
+        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -883,6 +883,42 @@ ok('logging a session clears the lapse immediately', (function () {
   st.sessions[dateKey(NOW)] = { warm: true };         // train today
   return !!before && lapseInfo(st, NOW) === null;
 })());
+
+
+// --- v0.15: arousal reappraisal on match nights ---
+// The first feature in this app that ships with a citation. Sharpe et al. (2024),
+// N=44 CS players, pre-registered: accuracy 66%->72%. The completion-time effect
+// was NOT significant, so the app must never promise speed. These guards exist
+// because overstating this claim is the exact failure mode the research pass was
+// run to prevent.
+ok('the reappraisal card quotes the accuracy finding as raw means', (function () {
+  var h = reappraisalCard();
+  return h.indexOf('66%') >= 0 && h.indexOf('72%') >= 0;
+})());
+ok('it never promises speed — the study found no significant speed effect', (function () {
+  // every mention of speed must be a NEGATION. Find each one and check it is
+  // preceded by "not" within a short window, so a positive claim can't slip in.
+  var h = reappraisalCard().toLowerCase().replace(/<[^>]*>/g, '');
+  var hits = [], re = /faster|quicker|speed/g, m;
+  while ((m = re.exec(h)) !== null) hits.push(m.index);
+  if (!hits.length) return false;                 // it must address speed at all
+  return hits.every(function (i) { return /\bnot\b[^.]{0,30}$/.test(h.slice(Math.max(0, i - 40), i)); });
+})());
+ok('it carries the sample and the pre-registration', (function () {
+  var h = reappraisalCard();
+  return /44 players/.test(h) && /pre-registered/i.test(h);
+})());
+ok('it carries the limits rather than hiding them', (function () {
+  var h = reappraisalCard().toLowerCase();
+  return /university/.test(h) && /practice map|not ranked|rather than ranked/.test(h) && /single occasion|once/.test(h);
+})());
+ok('it is a reappraisal script, not a calm-down instruction', (function () {
+  // the intervention reframes arousal as useful; telling players to relax is the opposite
+  var h = reappraisalCard().toLowerCase();
+  return /do not need to calm down/.test(h) && /getting ready|body/.test(h);
+})());
+ok('it only renders on match nights, before the gate checklist',
+  /focusKey==="match"&&!backfill\)\?\(reappraisalCard\(\)\+gateCard/.test(html));
 
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
