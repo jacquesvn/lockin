@@ -327,7 +327,9 @@ ok('drills now reference the workshop kit', (function () {
   var all = Object.keys(FOCI).map(function (k) {
     return FOCI[k].drills.map(function (d) { return d.where + ' ' + d.sub; }).join(' ');
   }).join(' ');
-  return ['Aim Arena','Training 01','Movement Mirage','Movement Hub','Target Training','Reflex Dots','CST Labs','CS2 Labs']
+  // names verified against the live Steam Workshop pages 2026-07-23:
+  // "Aim Training CS2Labs" (Jyken) and "CST Labs (BETA6)" (SAZONISCHE) are DIFFERENT maps
+  return ['Aim Arena','Training 01','Movement Mirage','Movement Hub','Target Training','Reflex Dots','CST Labs','CS2Labs']
     .every(function (m) { return all.indexOf(m) >= 0; });
 })());
 ok('every drill still has text, measure and duration', Object.keys(FOCI).every(function (k) {
