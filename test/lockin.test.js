@@ -782,5 +782,50 @@ ok('generatePlan can be pinned to a focus without breaking normal selection', (f
 })());
 
 
+// --- v0.13.1: copy must not contradict the verified research ---
+// research_cs2_coaching_facts (Jul 2026) is explicit: rifle accuracy returns below
+// ~34% of max speed, a counter-strafe reaches it instantly, and we must NOT tell
+// rifle players they need to be "fully stopped". The AWP is the exception — it
+// genuinely needs a near-full stop. These guards pin that distinction.
+ok('rifle counter-strafe copy never asserts a dead stop', (function () {
+  var bad = [];
+  FOCI.cstrafe.drills.forEach(function (d) {
+    ['goal', 'm', 'rule', 'why', 'sub'].forEach(function (f) {
+      var v = d[f] || '';
+      // "the stop" / drill names are idiomatic; asserting you must BE stopped is not
+      if (/(you're|you are|until|wait for (a|the))\s+(fully\s+)?stopped/i.test(v) ||
+          /\bfully stopped\b/i.test(v)) bad.push(d.t + '.' + f);
+    });
+  });
+  if (bad.length) console.log('      dead-stop wording: ' + bad.join(', '));
+  return bad.length === 0;
+})());
+ok('the 34% threshold is stated where counter-strafing is taught',
+  /34%/.test(FOCI.cstrafe.why) || FOCI.cstrafe.drills.some(function (d) { return /34%/.test((d.goal||'') + (d.why||'')); }));
+ok('the AWP keeps its stricter near-full-stop rule', (function () {
+  var txt = FOCI.awp.drills.map(function (d) { return (d.why||'') + (d.m||''); }).join(' ');
+  return /near-full stop|almost fully stopped/i.test(txt) && /stricter than a rifle/i.test(txt);
+})());
+ok('counter-strafe benchmarks match the researched per-rank data', (function () {
+  // 1K=61.9, 10K=72.7, 15K=75.9, 20K=77.7 and it plateaus ~78 — never promise more
+  var b = LFY_BENCH.cstrafe;
+  return b.new === 62 && b.mid === 73 && b.good === 76 && b.high === 78 &&
+         Object.keys(b).every(function (k) { return b[k] <= 82; });   // 85%+ is unrealistic
+})());
+ok('crosshair placement benchmarks stay lower-is-better and monotonic', (function () {
+  var b = LFY_BENCH.placement;
+  return b.new > b.mid && b.mid > b.good && b.good > b.high && b.good === 9.9;  // 15K bracket
+})());
+ok('the app never claims Leetify Rating as an absolute target', /zero-sum/i.test(html));
+ok('grenade command is the post-rename CS2 one', (function () {
+  return /sv_grenade_trajectory_prac_pipreview/.test(html) &&
+         !/sv_grenade_trajectory(?![_a-z])/.test(html);
+})());
+ok('reserve maps stay out of the Active Duty pool', (function () {
+  var ids = MAPS.map(function (m) { return m.id; });
+  return ['overpass', 'train', 'vertigo'].every(function (x) { return ids.indexOf(x) < 0; });
+})());
+
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
