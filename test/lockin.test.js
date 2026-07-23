@@ -49,7 +49,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, MAPS,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
-        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey } = sandbox.module.exports;
+        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -824,6 +824,64 @@ ok('grenade command is the post-rename CS2 one', (function () {
 ok('reserve maps stay out of the Active Duty pool', (function () {
   var ids = MAPS.map(function (m) { return m.id; });
   return ['overpass', 'train', 'vertigo'].every(function (x) { return ids.indexOf(x) < 0; });
+})());
+
+
+// --- v0.14: coming back after a lapse ---
+// Counted in MISSED TRAINING DAYS, not calendar days, so the threshold matches
+// the user's own cadence. A brand-new user must NEVER see this (same class as the
+// never-miss-twice bug a tester reported).
+function lapseState(weekly, warmKeys) {
+  var plan = generatePlan({ rank:'mid', weapon:'rifle', weak:['cstrafe'], time:'30', days:'4', goal:'aim' });
+  plan.created = '2026-06-01';
+  if (weekly) plan.weekly = weekly;
+  var st = { plan: plan, sessions: {}, settings: {}, metrics: {}, reviews: {}, lineups: {}, planReviews: {} };
+  (warmKeys || []).forEach(function (k) { st.sessions[k] = { warm: true }; });
+  return st;
+}
+var FOURDAY = { 0:'rest', 1:'cstrafe', 2:'cstrafe', 3:'cstrafe', 4:'cstrafe', 5:'match', 6:'match' };
+var TWODAY  = { 0:'rest', 1:'cstrafe', 2:'rest', 3:'rest', 4:'cstrafe', 5:'match', 6:'rest' };
+var NOW = new Date('2026-07-20T00:00:00');   // a Monday
+
+ok('a brand-new user with no sessions never sees a lapse', lapseInfo(lapseState(FOURDAY, []), NOW) === null);
+ok('training today or yesterday is not a lapse', (function () {
+  return lapseInfo(lapseState(FOURDAY, ['2026-07-20']), NOW) === null &&
+         lapseInfo(lapseState(FOURDAY, ['2026-07-19']), NOW) === null;
+})());
+ok('a normal gap on a 2-day plan is not a lapse', (function () {
+  // last trained Thu 16th; on a Mon-and-Thu plan only Thu was missed
+  return lapseInfo(lapseState(TWODAY, ['2026-07-13']), NOW) === null;
+})());
+ok('the same calendar gap IS a lapse on a 4-day plan', (function () {
+  var lp = lapseInfo(lapseState(FOURDAY, ['2026-07-13']), NOW);
+  return !!lp && lp.missed >= 3;                      // Tue/Wed/Thu missed
+})());
+ok('a real lapse reports the gap, the week and what survived', (function () {
+  var lp = lapseInfo(lapseState(FOURDAY, ['2026-07-06', '2026-07-07']), NOW);
+  return !!lp && lp.days === 13 && lp.week === 8 && lp.best === 2 && lp.total === 2;   // 49 days in = week 8
+})());
+ok('it knows whether you can train today, and names the next day if not', (function () {
+  var sat = new Date('2026-07-25T00:00:00');          // Saturday = match night on FOURDAY
+  var lp = lapseInfo(lapseState(FOURDAY, ['2026-07-06']), sat);
+  return !!lp && lp.canTrainToday === false && lp.next === 'Monday';
+})());
+ok('the lapse card offers a way back in, never a reprimand', (function () {
+  var lp = lapseInfo(lapseState(FOURDAY, ['2026-07-06']), NOW);
+  var h = lapseCard(lp);
+  return /WELCOME BACK/.test(h) && /does not restart/.test(h) &&
+         /data-quickstart/.test(h) && !/warnbanner|missed yesterday|non-negotiable/i.test(h);
+})());
+ok('the lapse card never uses the warning colour', (function () {
+  var m = html.match(/\.lapsecard\{[^}]*\}/);
+  return !!m && /--hero/.test(m[0]) && !/--bad/.test(m[0]);
+})());
+ok('never-miss-twice is suppressed while the welcome-back card is up',
+  /!lapse&&isTrainingDay/.test(html));
+ok('logging a session clears the lapse immediately', (function () {
+  var st = lapseState(FOURDAY, ['2026-07-06']);
+  var before = lapseInfo(st, NOW);
+  st.sessions[dateKey(NOW)] = { warm: true };         // train today
+  return !!before && lapseInfo(st, NOW) === null;
 })());
 
 
