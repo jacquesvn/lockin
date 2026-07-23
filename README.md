@@ -3,13 +3,19 @@
 **[Open Lockin →](https://jacquesvn.github.io/lockin/)** · [What it is](https://jacquesvn.github.io/lockin/landing.html)
 
 A free coach for Counter-Strike 2. Answer eight questions and Lockin builds you a
-personalised 12-week training plan plus the daily tracker to actually run it — because a
-good plan and the discipline to follow it shouldn't cost $50 an hour.
+personalised 12-week training plan plus the daily tracker to actually run it — then reads
+your own log back at week 4 and week 8 and offers to change the plan. Because a good plan
+and the discipline to follow it shouldn't cost $50 an hour.
 
 It asks where you play first, so the rank question uses brackets you actually recognise —
-Premier ratings, FACEIT levels, or plain descriptions if you are on ESEA or a mix.
+Premier ratings, FACEIT levels, or plain descriptions if you are on ESEA or a mix. Paste a
+Leetify profile link and it will read your public stats to pre-answer the weakness question
+— entirely optional, and nothing from the API is ever stored.
 
-No account. No server. No telemetry. Your data lives on your device and nowhere else.
+No account. No server. No telemetry. Your data lives on your device and nowhere else. The
+only request Lockin ever makes off your machine is the Leetify one you trigger yourself by
+pasting a profile link — the response is read once, in memory, and dropped when your plan
+is built.
 
 ---
 
@@ -24,26 +30,41 @@ the 10-minute tier gets a core-only session, not a trimmed 45-minute one.
 on Plan to make it a training focus, a match night, or rest. Your training days drive the
 weekly target and the streak, wherever in the week they fall.
 
+**The plan adapts.** At week 5 and week 9 Lockin reviews the block you just finished — how
+many planned days you actually trained, your average hand feel, any Leetify checkpoints
+that moved, and your logged deaths — and either says *nothing here argues for a change* or
+offers you a different focus for the weeks ahead. You choose; **Apply it** keeps your
+history, streak and your own match/rest days and only reshuffles the training slots. If you
+logged too little to conclude anything, it says so instead of inventing a verdict.
+
 **Gets you to actually train.**
-- **Guided session** — a timed drill runner, one drill at a time, with a **cue** to hold in
-  your head and a **rule** you can break ("a shot while still moving does not count")
+- **Guided session** — a timed drill runner, one drill at a time. Every drill states the
+  same six things: what you're doing, the map, the goal, the mindset to hold, what a right
+  result looks like, and what doesn't count ("a shot while still moving does not count")
 - **Every session ends on a calm reset** — slow, perfect reps, because you keep whatever
   you did last
 - **"I've got 5 minutes"** — one core drill, five minutes, and the day still counts
 - **Daily cue** — *"after ___, I do the ten"*, because a plan with a *when* happens
 - **Streak + never-miss-twice**, with weekends and your own rest days forgiven
 - **Log yesterday** for the night you trained and forgot to tick it
+- **Come back after a lapse** and you get *welcome back*, not a telling-off — the week
+  you're in, your best streak, your total, and one five-minute session to be back on. The
+  plan never restarts.
 
 **A coach-built session, as written.** The Oblivion Protocol — 33 minutes of aim
 foundations then angle discipline, with the exact map settings and per-block cues, runnable
 straight from Plan. Written by a coach for a real player and kept as it was.
 
-**Match nights get their own screen.** The Gate: warmed up, not tilted, one process goal —
-then a loss counter that calls a stop-loss at two, before the third one costs you more.
+**Match nights get their own screen.** First the nerves — a short reappraisal script, the
+one pressure intervention that has actually been tested on Counter-Strike players, with its
+result and its limits printed on the card. Then The Gate: warmed up, not tilted, one
+process goal — and a loss counter that calls a stop-loss at two, before the third one costs
+you more.
 
 **Shows whether it's working.**
 - Streak, best streak, days trained, average hand feel
-- Sparklines for sessions-per-week and hand-feel trend
+- Labelled bar charts for sessions-per-week and hand-feel trend — printed values and an
+  honest axis, so a flat run looks flat instead of dramatic
 - Month calendar of every session
 - **Leetify checkpoints** at base / week 4 / 8 / 12, with your bracket's average alongside
   — entirely optional, and the averages say when they are Premier-derived rather than
@@ -58,7 +79,9 @@ for the lineups you learn, in your own words.
 reinstall never costs you your muscle memory.
 
 Also: light/dark, a shareable progress card, full export/restore, a feedback link that
-prefills your version, and a desktop build with a tray icon and a daily "go train" nudge.
+prefills your version, and a desktop build with a tray icon, a daily "go train" nudge, and
+a yellow banner at the top when a new version is ready — dismissible, and it never
+interrupts a session.
 
 ---
 
@@ -88,6 +111,15 @@ wisdom doesn't:
   placement instead. Lockin stops recommending it at high rank for exactly this reason.
 - **Leetify Rating is zero-sum** (relative to your lobby) — chase the skill numbers, not
   the rating.
+- Workshop maps are named as their authors actually named them, and described by what
+  they actually contain — checked against the live Workshop pages, not recalled.
+
+The same rule applies to the psychology. The match-night nerves card is the one thing in
+Lockin that cites a study, because it is the one thing with a controlled Counter-Strike
+result behind it (44 players, pre-registered: accuracy 66% → 72%, and *no* speed benefit —
+so the card doesn't claim one). Several things that sound obviously true — interleaved
+practice, "aim at the target, not your hands" cues, quiet-eye drills — were checked, found
+to have no supporting FPS evidence, and deliberately **not** built.
 
 Map prep gives you the utility *jobs* and prefire routes, not step-by-step lineups —
 exact throws are patch-specific, and a lineup that's quietly wrong is worse than none.
@@ -108,7 +140,23 @@ npm test         # unit tests only
 ```
 
 The tests extract the actual `<script>` from `docs/index.html` and run it in a sandboxed
-DOM, so they exercise the shipped code rather than a copy of it.
+DOM, so they exercise the shipped code rather than a copy of it — 193 of them, including a
+second sandbox with `window.__TAURI__` mocked so the desktop-only paths are covered too.
+Several are content guards rather than logic tests: they fail the build if the copy starts
+claiming a rifle needs a dead stop, or that anything makes you *faster*.
+
+Drills are built by `D(...)`, a positional constructor shared by 49 call sites. **Add new
+fields at the end, never in the middle** — inserting one silently shifts every argument
+after it, which once collapsed the coach protocol to zero minutes.
+
+The Leetify read follows their [developer
+guidelines](https://leetify.com/blog/leetify-api-developer-guidelines/): the response is
+held in memory only and cleared once the plan is built, the "Data provided by Leetify"
+badge is embedded as supplied, and the service worker passes cross-origin requests straight
+through rather than caching them. Note that `rating.aim`, `.positioning` and `.utility`
+come back on a 0–100 scale while `.clutch` and `.opening` are roughly 0–1 — ranking them
+together nominates the same two weaknesses for every player alive, so only the first three
+are compared.
 
 ## Release
 
