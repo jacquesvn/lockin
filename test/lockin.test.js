@@ -49,7 +49,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, MAPS,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
-        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD } = sandbox.module.exports;
+        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -686,6 +686,99 @@ ok('drill screen labels the right-vs-wrong contrast', (function () {
 ok('Plan surfaces carry the same depth (drillDepth)', (function () {
   return html.indexOf('function drillDepth') >= 0 &&
          html.indexOf('ld-mind') >= 0 && html.indexOf('ld-right') >= 0 && html.indexOf('ld-wrong') >= 0;
+})());
+
+
+// --- v0.13: week-4 / week-8 plan review ---
+// The review makes claims about the user's progress, so the honesty rules matter
+// more than the suggestion itself: never report a metric it can't measure, and
+// never recommend a change off too little data.
+function revState(opts) {
+  opts = opts || {};
+  var created = opts.created || '2026-06-01';
+  var plan = generatePlan({ rank:'mid', weapon:'rifle', role:'entry', weak:['cstrafe'], time:'30', days:'4', goal:'aim' });
+  plan.created = created;
+  var st = { plan: plan, sessions: {}, settings: {}, metrics: {}, reviews: {}, lineups: {}, planReviews: opts.planReviews || {} };
+  // n warm days starting the day after created
+  var d = new Date(created + 'T00:00:00');
+  for (var i = 0; i < (opts.trained || 0); i++) {
+    var x = new Date(d.getFullYear(), d.getMonth(), d.getDate() + i);
+    st.sessions[dateKey(x)] = { warm: true, feel: opts.feel || 3 };
+  }
+  if (opts.metrics) st.metrics = opts.metrics;
+  if (opts.deaths) { var k = dateKey(new Date()); st.reviews[k] = opts.deaths; }
+  return st;
+}
+var REV_NOW = new Date('2026-07-06T00:00:00');   // week 6 of a plan created 2026-06-01
+
+ok('no review before week 5', planReview(revState({ trained: 10 }), new Date('2026-06-15T00:00:00')) === null);
+ok('week-4 review appears once week 5 starts', (function () {
+  var r = planReview(revState({ trained: 10 }), REV_NOW);
+  return !!r && r.n === 4;
+})());
+ok('a completed review does not come back', (function () {
+  return planReview(revState({ trained: 10, planReviews: { '4': { action: 'kept' } } }), REV_NOW) === null;
+})());
+ok('too few sessions -> flagged thin, and it refuses to suggest anything', (function () {
+  var r = planReview(revState({ trained: 2, deaths: { pos: 20, aim: 1, util: 0, info: 0, trade: 0 } }), REV_NOW);
+  return r.thin === true && r.suggest === null;
+})());
+// HONESTY: a metric is only reported when BOTH numbers exist
+ok('a metric with no base is never reported as movement', (function () {
+  var key = tkey(planReview(revState({ trained: 10 }), REV_NOW) && 'Counter-strafing %');
+  var m = {}; m[key] = { w4: 74 };                       // checkpoint but no base
+  return planReview(revState({ trained: 10, metrics: m }), REV_NOW).moved.length === 0;
+})());
+ok('a metric with base + checkpoint is reported with direction', (function () {
+  var m = {}; m[tkey('Counter-strafing %')] = { base: 61, w4: 74 };
+  var r = planReview(revState({ trained: 10, metrics: m }), REV_NOW);
+  var row = r.moved.filter(function (x) { return /Counter-strafing/.test(x.n); })[0];
+  return !!row && row.better === true && row.delta === 13;
+})());
+ok('lower-is-better metrics are read the right way round', (function () {
+  var m = {}; m[tkey('Crosshair placement (°)')] = { base: 12.1, w4: 9.8 };
+  var plan = generatePlan({ rank:'mid', weapon:'rifle', weak:['placement'], time:'30', days:'4', goal:'aim' });
+  var st = revState({ trained: 10, metrics: m }); st.plan.targets = plan.targets; st.metrics = m;
+  var r = planReview(st, REV_NOW);
+  var row = r.moved.filter(function (x) { return /Crosshair placement/.test(x.n); })[0];
+  return !!row && row.better === true;                    // 12.1 -> 9.8 is an improvement
+})());
+ok('a dominant logged leak drives the suggestion', (function () {
+  var r = planReview(revState({ trained: 12, deaths: { pos: 9, aim: 4, util: 3, info: 2, trade: 4 } }), REV_NOW);
+  return !!r.suggest && r.suggest.key === 'positioning' && /9 of your 22/.test(r.suggest.why);
+})());
+ok('a scattered death log suggests nothing', (function () {
+  var r = planReview(revState({ trained: 12, deaths: { pos: 3, aim: 3, util: 3, info: 3, trade: 3 } }), REV_NOW);
+  return r.suggest === null;                              // no cause clears the 35% bar
+})());
+ok('counter-strafing past its plateau graduates to placement', (function () {
+  var m = {}; m[tkey('Counter-strafing %')] = { base: 70, w4: 79 };
+  var r = planReview(revState({ trained: 12, metrics: m }), REV_NOW);
+  return !!r.suggest && r.suggest.key === 'placement' && /plateau/i.test(r.suggest.why);
+})());
+ok('applying a review keeps the created date, so the 12-week clock runs on', (function () {
+  var st = revState({ trained: 12 }), before = st.plan.created;
+  var p2 = applyReview(st, 'positioning');
+  return p2.created === before && p2.keystone === 'positioning';
+})());
+ok('applying a review preserves the user\'s own match nights', (function () {
+  var st = revState({ trained: 12 });
+  st.plan.weekly = { 0:'rest', 1:'cstrafe', 2:'match', 3:'cstrafe', 4:'rest', 5:'rifle', 6:'match' };
+  var p2 = applyReview(st, 'positioning');
+  return p2.weekly[2] === 'match' && p2.weekly[6] === 'match' &&
+         p2.weekly[0] === 'rest' && p2.weekly[4] === 'rest';
+})());
+ok('applying a review actually changes the training days to the new focus', (function () {
+  var st = revState({ trained: 12 });
+  st.plan.weekly = { 0:'rest', 1:'cstrafe', 2:'match', 3:'cstrafe', 4:'rest', 5:'rifle', 6:'match' };
+  var p2 = applyReview(st, 'positioning');
+  var training = [1,3,5].map(function (d) { return p2.weekly[d]; });
+  return training.indexOf('positioning') >= 0;
+})());
+ok('generatePlan can be pinned to a focus without breaking normal selection', (function () {
+  var pinned = generatePlan({ rank:'mid', weapon:'rifle', weak:['cstrafe'], time:'30', days:'4', goal:'aim' }, 'clutch');
+  var normal = generatePlan({ rank:'mid', weapon:'rifle', weak:['cstrafe'], time:'30', days:'4', goal:'aim' });
+  return pinned.keystone === 'clutch' && normal.keystone === 'cstrafe';
 })());
 
 

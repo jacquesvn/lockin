@@ -218,6 +218,16 @@
   .librow .lm{font-family:var(--fm);font-size:10.5px;color:var(--faint);margin-top:3px;}
   /* the read-ahead "why" — body text you actually read in Plan, so --muted not --faint */
   .librow .lwhy{font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:5px;}
+  /* week-4 / week-8 review — a milestone card, so it reads as a moment not a nag */
+  .revcard{border-color:color-mix(in oklab,var(--hero) 45%,transparent);margin-bottom:14px;}
+  .revrow{font-size:13px;color:var(--muted);padding:5px 0;border-bottom:1px solid var(--line);}
+  .revrow:first-of-type{margin-top:8px;}
+  .revrow b{color:var(--text);font-variant-numeric:tabular-nums;}
+  .revrow.good b{color:var(--good);} .revrow.bad b{color:var(--bad);}
+  .revrow.muted{color:var(--faint);}
+  .revsug{font-family:var(--fm);font-size:11px;letter-spacing:0.1em;color:var(--hero-ink);margin-top:12px;font-weight:700;}
+  .revwhy{font-size:13px;color:var(--muted);line-height:1.5;margin-top:6px;}
+  .revacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px;}
   /* mindset / right / wrong, read before training — mirrors the live drill screen */
   .ldwrap{margin-top:8px;display:grid;gap:4px;}
   .ld{display:grid;grid-template-columns:58px 1fr;gap:9px;align-items:baseline;font-size:12px;line-height:1.4;}
@@ -473,7 +483,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.12.3";
+  var VERSION="0.13.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -682,13 +692,15 @@
 
   /* ---------- the coach brain (unchanged logic, tested) ---------- */
   function uniq(a){var o=[],s={};a.forEach(function(x){if(x&&!s[x]){s[x]=1;o.push(x);}});return o;}
-  function generatePlan(p){
+  function generatePlan(p,force){
     var weak=(p.weak||[]).slice();
     var keystone=null;
     // Rank-aware: above ~20k counter-strafing plateaus (~78%) and stops differentiating;
     // crosshair placement keeps separating players. So de-prioritise cstrafe for high rank.
     var order=(p.rank==="high")?["placement","consistency","spray","utility","positioning","movement","clutch","entry","cstrafe"]:KEYSTONE_ORDER;
-    for(var i=0;i<order.length;i++){if(weak.indexOf(order[i])>=0){keystone=order[i];break;}}
+    // the week-4/8 review pins the focus it recommends; otherwise pick by priority
+    if(force&&FOCI[force])keystone=force;
+    if(!keystone)for(var i=0;i<order.length;i++){if(weak.indexOf(order[i])>=0){keystone=order[i];break;}}
     if(!keystone)keystone=(p.goal==="consistency")?"consistency":(p.goal==="sense")?"positioning":(p.goal==="aim")?"placement":(p.rank==="high"?"placement":"cstrafe");
     var weaponFoci=p.weapon==="awp"?["awp"]:p.weapon==="rifle"?["rifle"]:["awp","rifle"];
     var others=weak.filter(function(w){return w!==keystone;});
@@ -750,11 +762,120 @@
   // how many training days the plan defines (a user can put them anywhere in the week)
   function trainingDayCount(plan){var wk=plan&&plan.weekly;if(!wk)return 4;var n=0;for(var d=0;d<7;d++){var f=wk[d];if(f&&f!=="rest"&&f!=="match")n++;}return n;}
   function weekdayCount(st,mon){var c=0;for(var i=0;i<7;i++){var day=addDays(mon,i);if(!isTrainingDay(st.plan,day))continue;var x=st.sessions[dateKey(day)];if(x&&x.warm)c++;}return c;}
+  /* ---------- week-4 / week-8 plan review ----------
+     A coach looks at a block of training and adjusts. This reads only what's
+     already on the device — ticked drills, logged deaths, Leetify checkpoints —
+     and proposes ONE change with the evidence for it. It never invents movement:
+     a metric is only reported when both the base and the checkpoint exist, and
+     with too little logged it explicitly declines to suggest anything. */
+  var LEAK_FOCUS={pos:"positioning",info:"positioning",util:"utility",trade:"entry",aim:"placement"};
+  function planReview(st,now){
+    var plan=st&&st.plan;if(!plan||!plan.created)return null;
+    now=now||new Date();
+    var wk=programWeek(plan,now),done=st.planReviews||{},n=null;
+    if(wk>=9&&!done["8"])n=8;else if(wk>=5&&!done["4"])n=4;
+    if(!n)return null;
+    var c=parseKey(plan.created),from=addDays(c,n===4?0:28),to=addDays(c,n===4?28:56);
+    if(to>now)to=now;
+    var trained=0,planned=0;
+    for(var d=new Date(from);d<to;d=addDays(d,1)){
+      if(isTrainingDay(plan,d))planned++;
+      var s=(st.sessions||{})[dateKey(d)];if(s&&s.warm)trained++;
+    }
+    // metric movement — only where the user actually entered both numbers
+    var moved=[],cur=(n===4)?"w4":"w8";
+    (plan.targets||[]).forEach(function(t){
+      var m=(st.metrics||{})[tkey(t.n)];if(!m)return;
+      var base=m.base,val=m[cur];
+      if(base==null||val==null)return;
+      var lower=/\(°\)|deaths/i.test(t.n),delta=Math.round((val-base)*100)/100;
+      moved.push({n:t.n,base:base,val:val,delta:delta,
+        better:lower?delta<0:delta>0, flat:Math.abs(delta)<0.01});
+    });
+    var leaks=reviewTotals(st,28),sum=0,top=null;
+    for(var k in leaks){sum+=leaks[k];if(top===null||leaks[k]>leaks[top])top=k;}
+    var feel=feelSeries(st,28),favg=feel.length?Math.round((feel.reduce(function(a,b){return a+b;},0)/feel.length)*10)/10:null;
+    var rv={n:n,weeks:(n===4?"1–4":"5–8"),next:(n===4?"5–8":"9–12"),
+      trained:trained,planned:planned,moved:moved,leaks:leaks,leakTop:top,leakSum:sum,
+      feel:favg,thin:(trained<5),suggest:null};
+    if(rv.thin)return rv;                                  // too little logged to conclude anything
+    // 1) a dominant logged leak that isn't what you're already training
+    if(sum>=8&&top&&leaks[top]/sum>=0.35){
+      var f=LEAK_FOCUS[top];
+      if(f==="placement"&&plan.keystone==="placement")f="spray";
+      if(f&&FOCI[f]&&f!==plan.keystone){
+        var lbl=CAUSES.filter(function(x){return x[0]===top;})[0][1];
+        rv.suggest={key:f,name:FOCI[f].name,
+          why:lbl.toUpperCase()+" was "+leaks[top]+" of your "+sum+" logged deaths — the biggest single leak in the block."};
+        return rv;
+      }
+    }
+    // 2) counter-strafing past its plateau stops separating players (researched: ~78%)
+    if(plan.keystone==="cstrafe"){
+      for(var i=0;i<moved.length;i++){
+        if(/Counter-strafing/i.test(moved[i].n)&&moved[i].val>=78){
+          rv.suggest={key:"placement",name:FOCI.placement.name,
+            why:"Counter-strafing is at "+moved[i].val+"%, past the ~78% plateau where it stops separating players. Crosshair placement still does."};
+          return rv;
+        }
+      }
+    }
+    return rv;                                             // nothing to change — say so plainly
+  }
+  // Applies the recommendation WITHOUT resetting the programme: the created date,
+  // history and the user's own match-night placement all survive.
+  function applyReview(st,key){
+    var old=st.plan,p2=generatePlan(old.profile||{},key);
+    var seq=[],d;
+    for(d=0;d<7;d++){var f=p2.weekly[d];if(f!=="match"&&f!=="rest")seq.push(f);}
+    var w={},i=0;
+    for(d=0;d<7;d++){
+      var slot=old.weekly[d];
+      if(slot==="match"||slot==="rest")w[d]=slot;          // their match nights stay theirs
+      else if(seq.length)w[d]=seq[i++%seq.length];
+      else w[d]=p2.weekly[d];
+    }
+    p2.weekly=w;
+    p2.created=old.created;                                // week count keeps running
+    return p2;
+  }
+  function reviewCard(st,rv){
+    if(!rv)return "";
+    var lines="";
+    // training on a rest day is legitimate, so trained can exceed planned — "13 of 12" reads broken
+    lines+=(rv.trained<=rv.planned)
+      ?'<div class="revrow">You trained <b>'+rv.trained+'</b> of '+rv.planned+' planned days.</div>'
+      :'<div class="revrow">You trained <b>'+rv.trained+'</b> days — '+rv.planned+' were planned.</div>';
+    if(rv.feel!=null)lines+='<div class="revrow">Average hand feel <b>'+rv.feel+'</b> / 5.</div>';
+    rv.moved.forEach(function(m){
+      var verdict=m.flat?"unchanged":(m.better?"moving":"gone the wrong way");
+      lines+='<div class="revrow'+(m.flat?"":(m.better?" good":" bad"))+'">'+esc(m.n)+' <b>'+m.base+' → '+m.val+'</b> — '+verdict+'.</div>';
+    });
+    if(!rv.moved.length)lines+='<div class="revrow muted">No Leetify numbers logged for this block — this review reads your training log only.</div>';
+    if(rv.leakSum>0){
+      var lbl=CAUSES.filter(function(x){return x[0]===rv.leakTop;})[0][1];
+      lines+='<div class="revrow">Biggest logged leak: <b>'+esc(lbl.toUpperCase())+'</b> ('+rv.leaks[rv.leakTop]+' of '+rv.leakSum+' deaths).</div>';
+    }
+    var tail;
+    if(rv.thin)
+      tail='<p class="revwhy">Only '+rv.trained+' logged sessions this block — not enough to justify changing anything. Keep going; the week-'+(rv.n===4?"8":"12")+' review will have more to work with.</p>'+
+        '<div class="revacts"><button class="pbtn" data-rev="keep">GOT IT</button></div>';
+    else if(rv.suggest)
+      tail='<div class="revsug">SUGGESTED · SWITCH YOUR FOCUS TO '+esc(rv.suggest.name).toUpperCase()+' FOR WEEKS '+rv.next+'</div>'+
+        '<p class="revwhy">'+esc(rv.suggest.why)+' Your match nights, streak and history all stay exactly as they are.</p>'+
+        '<div class="revacts"><button class="pbtn" data-rev="apply">APPLY IT</button>'+
+        '<button class="gbtn" data-rev="keep">KEEP MY PLAN</button></div>';
+    else
+      tail='<p class="revwhy">Nothing in the data argues for a change — your focus still fits. Keep going.</p>'+
+        '<div class="revacts"><button class="pbtn" data-rev="keep">GOT IT</button></div>';
+    return '<div class="card revcard"><div class="ml" style="color:var(--hero-ink);">WEEK '+rv.n+' REVIEW · WEEKS '+rv.weeks+'</div>'+
+      lines+tail+'</div>';
+  }
   function programWeek(plan,today){if(!plan||!plan.created)return 1;var days=Math.round((midnight(today)-parseKey(plan.created))/86400000);var wk=Math.floor(days/7)+1;return Math.max(1,Math.min(12,wk));}
 
   /* ---------- storage ---------- */
-  function blank(){return {plan:null,sessions:{},settings:{},metrics:{},reviews:{},lineups:{}};}
-  function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};o.reviews=o.reviews||{};o.lineups=o.lineups||{};migrate(o);return o;}catch(e){storageOk=false;return mem||blank();}}
+  function blank(){return {plan:null,sessions:{},settings:{},metrics:{},reviews:{},lineups:{},planReviews:{}};}
+  function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};o.reviews=o.reviews||{};o.lineups=o.lineups||{};o.planReviews=o.planReviews||{};migrate(o);return o;}catch(e){storageOk=false;return mem||blank();}}
   function save(st){mem=st;try{localStorage.setItem(KEY,JSON.stringify(st));storageOk=true;}catch(e){storageOk=false;}}
   function migrate(o){
     if(o._m>=2)return; // one-time: load() runs on a 30s timer, so migration must not mutate on every read
@@ -1182,7 +1303,7 @@
         '<div class="card rulecard" style="margin-top:12px;"><div class="ml" style="color:var(--hero);">THE RULE</div>'+
         '<p>Ten focused minutes beats a skipped hour. Tick one drill and today counts.</p></div></div></div>';
     }
-    return hd+hero+cuebar+body+'<div class="motto">LOCKIN · TEN FOCUSED MINUTES BEATS A SKIPPED HOUR</div>';
+    return hd+hero+reviewCard(st,planReview(st,now))+cuebar+body+'<div class="motto">LOCKIN · TEN FOCUSED MINUTES BEATS A SKIPPED HOUR</div>';
   }
 
   /* ---------- PLAN ---------- */
@@ -1815,6 +1936,16 @@
     if(uck)uck.onclick=function(){checkUpdate(true);};
     var uin=root.querySelector("[data-updinstall]");
     if(uin)uin.onclick=installUpdate;
+    var rvb=root.querySelectorAll("[data-rev]");
+    for(var rvi=0;rvi<rvb.length;rvi++)(function(b){b.onclick=function(){
+      var s2=load(),rv=planReview(s2,new Date());
+      if(!rv)return;
+      var act=b.getAttribute("data-rev");
+      if(act==="apply"&&rv.suggest)s2.plan=applyReview(s2,rv.suggest.key);
+      s2.planReviews=s2.planReviews||{};
+      s2.planReviews[String(rv.n)]={at:dateKey(new Date()),action:(act==="apply"&&rv.suggest)?"applied":"kept"};
+      save(s2);render();
+    };})(rvb[rvi]);
     var ubg=root.querySelector("[data-updnow]");
     if(ubg)ubg.onclick=installUpdate;
     var ubx=root.querySelector("[data-upddismiss]");
@@ -2057,7 +2188,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview};
 })();
 </script>
 </body>
