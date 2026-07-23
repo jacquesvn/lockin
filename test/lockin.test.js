@@ -49,7 +49,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, MAPS,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
-        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard } = sandbox.module.exports;
+        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -329,8 +329,39 @@ ok('drills now reference the workshop kit', (function () {
   }).join(' ');
   // names verified against the live Steam Workshop pages 2026-07-23:
   // "Aim Training CS2Labs" (Jyken) and "CST Labs (BETA6)" (SAZONISCHE) are DIFFERENT maps
-  return ['Aim Arena','Training 01','Movement Mirage','Movement Hub','Target Training','Reflex Dots','CST Labs','CS2Labs']
+  return ['Aim Arena','TRAINING.01','Movement Mirage','Movement Hub','Target Training','CST Labs','CS2Labs','Yprac Hub']
     .every(function (m) { return all.indexOf(m) >= 0; });
+})());
+// Every one of these was in the app and wrong. The full sweep of the Workshop kit
+// (2026-07-23) checked each title against its live page; these are the corrections.
+ok('no drill uses a map name that does not exist', (function () {
+  var all = Object.keys(FOCI).map(function (k) {
+    return FOCI[k].drills.map(function (d) { return d.where + ' ' + d.sub + ' ' + d.why; }).join(' ');
+  }).join(' ');
+  return [
+    'Aim Training Reflex Dots',  // real title is "Aim Reflex Training DOTS" (kEam) — dropped, 53k subs
+    'Reflex Dots',               // same map, same problem
+    'Training 01',               // real title is "TRAINING.01 — Warmup Map"
+    'Yprac Prefire',             // CS:GO-era; the CS2 Hub replaced all per-map Yprac maps
+  ].every(function (m) { return all.indexOf(m) < 0; });
+})());
+// The workshop kit lists map names too, and was never covered — it kept "Reflex Dots"
+// and "Yprac Prefire (one per map)" long after the drills would have been corrected.
+ok('the workshop kit lists real Workshop titles', (function () {
+  var kit = practiceCard();
+  var good = ['Aim Botz - Aim Training (CS2)','Recoil Master - Spray Training (CS2)',
+              'Aim Arena — Bot Training','Aim Training CS2Labs','TRAINING.01 — Warmup Map',
+              'Yprac Hub by Yesber','Movement Hub','Fruit Ninja - Aim Training'];
+  var bad  = ['Aim Training Reflex Dots','Yprac Prefire (one per map)','· Training 01'];
+  return good.every(function (m) { return kit.indexOf(m) >= 0; })
+      && bad.every(function (m) { return kit.indexOf(m) < 0; });
+})());
+ok('counter-strafe drills never send you to Recoil Master', (function () {
+  // Recoil Master - Spray Training (CS2) is ghosthair spray-pattern practice only.
+  // It has no movement or stop-then-shoot training of any kind.
+  return FOCI.cstrafe.drills.every(function (d) {
+    return (d.where + ' ' + d.sub).indexOf('Recoil Master') < 0;
+  });
 })());
 ok('every drill still has text, measure and duration', Object.keys(FOCI).every(function (k) {
   return FOCI[k].drills.every(function (d) { return d.t && d.m && typeof d.dur === 'number'; });
