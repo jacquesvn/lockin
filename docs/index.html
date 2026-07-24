@@ -218,6 +218,20 @@
   .librow .lm{font-family:var(--fm);font-size:10.5px;color:var(--faint);margin-top:3px;}
   /* the read-ahead "why" — body text you actually read in Plan, so --muted not --faint */
   .librow .lwhy{font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:5px;}
+  /* GET THE MAPS — one-click Workshop links. Rows are tappable cards; on desktop the app
+     routes the click through the native opener (a plain _blank opens a chrome-less window). */
+  .wsgrouph{font-family:var(--fm);font-size:9.5px;letter-spacing:0.14em;color:var(--faint);font-weight:700;text-transform:uppercase;margin:14px 0 8px;}
+  .wsgrid{display:grid;grid-template-columns:1fr;gap:9px;}
+  @media (min-width:560px){.wsgrid{grid-template-columns:repeat(auto-fill,minmax(248px,1fr));}}
+  .wsrow{display:flex;flex-direction:column;gap:3px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:11px 13px;text-decoration:none;color:inherit;transition:border-color .12s,transform .12s;}
+  .wsrow:hover{border-color:var(--hero);transform:translateY(-1px);}
+  .wsrow:focus-visible{outline:2px solid var(--hero);outline-offset:2px;}
+  .wstop{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .wsname{font-weight:600;font-size:13.5px;color:var(--text);}
+  .wstag{flex:none;font-family:var(--fm);font-size:8.5px;letter-spacing:0.1em;font-weight:700;color:var(--onhero);background:var(--hero);border-radius:5px;padding:2px 5px;}
+  .wsdesc{font-size:12px;color:var(--muted);line-height:1.45;}
+  .wsget{font-family:var(--fm);font-size:10px;letter-spacing:0.08em;color:var(--hero-ink);margin-top:4px;}
+  .wsrow:hover .wsget{text-decoration:underline;}
   /* week-4 / week-8 review — a milestone card, so it reads as a moment not a nag */
   .revcard{border-color:color-mix(in oklab,var(--hero) 45%,transparent);margin-bottom:14px;}
   .revrow{font-size:13px;color:var(--muted);padding:5px 0;border-bottom:1px solid var(--line);}
@@ -499,7 +513,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.15.2";
+  var VERSION="0.16.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -989,6 +1003,22 @@
     try{var ta=document.createElement("textarea");ta.value=t;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove();flash("COPIED ✓");}catch(e){flash("SELECT + COPY");}}
   // --- native (Tauri desktop) bridge: notifications + autostart, guarded so web is untouched ---
   var TAURI=window.__TAURI__, isNative=!!(TAURI&&TAURI.core);
+  // In a Tauri webview a plain <a target="_blank"> opens a chrome-less in-app window,
+  // not the real browser — so links to Steam / Leetify / feedback would trap the user.
+  // Intercept every external link once, at the document level, and hand it to the native
+  // opener. On web this handler no-ops and the anchor opens a normal new tab. Capture
+  // phase so we beat any other click handling; download/blob anchors have no _blank target
+  // and are skipped.
+  if(isNative&&typeof document!=="undefined"){
+    document.addEventListener("click",function(e){
+      var a=e.target&&e.target.closest&&e.target.closest('a[target="_blank"]');
+      if(!a)return;
+      var href=a.getAttribute("href")||"";
+      if(!/^https?:\/\//i.test(href))return;
+      e.preventDefault();
+      TAURI.core.invoke("open_url",{url:href}).catch(function(){});
+    },true);
+  }
   function nativeNotify(body){ if(isNative)TAURI.core.invoke("notify",{title:"Lockin",body:body}).catch(function(){}); }
   function setAutostart(on){ if(isNative)TAURI.core.invoke("set_autostart",{enabled:!!on}).catch(function(){}); }
   // web fallback: the Notification API works while Lockin is open (tab or installed PWA).
@@ -1470,6 +1500,46 @@
         '<p class="help" style="margin-top:12px;">'+esc(P.after)+'</p></div>';
     }).join("");
   }
+  // Steam Workshop items — id + exact title checked against the live page 2026-07-24.
+  // Grouped by what you actually use them for; `s` marks the start-here trio that covers
+  // most of the plan. IDs can go stale if an author removes/re-uploads (betas especially),
+  // so the UI keeps a search-the-title fallback beneath the links.
+  var WORKSHOP=[
+    {id:"3070244462",t:"Aim Botz - Aim Training (CS2)",g:"aim",s:true,d:"The staple — static + moving bots, peek/spray walls."},
+    {id:"3604696412",t:"TRAINING.01 — Warmup Map",g:"aim",s:true,d:"All-in-one: prefire, spray, reaction, combat bots."},
+    {id:"3442607572",t:"Aim Arena — Bot Training",g:"aim",d:"Old-school warmup — combat, prefire, target, bhop."},
+    {id:"3100869952",t:"Recoil Master - Spray Training (CS2)",g:"aim",d:"Ghosthair spray-pattern trainer for every gun."},
+    {id:"3575669265",t:"Aim Training CS2Labs",g:"aim",d:"MicroAdjust one-taps + reaction and target modes."},
+    {id:"3694446589",t:"CST Labs (BETA6)",g:"aim",d:"Reaction balls, combat bots, KZ longjump analytics."},
+    {id:"3651371549",t:"Target Training | Aim Trainer",g:"aim",d:"Shrinking targets at distance for burst control."},
+    {id:"3615956855",t:"aim_treeni_fps",g:"aim",d:"Minimal dot trainer, tracking + flick, high FPS."},
+    {id:"3070758981",t:"FAST AIM/REFLEX TRAINING [CS2]",g:"aim",d:"The classic reflex map vs configurable bot counts."},
+    {id:"3070715607",t:"Yprac Hub by Yesber",g:"pre",s:true,d:"Prefire (64+ routes) + utility lineups, whole pool."},
+    {id:"3355497176",t:"Movement Hub",g:"mov",d:"Time trials + KZ checkpoints on every 5v5 map."},
+    {id:"3372195248",t:"Movement Mirage",g:"mov",d:"Air-strafe object course around Mirage."},
+    {id:"3353983676",t:"Fruit Ninja - Aim Training",g:"fun",d:"Aim training in disguise, for when it's a chore."}
+  ];
+  var WS_GROUPS=[["aim","Aim & warm-up"],["pre","Prefire & utility"],["mov","Movement"],["fun","When it feels like a chore"]];
+  function workshopUrl(id){return "https://steamcommunity.com/sharedfiles/filedetails/?id="+id;}
+  function workshopKit(){
+    var out='<div class="divi" style="margin-top:16px;"><span class="ml">GET THE MAPS</span></div>'+
+      '<p class="mhow" style="margin-top:0;">Each opens its Steam Workshop page — hit <b style="color:var(--text);">Subscribe</b> and it downloads into CS2 under <b style="color:var(--text);">Play ▸ Workshop Maps</b>. New here? The three marked <span class="wstag">START HERE</span> cover most of the plan.</p>';
+    WS_GROUPS.forEach(function(grp){
+      var items=WORKSHOP.filter(function(m){return m.g===grp[0];});
+      if(!items.length)return;
+      out+='<div class="wsgrouph">'+esc(grp[1])+'</div><div class="wsgrid">';
+      items.forEach(function(m){
+        out+='<a class="wsrow" href="'+workshopUrl(m.id)+'" target="_blank" rel="noopener noreferrer" '+
+          'aria-label="Open '+esc(m.t)+' on the Steam Workshop">'+
+          '<span class="wstop"><span class="wsname">'+esc(m.t)+'</span>'+(m.s?'<span class="wstag">START HERE</span>':'')+'</span>'+
+          '<span class="wsdesc">'+esc(m.d)+'</span>'+
+          '<span class="wsget">Open on Steam Workshop ↗</span></a>';
+      });
+      out+='</div>';
+    });
+    out+='<p class="help" style="margin-top:11px;">All free. A couple of these are betas or have near-identical copies and CS:GO-era leftovers — if a link is ever dead, search the exact title on the Workshop and take the one with the most subscribers. You do not need all of them.</p>';
+    return out;
+  }
   function practiceCard(){
     var cfg='// lockin practice.cfg — save in ...\\game\\csgo\\cfg\\, then in console:  exec practice\n'+
       'sv_cheats 1\nsv_infinite_ammo 1\nammo_grenade_limit_total 5\n'+
@@ -1480,14 +1550,7 @@
       '<div class="mh" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span class="mname">Your practice-server config</span><button class="btncopy" data-copy="1">COPY</button></div>'+
       '<pre class="pcfg" id="pcfg">'+esc(cfg)+'</pre>'+
       '<p class="mhow" style="margin-top:9px;">Load it on a local map (<code>map de_mirage</code>, then <code>bot_kick</code>) for unlimited nade + prefire reps with trajectories on. CS2 command names shift between patches — if the console rejects one, check its current spelling.</p>'+
-      '<div class="divi" style="margin-top:16px;"><span class="ml">THE WORKSHOP KIT</span></div>'+
-      // exact Workshop titles, checked against the live pages 2026-07-23 — search these
-      // strings and you land on the right item first time
-      '<p class="mhow" style="margin-top:0;"><b style="color:var(--text);">Aim &amp; warm-up</b> — Aim Botz - Aim Training (CS2) · aim_treeni_fps · Recoil Master - Spray Training (CS2) · Aim Arena — Bot Training · CST Labs · Aim Training CS2Labs · FAST AIM/REFLEX TRAINING [CS2] · Target Training | Aim Trainer · TRAINING.01 — Warmup Map</p>'+
-      '<p class="mhow" style="margin-top:7px;"><b style="color:var(--text);">Prefire</b> — Yprac Hub by Yesber (prefire mode, 64+ routes across the pool — one map, not one per map) · Aim Arena prefire mode (randomised) · standalone timed prefire courses (one per map)</p>'+
-      '<p class="mhow" style="margin-top:7px;"><b style="color:var(--text);">Movement</b> — Movement Hub (time trials + KZ-style checkpoints on every official 5v5 map) · Movement Mirage · the KZ-style longjump practice with strafe analytics in CST Labs</p>'+
-      '<p class="mhow" style="margin-top:7px;"><b style="color:var(--text);">When training feels like a chore</b> — Fruit Ninja - Aim Training. Still aim training, just disguised.</p>'+
-      '<p class="help" style="margin-top:9px;">All free on the Steam Workshop — search the exact title above. Several of these names have near-identical copies and CS:GO-era leftovers; where a title has versions, take the one with the most subscribers. You do not need all of them: one all-in-one (Aim Arena, TRAINING.01 or CST Labs) plus prefire for your main map covers most of the plan.</p></div>';
+      workshopKit()+'</div>';
   }
 
   /* ---------- PROGRESS: calendar + Leetify checkpoints ---------- */
@@ -2270,7 +2333,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl};
 })();
 </script>
 </body>

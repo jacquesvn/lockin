@@ -49,7 +49,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, MAPS,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
-        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard } = sandbox.module.exports;
+        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -352,9 +352,38 @@ ok('the workshop kit lists real Workshop titles', (function () {
   var good = ['Aim Botz - Aim Training (CS2)','Recoil Master - Spray Training (CS2)',
               'Aim Arena — Bot Training','Aim Training CS2Labs','TRAINING.01 — Warmup Map',
               'Yprac Hub by Yesber','Movement Hub','Fruit Ninja - Aim Training'];
-  var bad  = ['Aim Training Reflex Dots','Yprac Prefire (one per map)','· Training 01'];
+  var bad  = ['Aim Training Reflex Dots','Yprac Prefire (one per map)','Training 01 '];
   return good.every(function (m) { return kit.indexOf(m) >= 0; })
       && bad.every(function (m) { return kit.indexOf(m) < 0; });
+})());
+
+// --- v0.16: one-click "Get the maps" — Workshop links, id verified 2026-07-24 ---
+ok('WORKSHOP entries are all well-formed', WORKSHOP.length >= 12 && WORKSHOP.every(function (m) {
+  return /^[0-9]+$/.test(m.id) && m.t && m.d && ['aim','pre','mov','fun'].indexOf(m.g) >= 0;
+}));
+ok('WORKSHOP ids are unique (no accidental duplicate/paste)', (function () {
+  var ids = WORKSHOP.map(function (m) { return m.id; });
+  return ids.filter(function (v, i) { return ids.indexOf(v) === i; }).length === ids.length;
+})());
+ok('workshopUrl builds a real Steam Workshop link', workshopUrl('3070244462') ===
+  'https://steamcommunity.com/sharedfiles/filedetails/?id=3070244462');
+ok('every map renders as a clickable Workshop link in the kit', (function () {
+  var kit = workshopKit();
+  return WORKSHOP.every(function (m) {
+    return kit.indexOf('href="' + workshopUrl(m.id) + '"') >= 0;
+  }) && kit.indexOf('target="_blank"') >= 0;
+})());
+ok('the start-here trio is exactly Aim Botz, TRAINING.01, Yprac Hub', (function () {
+  var starters = WORKSHOP.filter(function (m) { return m.s; }).map(function (m) { return m.id; }).sort();
+  // 3070244462 aim_botz · 3604696412 TRAINING.01 · 3070715607 Yprac Hub
+  return JSON.stringify(starters) === JSON.stringify(['3070244462','3070715607','3604696412']);
+})());
+// Desktop regression guard: in a Tauri webview a plain <a target="_blank"> opens a
+// chrome-less in-app window, so external links MUST be routed to the native opener.
+// (The Rust `open_url` command itself is compile-checked by the desktop-build CI job.)
+ok('native builds route external links through open_url', (function () {
+  var s = script; // the real inline <script>, captured at the top of this file
+  return s.indexOf('open_url') >= 0 && /a\[target="_blank"\]/.test(s);
 })());
 ok('counter-strafe drills never send you to Recoil Master', (function () {
   // Recoil Master - Spray Training (CS2) is ghosthair spray-pattern practice only.

@@ -5,6 +5,7 @@ use tauri::{
 };
 use tauri_plugin_autostart::{ManagerExt as _, MacosLauncher};
 use tauri_plugin_notification::NotificationExt;
+use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_updater::UpdaterExt;
 
 // Fire a native OS notification. Wrapping the plugin in our own command means the
@@ -18,6 +19,23 @@ fn notify(app: tauri::AppHandle, title: String, body: String) -> Result<(), Stri
         .title(title)
         .body(body)
         .show()
+        .map_err(|e| e.to_string())
+}
+
+// Open an external URL in the user's real browser. In a Tauri webview a plain
+// <a target="_blank"> opens a bare in-app window with no chrome instead of the
+// system browser, so every external link (Steam Workshop, Leetify, feedback) is
+// routed through here. Wrapping the opener plugin in our own command keeps the
+// frontend on core:default — no plugin ACL (same pattern as notify/set_autostart).
+// Restricted to http(s) so the webview can never be told to launch another scheme.
+#[tauri::command]
+fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    let u = url.trim();
+    if !(u.starts_with("https://") || u.starts_with("http://")) {
+        return Err("refused: only http(s) URLs".into());
+    }
+    app.opener()
+        .open_url(u, None::<&str>)
         .map_err(|e| e.to_string())
 }
 
@@ -71,6 +89,7 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             show_main(app);
         }))
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -78,7 +97,8 @@ pub fn run() {
             notify,
             set_autostart,
             check_update,
-            install_update
+            install_update,
+            open_url
         ])
         .setup(|app| {
             let show = MenuItem::with_id(app, "show", "Open Lockin", true, None::<&str>)?;

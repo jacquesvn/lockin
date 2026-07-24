@@ -75,6 +75,11 @@ you more.
 what to deny on CT side, and where the crosshair rides on each entry route — plus a vault
 for the lineups you learn, in your own words.
 
+**Gets you the training maps in one click.** A *Get the maps* panel on Plan links straight
+to each Workshop item — titles and IDs checked against the live pages, grouped by purpose,
+with a *start here* trio marked. On desktop the links open in your real browser, not a
+trapped in-app window.
+
 **Remembers your setup.** Sens, DPI (with eDPI), crosshair code, launch options — so a
 reinstall never costs you your muscle memory.
 
