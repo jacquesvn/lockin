@@ -503,6 +503,18 @@ ok('benchmark table matches the numbers benchHint already shows', (function () {
   return /~73%/.test(benchHint('Counter-strafing %', { rank: 'mid' })) && LFY_BENCH.cstrafe.mid === 73 &&
          /~10\.5/.test(benchHint('Crosshair placement (°)', { rank: 'mid' })) && LFY_BENCH.placement.mid === 10.5;
 })());
+// benchHint (strings) and LFY_BENCH (numbers) are hand-mirrored — pin EVERY bracket, not
+// just mid, so the two copies can't silently drift apart.
+ok('benchHint and LFY_BENCH agree on every bracket', (function () {
+  function num(name, rank) {
+    var m = benchHint(name, { rank: rank, platform: 'premier' }).match(/averages\s*~?([0-9.]+)/);
+    return m ? parseFloat(m[1]) : null;
+  }
+  return ['new','mid','good','high','unsure'].every(function (r) {
+    return num('Counter-strafing %', r) === LFY_BENCH.cstrafe[r] &&
+           num('Crosshair placement (°)', r) === LFY_BENCH.placement[r];
+  });
+})());
 ok('profile url points back at leetify for attribution',
   /^https:\/\/leetify\.com\//.test(lfyProfileUrl(LFY_SAMPLE)) &&
   lfyProfileUrl(null) === 'https://leetify.com/');
@@ -768,7 +780,13 @@ function revState(opts) {
     st.sessions[dateKey(x)] = { warm: true, feel: opts.feel || 3 };
   }
   if (opts.metrics) st.metrics = opts.metrics;
-  if (opts.deaths) { var k = dateKey(new Date()); st.reviews[k] = opts.deaths; }
+  // deaths land INSIDE the block by default (day created+3). `deathDay` places them
+  // elsewhere — used to prove that deaths outside the block are not counted.
+  if (opts.deaths) {
+    var dd = new Date(created + 'T00:00:00');
+    dd.setDate(dd.getDate() + (opts.deathDay != null ? opts.deathDay : 3));
+    st.reviews[dateKey(dd)] = opts.deaths;
+  }
   return st;
 }
 var REV_NOW = new Date('2026-07-06T00:00:00');   // week 6 of a plan created 2026-06-01
@@ -817,6 +835,40 @@ ok('counter-strafing past its plateau graduates to placement', (function () {
   var m = {}; m[tkey('Counter-strafing %')] = { base: 70, w4: 79 };
   var r = planReview(revState({ trained: 12, metrics: m }), REV_NOW);
   return !!r.suggest && r.suggest.key === 'placement' && /plateau/i.test(r.suggest.why);
+})());
+// --- v0.16.1 quality-pass regression guards ---
+// A faster jump-course time is an IMPROVEMENT. Direction now comes from an explicit
+// `lower` flag on the target, not a regex on its label (which missed this one metric
+// and painted real movement progress red as "gone the wrong way").
+ok('a faster jump-course time reads as progress, not a regression', (function () {
+  var plan = generatePlan({ rank:'mid', weapon:'rifle', weak:['movement'], time:'30', days:'4', goal:'aim' });
+  plan.created = '2026-06-01';
+  var m = {}; m[tkey('Jump-course best time')] = { base: 30, w4: 25 };   // 5s faster
+  var st = { plan: plan, sessions:{}, settings:{}, metrics: m, reviews:{}, lineups:{}, planReviews:{} };
+  var jc = planReview(st, REV_NOW).moved.filter(function (x) { return /Jump-course/.test(x.n); })[0];
+  return !!jc && jc.delta === -5 && jc.better === true;
+})());
+ok('the keystone target carries an explicit lower-is-better flag', (function () {
+  var lowers = ['placement','positioning','movement'].every(function (k) { return buildTargets(k, ['rifle'])[0].lower === true; });
+  var highers = ['cstrafe','spray','utility','clutch','entry'].every(function (k) { return !buildTargets(k, ['rifle'])[0].lower; });
+  return lowers && highers;
+})());
+// The review says "in the block" — so deaths logged OUTSIDE the block must not count.
+// (Under the old last-28-days-from-today window, a death on 2026-07-20 WOULD have been
+// counted into a weeks-1-4 review. It must not be.)
+ok('deaths logged outside the block do not drive the review', (function () {
+  var r = planReview(revState({ trained: 12, deaths: { pos: 9, aim: 4, util: 3, info: 2, trade: 4 }, deathDay: 49 }), REV_NOW);
+  return r.leakSum === 0 && r.suggest === null;
+})());
+// Completing the week-8 review must not resurface a long-past week-4 review at week 9+.
+ok('the week-4 review does not resurface after week 9', (function () {
+  var WK10 = new Date('2026-08-05T00:00:00');                 // ~week 10 of a plan created 2026-06-01
+  return planReview(revState({ trained: 12, planReviews: { '8': true } }), WK10) === null;
+})());
+ok('a returning user at week 9+ gets the week-8 review, not a stale week-4', (function () {
+  var WK10 = new Date('2026-08-05T00:00:00');
+  var r = planReview(revState({ trained: 12 }), WK10);        // never saw the week-4 card
+  return !!r && r.n === 8;
 })());
 ok('applying a review keeps the created date, so the 12-week clock runs on', (function () {
   var st = revState({ trained: 12 }), before = st.plan.created;

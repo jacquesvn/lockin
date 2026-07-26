@@ -33,7 +33,11 @@
     --surface:oklch(0.995 0.003 95);--surface2:oklch(0.922 0.006 95);
     --line:oklch(0.855 0.006 95);--line2:oklch(0.77 0.008 95);
     --text:oklch(0.205 0.006 95);--muted:oklch(0.44 0.006 95);--faint:oklch(0.495 0.006 95);
-    --hero:oklch(0.845 0.17 91);--hero2:oklch(0.79 0.16 91);--onhero:oklch(0.18 0.035 91);--hero-ink:oklch(0.585 0.13 84);
+    --hero:oklch(0.845 0.17 91);--hero2:oklch(0.79 0.16 91);--onhero:oklch(0.18 0.035 91);
+    /* --hero-ink is the TEXT gold (foreground); --hero stays the fill gold. Darkened
+       from 0.585 → 0.52 so gold text clears WCAG AA (4.5:1) on cards and page bg in
+       light mode — the bright fill gold as text was ~1.5:1, effectively invisible. */
+    --hero-ink:oklch(0.52 0.13 84);
     --good:oklch(0.55 0.14 152);--bad:oklch(0.53 0.20 27);
   }
   *{box-sizing:border-box;margin:0;}
@@ -62,7 +66,7 @@
   .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:transparent;border:none;border-radius:10px;padding:7px 4px;cursor:pointer;color:var(--faint);}
   .tab svg{width:19px;height:19px;}
   .tab span{font-family:var(--fm);font-size:9.5px;letter-spacing:0.12em;font-weight:700;}
-  .tab.on{color:var(--hero);background:color-mix(in oklab,var(--hero) 10%, transparent);}
+  .tab.on{color:var(--hero-ink);background:color-mix(in oklab,var(--hero) 10%, transparent);}
   .scr{display:none;} .scr.show{display:block;animation:lk-rise .22s ease;}
 
   @media (min-width:720px){
@@ -81,9 +85,9 @@
 
   /* ---------- brand ---------- */
   .brand{display:flex;align-items:center;gap:9px;}
-  .brand svg{width:22px;height:22px;color:var(--hero);}
+  .brand svg{width:22px;height:22px;color:var(--hero-ink);}
   .wordmark{font-family:var(--fd);font-weight:800;font-size:17px;letter-spacing:-0.02em;}
-  .wordmark b{color:var(--hero);}
+  .wordmark b{color:var(--hero-ink);}
 
   /* ---------- header ---------- */
   .hd{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:16px;}
@@ -96,7 +100,7 @@
   .hero-card{position:relative;overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;}
   .hero-card::after{content:"";position:absolute;top:-50px;right:-50px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,var(--hero),transparent 68%);opacity:.10;pointer-events:none;}
   .hero-row{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;}
-  .big-n{font-family:var(--fd);font-weight:800;font-size:64px;line-height:.95;letter-spacing:-0.03em;color:var(--hero);}
+  .big-n{font-family:var(--fd);font-weight:800;font-size:64px;line-height:.95;letter-spacing:-0.03em;color:var(--hero-ink);}
   .hr-r{text-align:right;}
   .hr-r .n2{font-family:var(--fd);font-weight:800;font-size:26px;letter-spacing:-0.02em;}
   .status-good{color:var(--good);} .status-mut{color:var(--muted);}
@@ -105,7 +109,7 @@
   .wd .dl{font-family:var(--fm);font-size:9px;letter-spacing:0.1em;color:var(--faint);margin-bottom:4px;}
   .wc{height:30px;border-radius:8px;display:grid;place-items:center;font-family:var(--fm);font-size:12px;font-weight:700;border:1px solid transparent;}
   .wc.done{background:var(--hero);color:var(--onhero);}
-  .wc.today{border:1.5px solid var(--hero);color:var(--hero);}
+  .wc.today{border:1.5px solid var(--hero);color:var(--hero-ink);}
   .wc.rest{border:1px dashed var(--line2);color:var(--faint);}
   .wc.up{background:var(--surface2);color:var(--faint);}
   .wc.miss{border:1px dashed var(--bad);color:var(--bad);}
@@ -165,7 +169,7 @@
   [data-theme="light"] .lfybadge.lt{display:block;}
   .lfyattr{align-items:center;}
   .lfywhy{font-size:12.5px;color:var(--muted);padding:3px 0;}
-  .lfywhy:before{content:"▸ ";color:var(--hero);}
+  .lfywhy:before{content:"▸ ";color:var(--hero-ink);}
   .lfyerr{margin-top:9px;font-size:12.5px;color:var(--warn,#e5a03c);}
   .opts{display:flex;flex-direction:column;gap:9px;}
   .opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:14px 15px;cursor:pointer;color:var(--text);font-size:14.5px;transition:border-color .12s,background .12s;}
@@ -183,7 +187,7 @@
   /* generating / reveal */
   .cstage{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:18px;}
   .ring{width:74px;height:74px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--hero);display:grid;place-items:center;animation:spin 1s linear infinite;}
-  .ring svg{width:30px;height:30px;color:var(--hero);animation:none;}
+  .ring svg{width:30px;height:30px;color:var(--hero-ink);animation:none;}
   .blink{animation:lk-blink 1.1s steps(1) infinite;}
   .badge{width:88px;height:88px;border-radius:20px;background:var(--hero);color:var(--onhero);display:grid;place-items:center;position:relative;animation:lk-snap .45s cubic-bezier(.2,.9,.2,1) both;}
   .badge svg{width:44px;height:44px;}
@@ -197,7 +201,7 @@
   /* ---------- plan ---------- */
   .phrow{display:flex;gap:14px;padding:13px 0;border-bottom:1px solid var(--line);align-items:baseline;}
   .phrow:last-child{border-bottom:0;}
-  .phnum{font-family:var(--fd);font-weight:800;font-size:30px;color:var(--hero);flex:0 0 34px;line-height:1;}
+  .phnum{font-family:var(--fd);font-weight:800;font-size:30px;color:var(--hero-ink);flex:0 0 34px;line-height:1;}
   .phrow b{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.01em;font-size:15px;}
   .phrow .wl{font-family:var(--fm);font-size:10px;letter-spacing:0.12em;color:var(--faint);margin-left:8px;}
   .phrow p{font-size:12.5px;color:var(--muted);margin-top:3px;}
@@ -268,7 +272,7 @@
 
   /* ---------- setup ---------- */
   .prof{display:flex;gap:14px;align-items:center;}
-  .avatar{width:52px;height:52px;border-radius:13px;background:var(--surface2);display:grid;place-items:center;color:var(--hero);flex:0 0 auto;}
+  .avatar{width:52px;height:52px;border-radius:13px;background:var(--surface2);display:grid;place-items:center;color:var(--hero-ink);flex:0 0 auto;}
   .avatar svg{width:26px;height:26px;}
   .prof .ph{font-family:var(--fd);font-weight:800;font-size:17px;text-transform:uppercase;}
   .prof .pm{font-family:var(--fm);font-size:10.5px;letter-spacing:0.12em;color:var(--faint);margin-top:3px;}
@@ -289,7 +293,7 @@
   .cal .ch{font-family:var(--fm);font-size:9px;color:var(--faint);text-align:center;text-transform:uppercase;letter-spacing:0.05em;}
   .cell{aspect-ratio:1;border-radius:8px;background:var(--surface2);border:1px solid var(--line);display:grid;place-items:center;font-size:10.5px;color:var(--faint);font-family:var(--fm);}
   .cell.pad{background:transparent;border:0;}
-  .cell.warm{background:color-mix(in oklab,var(--hero) 12%,transparent);border-color:var(--hero);color:var(--hero);font-weight:700;}
+  .cell.warm{background:color-mix(in oklab,var(--hero) 12%,transparent);border-color:var(--hero);color:var(--hero-ink);font-weight:700;}
   .cell.deep{background:var(--hero);border-color:var(--hero);color:var(--onhero);font-weight:700;}
   .cell.miss{border:1px dashed var(--bad);color:var(--bad);}
   .cell.today{box-shadow:0 0 0 2px var(--hero);}
@@ -340,7 +344,7 @@
   .cuebar.prompt:hover{border-color:var(--hero);}
   .bftoggle{background:transparent;border:1px solid var(--line);border-radius:9px;color:var(--muted);cursor:pointer;font-family:var(--fm);font-size:10px;font-weight:700;letter-spacing:0.08em;padding:8px 11px;text-transform:uppercase;}
   .bftoggle:hover{border-color:var(--hero);color:var(--text);}
-  .bftoggle.on{border-color:var(--hero);color:var(--hero);}
+  .bftoggle.on{border-color:var(--hero);color:var(--hero-ink);}
   .rtoggle{background:var(--surface2);border:1px solid var(--line);border-radius:999px;color:var(--muted);cursor:pointer;font-family:var(--fm);font-size:10px;font-weight:800;letter-spacing:0.12em;padding:7px 18px;flex:0 0 auto;}
   .rtoggle.on{background:var(--hero);border-color:var(--hero);color:var(--onhero);}
   .sessrow{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:12px;}
@@ -463,7 +467,7 @@
   #session .sv.good{color:var(--good);}
   #session .sv.warn{color:var(--bad);}
   #session .smeas{font-family:var(--fm);font-size:12px;color:var(--muted);margin-bottom:4px;}
-  #session .stime{font-family:var(--fd);font-weight:800;font-size:clamp(64px,20vw,92px);letter-spacing:-0.03em;color:var(--hero);font-variant-numeric:tabular-nums;line-height:1;margin:4px 0;}
+  #session .stime{font-family:var(--fd);font-weight:800;font-size:clamp(64px,20vw,92px);letter-spacing:-0.03em;color:var(--hero-ink);font-variant-numeric:tabular-nums;line-height:1;margin:4px 0;}
   #session .stime.zero{color:var(--good);}
   #session .sctrls{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;justify-content:center;}
   /* Every size above is phone-tuned and never grew, so on a maximised desktop
@@ -489,7 +493,7 @@
   #cele .scan{position:absolute;left:0;right:0;height:2px;background:var(--hero);opacity:.6;animation:lk-scan 1.1s ease-in-out both;}
   #cele .inner{text-align:center;}
   #cele .ct1{font-family:var(--fd);font-weight:800;font-size:28px;text-transform:uppercase;letter-spacing:-0.02em;margin-top:18px;animation:lk-rise .5s .2s ease both;}
-  #cele .ct2{font-family:var(--fm);font-size:12px;letter-spacing:0.18em;color:var(--hero);margin-top:8px;animation:lk-rise .5s .32s ease both;}
+  #cele .ct2{font-family:var(--fm);font-size:12px;letter-spacing:0.18em;color:var(--hero-ink);margin-top:8px;animation:lk-rise .5s .32s ease both;}
 
   @keyframes lk-snap{from{transform:scale(1.55);opacity:0}to{transform:scale(1);opacity:1}}
   @keyframes lk-ping{from{transform:scale(.7);opacity:.8}to{transform:scale(2.1);opacity:0}}
@@ -503,7 +507,7 @@
 <div id="onboard"></div>
 <div id="app" style="display:none;">
   <aside id="side"></aside>
-  <div id="maincol"><div id="updbar"></div><div class="wrap" id="main"></div></div>
+  <div id="maincol"><div id="updbar" role="status" aria-live="polite"></div><div class="wrap" id="main"></div></div>
 </div>
 <nav id="tabbar" style="display:none;"></nav>
 <div id="session"></div>
@@ -513,7 +517,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.16.0";
+  var VERSION="0.16.1";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -609,7 +613,7 @@
       D("Tracking","aim_treeni_fps","Tracking mode on, 90°, 5 targets, size 10, moving — ~100 reps","Steady pressure — the crosshair stays on through the move.",3,true,"Steady pressure.","Losing the target and swinging harder instead of slowing down.","Keeps the crosshair glued to a moving target — the basis of spraying at movers. Losing the target means slow down, not swing harder.","Keep the crosshair glued to a moving target."),
       D("Bursts · sprays · movement","aim_treeni_fps","Round Area, health 4, 90°, 5 targets, size 10, moving","You move, stop, and burst cleanly.",3,true,"Move, stop, burst.","Bursting while you're still moving.","Combines everything so far under movement: strafe, plant, and burst on a moving target. This is the closest range work to a real duel before the angle-discipline half.","Strafe, plant, and burst on a mover — the closest thing to a duel."),
       D("Angle discipline","aim_rush · AK","Hold ONE angle at head height and wait","You hold one angle at head height and wait; the target arrives on your crosshair.",3,true,"If I move my crosshair, I failed.","Chasing the target with your crosshair. If it moved, you failed.","Switches from mechanics to decisions. Hold one angle at head height and let the target walk into your crosshair — chasing the target is the exact habit this breaks.","Let the target walk into your crosshair — decisions, not mechanics."),
-      D("Micro-peek confirmation","aim_rush · AK","Step out just enough to see, counter-strafe, one tap, reset","Step out just enough to see, counter-strafe, one tap, reset to cover.",3,true,"Show less. Decide faster.","A wide swing that shows the enemy your whole body.","Trains the minimal peek: step out just enough to see, counter-strafe, one tap, reset to cover. Wide swings show the enemy your whole body — show less, decide faster.","See the most while showing the least."),
+      D("Micro-peek confirmation","aim_rush · AK","Step out just enough to see, counter-strafe, one tap, reset","One tap lands, then you're back behind cover before they refrag — you were exposed for a fraction of a second.",3,true,"Show less. Decide faster.","A wide swing that shows the enemy your whole body.","Trains the minimal peek: step out just enough to see, counter-strafe, one tap, reset to cover. Wide swings show the enemy your whole body — show less, decide faster.","See the most while showing the least."),
       D("Reactive angle transfer","aim_rush · AK","Hold one angle, then transfer deliberately when it appears elsewhere","You spot the new target first, then commit the shot.",4,true,"See first. Shoot second.","Firing mid-transfer voids the rep; a miss means slow down.","Hold one angle, then transfer deliberately when a target appears elsewhere. Firing mid-transfer voids the rep — this trains seeing the new target before you commit the shot.","Transfer to a new target deliberately — see before you shoot."),
       D("Controlled entry peeks","aim_rush · AK","Wider peeks, one angle each, fully stopped before the shot","A wider peek, fully stopped, shot taken after confirmation.",3,true,"Commit after confirmation.","Trying to fix bad placement mid-peek. Reset and go again.","Wider entry peeks, one angle each, fully stopped before the shot. You commit only after you've confirmed the target — never try to fix bad placement mid-peek.","Commit only after you've confirmed the target."),
       CALM
@@ -768,7 +772,12 @@
       movement:["Jump-course best time","Your own time on the same route — the honest movement metric. Leetify does not track this one."],
       clutch:["Clutch rating","Win the rounds that swing games."],
       entry:["Opening-duel win %","Positive — win the pick on your terms."]};
-    t.push({n:m[keystone][0],h:m[keystone][1]});
+    // which metrics improve by going DOWN — a time and a distance, plus deaths.
+    // Carried as an explicit flag so the review never has to guess direction from
+    // the label (it used to, and missed "Jump-course best time" — a faster time read
+    // as a regression).
+    var LOWER={placement:true,positioning:true,movement:true};
+    t.push({n:m[keystone][0],h:m[keystone][1],lower:!!LOWER[keystone]});
     if(keystone!=="consistency")t.push({n:"Consistency (the real goal)",h:"Your worst game rising toward your best. Screenshot Leetify monthly and compare the floor."});
     var wp=weaponFoci[0];
     t.push({n:(wp==="awp"?"AWP":"Rifle")+" accuracy",h:"Fewer wasted shots — track it on csstats.gg."});
@@ -803,14 +812,24 @@
     var plan=st&&st.plan;if(!plan||!plan.created)return null;
     now=now||new Date();
     var wk=programWeek(plan,now),done=st.planReviews||{},n=null;
-    if(wk>=9&&!done["8"])n=8;else if(wk>=5&&!done["4"])n=4;
+    // Once week 9 is reached the week-4 window is long past; showing it late (e.g. to
+    // someone who was away weeks 5–8) is wrong, and letting it re-appear right after the
+    // week-8 review is completed reads as a bug. So n=4 is only offered before week 9.
+    if(wk>=9&&!done["8"])n=8;else if(wk>=5&&wk<9&&!done["4"])n=4;
     if(!n)return null;
     var c=parseKey(plan.created),from=addDays(c,n===4?0:28),to=addDays(c,n===4?28:56);
     if(to>now)to=now;
-    var trained=0,planned=0;
+    // Everything below is bounded to THIS block's window [from,to). The card says "in
+    // the block", so the leaks and hand-feel it cites come from the block — not the
+    // last-28-days-from-today that reviewTotals/feelSeries return, which drift for anyone
+    // who opens the review late (exactly the returning-after-a-lapse case).
+    var trained=0,planned=0,leaks={aim:0,pos:0,util:0,info:0,trade:0},feelSum=0,feelN=0;
     for(var d=new Date(from);d<to;d=addDays(d,1)){
+      var dk=dateKey(d);
       if(isTrainingDay(plan,d))planned++;
-      var s=(st.sessions||{})[dateKey(d)];if(s&&s.warm)trained++;
+      var s=(st.sessions||{})[dk];if(s&&s.warm)trained++;
+      if(s&&s.feel>0){feelSum+=s.feel;feelN++;}
+      var rr=(st.reviews||{})[dk];if(rr)for(var ck in leaks){if(rr[ck])leaks[ck]+=rr[ck];}
     }
     // metric movement — only where the user actually entered both numbers
     var moved=[],cur=(n===4)?"w4":"w8";
@@ -818,13 +837,13 @@
       var m=(st.metrics||{})[tkey(t.n)];if(!m)return;
       var base=m.base,val=m[cur];
       if(base==null||val==null)return;
-      var lower=/\(°\)|deaths/i.test(t.n),delta=Math.round((val-base)*100)/100;
+      var lower=!!t.lower,delta=Math.round((val-base)*100)/100;
       moved.push({n:t.n,base:base,val:val,delta:delta,
         better:lower?delta<0:delta>0, flat:Math.abs(delta)<0.01});
     });
-    var leaks=reviewTotals(st,28),sum=0,top=null;
+    var sum=0,top=null;
     for(var k in leaks){sum+=leaks[k];if(top===null||leaks[k]>leaks[top])top=k;}
-    var feel=feelSeries(st,28),favg=feel.length?Math.round((feel.reduce(function(a,b){return a+b;},0)/feel.length)*10)/10:null;
+    var favg=feelN?Math.round((feelSum/feelN)*10)/10:null;
     var rv={n:n,weeks:(n===4?"1–4":"5–8"),next:(n===4?"5–8":"9–12"),
       trained:trained,planned:planned,moved:moved,leaks:leaks,leakTop:top,leakSum:sum,
       feel:favg,thin:(trained<5),suggest:null};
@@ -993,7 +1012,12 @@
   // a stable selector for the focused control, so a full-screen re-render can restore keyboard focus
   function focusSig(el){
     if(!el||!el.getAttribute)return null;
-    var keys=["data-drill","data-feel","data-go","data-theme-set","data-cal","data-backfill","data-rem-toggle"];
+    // These controls all re-render in place on activation, so keyboard focus must be
+    // put back or it drops to <body>. Only keys whose element survives its own re-render
+    // belong here — data-setday collapses the picker and data-rev the review card, so
+    // they can't be restored and are intentionally absent.
+    var keys=["data-drill","data-feel","data-go","data-theme-set","data-cal","data-backfill","data-rem-toggle",
+      "data-gate","data-loss","data-death","data-editday","data-map"];
     for(var i=0;i<keys.length;i++){var v=el.getAttribute(keys[i]);if(v!=null)return "["+keys[i]+'="'+v+'"]';}
     var mk=el.getAttribute("data-mk");if(mk!=null)return '[data-mk="'+mk+'"][data-mp="'+el.getAttribute("data-mp")+'"]';
     return null;
@@ -1115,7 +1139,7 @@
       var p=revealed;
       host.innerHTML='<div class="wrap"><div class="cstage">'+
         '<div class="badge">'+RET+'<span class="ping"></span></div>'+
-        '<div class="dsp rise" style="font-size:34px;">LOCKED <span style="color:var(--hero)">IN</span></div>'+
+        '<div class="dsp rise" style="font-size:34px;">LOCKED <span style="color:var(--hero-ink)">IN</span></div>'+
         '<div class="card diagcard rise">'+
           '<div class="ml" style="margin-bottom:8px;">YOUR DIAGNOSIS</div>'+
           '<div class="diagrow"><span class="k">FOCUS</span><span class="v">'+esc(p.keystoneName).toUpperCase()+'</span></div>'+
@@ -1129,7 +1153,7 @@
     }
     if(step===0){
       host.innerHTML='<div class="wrap" style="max-width:480px;"><div class="cstage" style="min-height:74vh;">'+
-        '<div class="brand" style="justify-content:center;"><span style="width:30px;height:30px;color:var(--hero);display:inline-block;">'+RET+'</span><span class="wordmark" style="font-size:24px;">LOCK<b>IN</b></span></div>'+
+        '<div class="brand" style="justify-content:center;"><span style="width:30px;height:30px;color:var(--hero-ink);display:inline-block;">'+RET+'</span><span class="wordmark" style="font-size:24px;">LOCK<b>IN</b></span></div>'+
         '<div class="dsp" style="font-size:clamp(26px,7vw,34px);">YOUR POCKET CS2 COACH.</div>'+
         '<p style="color:var(--muted);font-size:15px;max-width:42ch;">Answer '+QUIZ.length+' quick questions and Lockin builds you a personalised training plan you can actually stick to — free, forever. No coach required.</p>'+
         '<button class="pbtn" id="beginBtn" style="padding:14px 30px;">BUILD MY PLAN ▸</button>'+
@@ -1150,7 +1174,7 @@
     host.innerHTML='<div class="wrap" style="max-width:480px;padding-top:26px;">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;"><span class="wordmark">LOCK<b>IN</b></span><span class="ml">0'+step+' / 0'+QUIZ.length+'</span></div>'+
       '<div class="segs">'+segs+'</div>'+
-      '<div class="ml" style="color:var(--hero);">CALIBRATION</div>'+
+      '<div class="ml" style="color:var(--hero-ink);">CALIBRATION</div>'+
       '<div class="dsp qq">'+item.q+'</div>'+
       (item.hint?'<div class="qhint">'+item.hint+'</div>':'<div style="height:10px;"></div>')+
       (item.id==="weak"?lfyPanel(answers):'')+
@@ -1269,11 +1293,11 @@
     var side=document.getElementById("side");
     var streak=computeStreak(st,new Date());
     function nb(k,l,ic){return '<button data-go="'+k+'" class="'+(screen===k?"on":"")+'"'+(screen===k?' aria-current="page"':'')+'>'+ic+'<span>'+l+'</span></button>';}
-    side.innerHTML='<div class="brand">'+ '<span style="width:22px;height:22px;color:var(--hero);display:inline-block;">'+RET+'</span><span class="wordmark">LOCK<b>IN</b></span></div>'+
+    side.innerHTML='<div class="brand">'+ '<span style="width:22px;height:22px;color:var(--hero-ink);display:inline-block;">'+RET+'</span><span class="wordmark">LOCK<b>IN</b></span></div>'+
       '<div class="snav">'+nb("today","TODAY",RET)+nb("plan","PLAN",LIST)+nb("progress","PROGRESS",CAL)+nb("setup","SETUP",GEAR)+'</div>'+
-      '<div class="smini"><div><div class="ml">STREAK</div><div class="dsp" style="font-size:30px;color:var(--hero);">'+streak+'</div></div>'+
+      '<div class="smini"><div><div class="ml">STREAK</div><div class="dsp" style="font-size:30px;color:var(--hero-ink);">'+streak+'</div></div>'+
       '<button class="gbtn" data-act="retake" style="width:100%;">RETAKE QUIZ</button>'+
-      '<div class="segctl"><button data-theme-set="dark" class="'+(curTheme(st)==="dark"?"on":"")+'">DARK</button><button data-theme-set="light" class="'+(curTheme(st)==="light"?"on":"")+'">LIGHT</button></div></div>';
+      '<div class="segctl" role="group" aria-label="Theme"><button data-theme-set="dark" aria-pressed="'+(curTheme(st)==="dark"?"true":"false")+'" class="'+(curTheme(st)==="dark"?"on":"")+'">DARK</button><button data-theme-set="light" aria-pressed="'+(curTheme(st)==="light"?"true":"false")+'" class="'+(curTheme(st)==="light"?"on":"")+'">LIGHT</button></div></div>';
   }
   function renderTabs(){
     var tb=document.getElementById("tabbar");
@@ -1340,7 +1364,7 @@
     // cue bar
     var cue=st.settings.cue;
     var cuebar=cue?'<div class="cuebar"><span class="ml">YOUR CUE</span><span>'+esc(cue)+' → the ten.</span></div>':
-      '<button class="cuebar prompt" data-go="setup"><span class="ml" style="color:var(--hero);">⚡ SET YOUR CUE</span><span>“After ___, I do the ten.” A plan with a <em>when</em> actually happens — set it in Setup.</span></button>';
+      '<button class="cuebar prompt" data-go="setup"><span class="ml" style="color:var(--hero-ink);">⚡ SET YOUR CUE</span><span>“After ___, I do the ten.” A plan with a <em>when</em> actually happens — set it in Setup.</span></button>';
     // never-miss-twice
     var yday=addDays(now,-1),yk=dateKey(yday);
     var ydMissed=missedYesterday(st,now);
@@ -1390,7 +1414,7 @@
         '<div class="cols"><div><div class="dlist">'+rows+'</div></div>'+
         '<div><div class="card"><div class="ml">HAND FEEL</div><div class="feelgrid">'+fbs+'</div>'+
         '<div class="fword" style="color:'+fcol+';">'+(sess.feel?fw[sess.feel]:"LOG IT AFTER YOUR REPS")+'</div></div>'+
-        '<div class="card rulecard" style="margin-top:12px;"><div class="ml" style="color:var(--hero);">THE RULE</div>'+
+        '<div class="card rulecard" style="margin-top:12px;"><div class="ml" style="color:var(--hero-ink);">THE RULE</div>'+
         '<p>Ten focused minutes beats a skipped hour. Tick one drill and today counts.</p></div></div></div>';
     }
     return hd+hero+lapseCard(lapse)+reviewCard(st,planReview(st,now))+cuebar+body+'<div class="motto">LOCKIN · TEN FOCUSED MINUTES BEATS A SKIPPED HOUR</div>';
@@ -1417,9 +1441,9 @@
     if(editDay!==null&&editDay!==undefined){
       var choices=uniq(plan.used.concat([plan.keystone])).filter(function(k){return FOCI[k];});
       var chips=choices.map(function(k){
-        return '<button class="mchip'+(plan.weekly[editDay]===k?" on":"")+'" data-setday="'+k+'">'+esc(FOCI[k].name)+'</button>';}).join("")+
-        '<button class="mchip'+(plan.weekly[editDay]==="match"?" on":"")+'" data-setday="match">Match night</button>'+
-        '<button class="mchip'+(plan.weekly[editDay]==="rest"?" on":"")+'" data-setday="rest">Rest</button>';
+        return '<button class="mchip'+(plan.weekly[editDay]===k?" on":"")+'" aria-pressed="'+(plan.weekly[editDay]===k?"true":"false")+'" data-setday="'+k+'">'+esc(FOCI[k].name)+'</button>';}).join("")+
+        '<button class="mchip'+(plan.weekly[editDay]==="match"?" on":"")+'" aria-pressed="'+(plan.weekly[editDay]==="match"?"true":"false")+'" data-setday="match">Match night</button>'+
+        '<button class="mchip'+(plan.weekly[editDay]==="rest"?" on":"")+'" aria-pressed="'+(plan.weekly[editDay]==="rest"?"true":"false")+'" data-setday="rest">Rest</button>';
       picker='<div class="card" style="margin-top:10px;"><div class="ml" style="color:var(--hero-ink);">SET '+rn[map.indexOf(editDay)]+' TO</div>'+
         '<div class="mapchips" style="margin-top:10px;">'+chips+'</div>'+
         '<p class="help" style="margin-top:4px;">Put your match nights wherever you actually play. Training days drive your weekly target and your streak.</p></div>';
@@ -1513,6 +1537,7 @@
     {id:"3694446589",t:"CST Labs (BETA6)",g:"aim",d:"Reaction balls, combat bots, KZ longjump analytics."},
     {id:"3651371549",t:"Target Training | Aim Trainer",g:"aim",d:"Shrinking targets at distance for burst control."},
     {id:"3615956855",t:"aim_treeni_fps",g:"aim",d:"Minimal dot trainer, tracking + flick, high FPS."},
+    {id:"3105821815",t:"Aim_Rush / Aim training map",g:"aim",d:"Fast target rush — the angle-discipline map in the Oblivion Protocol."},
     {id:"3070758981",t:"FAST AIM/REFLEX TRAINING [CS2]",g:"aim",d:"The classic reflex map vs configurable bot counts."},
     {id:"3070715607",t:"Yprac Hub by Yesber",g:"pre",s:true,d:"Prefire (64+ routes) + utility lineups, whole pool."},
     {id:"3355497176",t:"Movement Hub",g:"mov",d:"Time trials + KZ checkpoints on every 5v5 map."},
@@ -1530,7 +1555,7 @@
       out+='<div class="wsgrouph">'+esc(grp[1])+'</div><div class="wsgrid">';
       items.forEach(function(m){
         out+='<a class="wsrow" href="'+workshopUrl(m.id)+'" target="_blank" rel="noopener noreferrer" '+
-          'aria-label="Open '+esc(m.t)+' on the Steam Workshop">'+
+          'aria-label="Open '+esc(m.t)+' on the Steam Workshop'+(m.s?' — recommended starter map':'')+'">'+
           '<span class="wstop"><span class="wsname">'+esc(m.t)+'</span>'+(m.s?'<span class="wstag">START HERE</span>':'')+'</span>'+
           '<span class="wsdesc">'+esc(m.d)+'</span>'+
           '<span class="wsget">Open on Steam Workshop ↗</span></a>';
@@ -1579,7 +1604,7 @@
     mx+='<p class="mhow" style="margin-top:0;">Type your Leetify numbers in at the start (BASE) and again at weeks 4 / 8 / 12. The chip shows movement from base.</p>'+'<p class="help" style="margin:0 0 12px;">Optional — Leetify’s free tier covers these. Skip it if you don’t use it: your streak, calendar and drills work without any of it.</p>';
     plan.targets.forEach(function(t,ti){
       var key=tkey(t.n), v=(st.metrics||{})[key]||{};
-      var lb=/\(°\)|deaths/i.test(t.n);
+      var lb=!!t.lower;
       var latest=null;["w12","w8","w4"].some(function(kk){if(v[kk]!=null){latest=v[kk];return true;}return false;});
       var chip;
       if(v.base==null||latest==null)chip='<span class="delta na">—</span>';
@@ -1968,7 +1993,7 @@
       '<input type="text" data-cue aria-label="Your daily cue" value="'+esc(st.settings.cue||"")+'" placeholder="e.g. after dinner, before the couch"></div>'+
       '<p class="help">A plan with a specific <em>when</em> actually happens. Yours shows on the Today screen.</p></div>';
     var app='<div class="divi"><span class="ml">APPEARANCE</span></div>'+
-      '<div class="segctl"><button data-theme-set="dark" class="'+(curTheme(st)==="dark"?"on":"")+'">DARK</button><button data-theme-set="light" class="'+(curTheme(st)==="light"?"on":"")+'">LIGHT</button></div>';
+      '<div class="segctl" role="group" aria-label="Theme"><button data-theme-set="dark" aria-pressed="'+(curTheme(st)==="dark"?"true":"false")+'" class="'+(curTheme(st)==="dark"?"on":"")+'">DARK</button><button data-theme-set="light" aria-pressed="'+(curTheme(st)==="light"?"true":"false")+'" class="'+(curTheme(st)==="light"?"on":"")+'">LIGHT</button></div>';
     var remSec='';
     if(isNative||webNotifyAvailable()){
       var rem=st.settings.reminder||{on:false,time:"19:00"};
