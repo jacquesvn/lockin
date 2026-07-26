@@ -49,7 +49,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, MAPS,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
-        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl } = sandbox.module.exports;
+        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -384,6 +384,24 @@ ok('the start-here trio is exactly Aim Botz, TRAINING.01, Yprac Hub', (function 
 ok('native builds route external links through open_url', (function () {
   var s = script; // the real inline <script>, captured at the top of this file
   return s.indexOf('open_url') >= 0 && /a\[target="_blank"\]/.test(s);
+})());
+// --- v0.16.2 accessibility guards ---
+// Section labels and workshop groups must expose heading semantics so a screen-reader
+// user can navigate by heading — they render as styled <div>/<span>, not <h2>/<h3>.
+ok('workshop group labels are ARIA headings', (function () {
+  var kit = workshopKit();
+  // four groups, each a level-3 heading
+  return (kit.match(/class="wsgrouph" role="heading" aria-level="3"/g) || []).length >= 3;
+})());
+ok('section dividers carry heading semantics', /class="ml" role="heading" aria-level="2"/.test(practiceCard()));
+// The death-audit leak bar is colour-only, so it must carry a text summary and a legend.
+ok('the death-audit leak bar is not colour-only', (function () {
+  var st = { plan: null, sessions: {}, settings: {}, metrics: {}, lineups: {}, planReviews: {},
+             reviews: {} };
+  st.reviews[dateKey(new Date())] = { pos: 3, aim: 1 };
+  var card = deathCard(st);
+  return /class="leakbar" role="img" aria-label="Deaths by cause/.test(card) &&
+         /class="calleg"/.test(card) && card.indexOf('Position 3') >= 0;
 })());
 ok('counter-strafe drills never send you to Recoil Master', (function () {
   // Recoil Master - Spray Training (CS2) is ghosthair spray-pattern practice only.

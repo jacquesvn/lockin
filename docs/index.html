@@ -38,7 +38,7 @@
        from 0.585 → 0.52 so gold text clears WCAG AA (4.5:1) on cards and page bg in
        light mode — the bright fill gold as text was ~1.5:1, effectively invisible. */
     --hero-ink:oklch(0.52 0.13 84);
-    --good:oklch(0.55 0.14 152);--bad:oklch(0.53 0.20 27);
+    --good:oklch(0.50 0.14 152);--bad:oklch(0.53 0.20 27);   /* good darkened 0.55→0.50 so green status text clears AA on light cards */
   }
   *{box-sizing:border-box;margin:0;}
   html,body{height:100%;}
@@ -507,9 +507,9 @@
 <div id="onboard"></div>
 <div id="app" style="display:none;">
   <aside id="side"></aside>
-  <div id="maincol"><div id="updbar" role="status" aria-live="polite"></div><div class="wrap" id="main"></div></div>
+  <div id="maincol"><div id="updbar" role="status" aria-live="polite"></div><main class="wrap" id="main"></main></div>
 </div>
-<nav id="tabbar" style="display:none;"></nav>
+<nav id="tabbar" style="display:none;" aria-label="Primary"></nav>
 <div id="session"></div>
 <div id="cele" aria-live="polite"></div>
 
@@ -517,7 +517,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.16.1";
+  var VERSION="0.16.2";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -1002,6 +1002,9 @@
   /* ---------- ui state ---------- */
   var editDay=null;
   var screen="today", backfill=false, answers={}, step=0, generating=false, revealed=null, viewDate=new Date();
+  // where to send keyboard focus after the onboarding re-renders: "q" = the question
+  // heading (on a step change), {v} = a specific option (after toggling it), null = leave it.
+  var obFocus=null;
   function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
   // richText: escape everything, then restore ONLY our own bold markers — so an imported/hostile
   // diagnosis string can never inject HTML (the markers are private-use chars user data won't carry).
@@ -1082,7 +1085,7 @@
     else if(UPD.state==="current")body='<div class="help">You’re on the latest version.</div><button class="btncopy" data-updcheck="1" style="margin-top:11px;">CHECK AGAIN</button>';
     else if(UPD.state==="error")body='<div class="help" style="color:var(--bad);">Couldn’t check: '+esc(UPD.error||"unknown error")+'</div><button class="btncopy" data-updcheck="1" style="margin-top:11px;">TRY AGAIN</button>';
     else body='<button class="btncopy" data-updcheck="1">CHECK FOR UPDATES</button>';
-    return '<div class="divi"><span class="ml">UPDATES · DESKTOP</span></div>'+
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">UPDATES · DESKTOP</span></div>'+
       '<div class="card"><div class="ml" style="color:var(--faint);">CURRENT · v'+VERSION+'</div>'+
       '<div style="margin-top:8px;">'+body+'</div></div>';
   }
@@ -1132,7 +1135,7 @@
     document.getElementById("tabbar").style.display="none";
     host.style.display="block";
     if(generating){
-      host.innerHTML='<div class="wrap"><div class="cstage"><div class="ring">'+RET+'</div><div class="ml blink" style="color:var(--muted);">COMPILING TRAINING PLAN…</div></div></div>';
+      host.innerHTML='<div class="wrap"><div class="cstage"><div class="ring">'+RET+'</div><div class="ml blink" role="status" style="color:var(--muted);">COMPILING TRAINING PLAN…</div></div></div>';
       return;
     }
     if(revealed){
@@ -1149,6 +1152,7 @@
         '<button class="pbtn rise" id="startBtn" style="padding:14px 30px;">START DAY 1 ▸</button>'+
         '</div></div>';
       document.getElementById("startBtn").onclick=function(){revealed=null;host.style.display="none";boot("today");};
+      document.getElementById("startBtn").focus();   // land on the one action, not <body>
       return;
     }
     if(step===0){
@@ -1159,26 +1163,30 @@
         '<button class="pbtn" id="beginBtn" style="padding:14px 30px;">BUILD MY PLAN ▸</button>'+
         '<div class="ml">YOUR ANSWERS STAY ON YOUR DEVICE</div>'+
         '</div></div>';
-      document.getElementById("beginBtn").onclick=function(){step=1;renderOnboard();};
+      document.getElementById("beginBtn").onclick=function(){step=1;obFocus="q";renderOnboard();};
       return;
     }
     var qi=step-1,item=QUIZ[qi];
     var sel=answers[item.id]||(item.multi?[]:null);
     var segs="";for(var s2=0;s2<QUIZ.length;s2++)segs+='<div class="seg'+(s2<step?" on":"")+'"></div>';
     var itemOpts=(typeof item.opts==="function")?item.opts(answers):item.opts;
-    var opts=itemOpts.map(function(o){
+    // radios use a roving tabindex: one option is tabbable (the selected one, else the
+    // first) and arrow keys move between them — the semantics role="radio" promises.
+    var rove=0;if(!item.multi){for(var fi=0;fi<itemOpts.length;fi++){if(sel===itemOpts[fi][0]){rove=fi;break;}}}
+    var opts=itemOpts.map(function(o,oi){
       var on=item.multi?(sel.indexOf(o[0])>=0):(sel===o[0]);
-      return '<button class="opt'+(on?" on":"")+'" data-v="'+o[0]+'" role="'+(item.multi?"checkbox":"radio")+'" aria-checked="'+(on?"true":"false")+'"><span class="tick '+(item.multi?"s":"c")+'">'+CHK+'</span><span>'+o[1]+'</span></button>';
+      var tabi=item.multi?"0":(oi===rove?"0":"-1");
+      return '<button class="opt'+(on?" on":"")+'" data-v="'+o[0]+'" role="'+(item.multi?"checkbox":"radio")+'" aria-checked="'+(on?"true":"false")+'" tabindex="'+tabi+'"><span class="tick '+(item.multi?"s":"c")+'">'+CHK+'</span><span>'+o[1]+'</span></button>';
     }).join("");
     var canNext=item.multi?true:(sel!=null);
     host.innerHTML='<div class="wrap" style="max-width:480px;padding-top:26px;">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;"><span class="wordmark">LOCK<b>IN</b></span><span class="ml">0'+step+' / 0'+QUIZ.length+'</span></div>'+
       '<div class="segs">'+segs+'</div>'+
       '<div class="ml" style="color:var(--hero-ink);">CALIBRATION</div>'+
-      '<div class="dsp qq">'+item.q+'</div>'+
+      '<div class="dsp qq" id="qq" role="heading" aria-level="2" tabindex="-1">'+item.q+'</div>'+
       (item.hint?'<div class="qhint">'+item.hint+'</div>':'<div style="height:10px;"></div>')+
       (item.id==="weak"?lfyPanel(answers):'')+
-      '<div class="opts">'+opts+'</div>'+
+      '<div class="opts" role="'+(item.multi?"group":"radiogroup")+'" aria-labelledby="qq">'+opts+'</div>'+
       '<div class="qnav"><button class="gbtn" id="backB"'+(step>1?"":' style="visibility:hidden;"')+'>◂ BACK</button>'+
       '<button class="pbtn" id="nextB"'+(canNext?"":" disabled")+'>'+(step<QUIZ.length?"NEXT ▸":"LOCK IT IN ▸")+'</button></div></div>';
     var os=host.querySelectorAll(".opt");
@@ -1186,8 +1194,21 @@
       var v=b.getAttribute("data-v");
       if(item.multi){var arr=(answers[item.id]||[]).slice();var ix=arr.indexOf(v);if(ix>=0)arr.splice(ix,1);else arr.push(v);answers[item.id]=arr;}
       else answers[item.id]=v;
+      obFocus={v:v};              // stay on the option you just toggled
       renderOnboard();
     };})(os[i]);
+    // arrow-key selection within the radio group (single-select questions)
+    if(!item.multi){
+      var box=host.querySelector(".opts");
+      if(box)box.addEventListener("keydown",function(e){
+        var down=e.key==="ArrowDown"||e.key==="ArrowRight",up=e.key==="ArrowUp"||e.key==="ArrowLeft";
+        if(!down&&!up)return;
+        e.preventDefault();
+        var vals=itemOpts.map(function(o){return o[0];}),ci=vals.indexOf(answers[item.id]),ni;
+        if(ci<0)ni=down?0:vals.length-1;else ni=down?(ci+1)%vals.length:(ci-1+vals.length)%vals.length;
+        answers[item.id]=vals[ni];obFocus={v:vals[ni]};renderOnboard();
+      });
+    }
     var lfyGo=document.getElementById("lfyGo");
     if(lfyGo){
       var run=function(){
@@ -1209,9 +1230,9 @@
       var lfyIn=document.getElementById("lfyUrl");
       if(lfyIn)lfyIn.onkeydown=function(e){if(e.key==="Enter"){e.preventDefault();run();}};
     }
-    if(step>1)document.getElementById("backB").onclick=function(){step--;renderOnboard();};
+    if(step>1)document.getElementById("backB").onclick=function(){step--;obFocus="q";renderOnboard();};
     document.getElementById("nextB").onclick=function(){
-      if(step<QUIZ.length){step++;renderOnboard();}
+      if(step<QUIZ.length){step++;obFocus="q";renderOnboard();}
       else{
         generating=true;renderOnboard();
         setTimeout(function(){
@@ -1224,6 +1245,12 @@
         },1400);
       }
     };
+    // Restore keyboard focus after the innerHTML swap: to the question heading on a step
+    // change (so a screen reader announces the new question), or back to the option you
+    // just toggled. Without this, every render drops focus to <body>.
+    if(obFocus==="q"){var qh=document.getElementById("qq");if(qh)qh.focus();}
+    else if(obFocus&&obFocus.v){var of=host.querySelector('.opt[data-v="'+obFocus.v+'"]');if(of)of.focus();}
+    obFocus=null;
   }
 
   /* ---------- app shell ---------- */
@@ -1294,7 +1321,7 @@
     var streak=computeStreak(st,new Date());
     function nb(k,l,ic){return '<button data-go="'+k+'" class="'+(screen===k?"on":"")+'"'+(screen===k?' aria-current="page"':'')+'>'+ic+'<span>'+l+'</span></button>';}
     side.innerHTML='<div class="brand">'+ '<span style="width:22px;height:22px;color:var(--hero-ink);display:inline-block;">'+RET+'</span><span class="wordmark">LOCK<b>IN</b></span></div>'+
-      '<div class="snav">'+nb("today","TODAY",RET)+nb("plan","PLAN",LIST)+nb("progress","PROGRESS",CAL)+nb("setup","SETUP",GEAR)+'</div>'+
+      '<nav class="snav" aria-label="Primary">'+nb("today","TODAY",RET)+nb("plan","PLAN",LIST)+nb("progress","PROGRESS",CAL)+nb("setup","SETUP",GEAR)+'</nav>'+
       '<div class="smini"><div><div class="ml">STREAK</div><div class="dsp" style="font-size:30px;color:var(--hero-ink);">'+streak+'</div></div>'+
       '<button class="gbtn" data-act="retake" style="width:100%;">RETAKE QUIZ</button>'+
       '<div class="segctl" role="group" aria-label="Theme"><button data-theme-set="dark" aria-pressed="'+(curTheme(st)==="dark"?"true":"false")+'" class="'+(curTheme(st)==="dark"?"on":"")+'">DARK</button><button data-theme-set="light" aria-pressed="'+(curTheme(st)==="light"?"true":"false")+'" class="'+(curTheme(st)==="light"?"on":"")+'">LIGHT</button></div></div>';
@@ -1376,7 +1403,7 @@
     var nmt=(ydMissed&&!todayDone&&!backfill&&!lapse&&isTrainingDay(plan,now))?'<div class="warnbanner">⚠ You missed yesterday — <b>never miss twice.</b> Today is non-negotiable: tick one drill.</div>':'';
     var body;
     if(focusKey==="rest"){
-      body='<div class="divi"><span class="ml">'+(backfill?'YESTERDAY':'TODAY')+' ▸ REST</span></div>'+nmt+
+      body='<div class="divi"><span class="ml" role="heading" aria-level="2">'+(backfill?'YESTERDAY':'TODAY')+' ▸ REST</span></div>'+nmt+
         '<div class="card" style="text-align:center;padding:26px;"><div class="dsp" style="font-size:18px;">REST DAY</div>'+
         '<p style="color:var(--muted);font-size:13px;margin-top:6px;">'+F.drills[0].sub+'</p></div>';
     }else{
@@ -1409,7 +1436,7 @@
         :'';
       // the reappraisal script is read BEFORE the gate checklist, as in the study
       var gate=(focusKey==="match"&&!backfill)?(reappraisalCard()+gateCard(sess)):"";
-      body='<div class="divi"><span class="ml">'+(backfill?'YESTERDAY':'TODAY')+' ▸ '+esc(F.name).toUpperCase()+kx+'</span></div>'+
+      body='<div class="divi"><span class="ml" role="heading" aria-level="2">'+(backfill?'YESTERDAY':'TODAY')+' ▸ '+esc(F.name).toUpperCase()+kx+'</span></div>'+
         bfBanner+nmt+gate+sessRow+
         '<div class="cols"><div><div class="dlist">'+rows+'</div></div>'+
         '<div><div class="card"><div class="ml">HAND FEEL</div><div class="feelgrid">'+fbs+'</div>'+
@@ -1426,7 +1453,7 @@
     var hd='<div class="hd"><div><div class="ml">YOUR PROGRAM</div><h1 class="dsp">PLAN</h1></div></div>';
     var diag='<div class="card diagcard" style="max-width:none;"><div class="ml" style="margin-bottom:6px;">DIAGNOSIS · FOCUS ▸ '+esc(plan.keystoneName).toUpperCase()+'</div>'+
       '<p style="font-size:13.5px;color:var(--muted);">'+richText(plan.diagnosis)+'</p></div>';
-    var ph='<div class="divi"><span class="ml">12-WEEK PHASES</span></div><div class="card">';
+    var ph='<div class="divi"><span class="ml" role="heading" aria-level="2">12-WEEK PHASES</span></div><div class="card">';
     for(var i=0;i<plan.phases.length;i++){var P=plan.phases[i];
       ph+='<div class="phrow"><div class="phnum">'+(i+1)+'</div><div><b>'+esc(P.t)+'</b><span class="wl">'+esc(P.w)+'</span><p>'+esc(P.d)+'</p></div></div>';}
     ph+='</div>';
@@ -1448,13 +1475,13 @@
         '<div class="mapchips" style="margin-top:10px;">'+chips+'</div>'+
         '<p class="help" style="margin-top:4px;">Put your match nights wherever you actually play. Training days drive your weekly target and your streak.</p></div>';
     }
-    var rotc='<div class="divi"><span class="ml">WEEKLY FOCUS ROTATION</span></div>'+
+    var rotc='<div class="divi"><span class="ml" role="heading" aria-level="2">WEEKLY FOCUS ROTATION</span></div>'+
       '<p class="mhow" style="margin:0 0 10px;">Tap any day to change it — match nights are yours to set.</p>'+
       '<div class="rotgrid">'+rot+'</div>'+picker;
     // The library runs long (three drills for each focus in use), so it takes the
     // full width in a flowing grid rather than stacking in one column — a tall
     // column beside a short one left most of the page empty on desktop.
-    var lib='<div class="divi"><span class="ml">DRILL LIBRARY</span></div><div class="card"><div class="libgrid">';
+    var lib='<div class="divi"><span class="ml" role="heading" aria-level="2">DRILL LIBRARY</span></div><div class="card"><div class="libgrid">';
     plan.used.forEach(function(k){var F=FOCI[k];
       F.drills.forEach(function(d){
         lib+='<div class="librow"><div class="cat">'+esc(F.name).toUpperCase()+(k===plan.keystone?' · KEYSTONE':'')+'</div>'+
@@ -1464,7 +1491,7 @@
       });
     });
     lib+='</div></div>';
-    var tg='<div class="divi"><span class="ml">HOW TO MEASURE IT</span></div><div class="card"><div class="libgrid">';
+    var tg='<div class="divi"><span class="ml" role="heading" aria-level="2">HOW TO MEASURE IT</span></div><div class="card"><div class="libgrid">';
     plan.targets.forEach(function(t){tg+='<div class="librow"><div class="ln"><span>'+esc(t.n)+'</span></div><div class="lm">'+esc(t.h)+'</div></div>';});
     tg+='</div></div>';
     return hd+diag+'<div class="plan-cols"><div>'+ph+'</div><div>'+rotc+'</div></div>'+lib+tg+protocolCard()+mapPrep(st)+practiceCard();
@@ -1494,7 +1521,7 @@
       '</div></div>';
     var caveat='<p class="help" style="margin-top:10px;">These are the utility <em>jobs</em> that decide the map — deliberately not lineups. Exact throws are patch-specific, so learn them in <b style="color:var(--text);">Yprac Hub — utility mode, '+esc(M.n)+'</b> and save your own above.'+
       (M.note?' <b style="color:var(--text);">'+esc(M.note)+'</b>':'')+'</p>';
-    return '<div class="divi"><span class="ml">MAP PREP · ACTIVE DUTY</span></div>'+chips+tSide+ctSide+routes+vault+caveat;
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">MAP PREP · ACTIVE DUTY</span></div>'+chips+tSide+ctSide+routes+vault+caveat;
   }
   // read-ahead depth for the Plan surfaces (drill library + protocol card):
   // the mindset to hold, a good rep, a bad rep — the same facts as the live drill
@@ -1514,7 +1541,7 @@
           '<div class="lm">'+esc(b.sub)+'</div>'+
           (b.why?'<div class="lwhy">'+esc(b.why)+'</div>':'')+
           drillDepth(b)+'</div>';}).join("");
-      return '<div class="divi"><span class="ml">COACH-BUILT SESSION</span></div>'+
+      return '<div class="divi"><span class="ml" role="heading" aria-level="2">COACH-BUILT SESSION</span></div>'+
         '<div class="card diagcard" style="max-width:none;">'+
         '<div class="ml" style="margin-bottom:6px;">'+esc(P.name).toUpperCase()+' · '+esc(P.mins)+' MIN · BY '+esc(P.by).toUpperCase()+'</div>'+
         '<p style="font-size:13.5px;color:var(--muted);">'+esc(P.blurb)+'</p>'+
@@ -1547,12 +1574,12 @@
   var WS_GROUPS=[["aim","Aim & warm-up"],["pre","Prefire & utility"],["mov","Movement"],["fun","When it feels like a chore"]];
   function workshopUrl(id){return "https://steamcommunity.com/sharedfiles/filedetails/?id="+id;}
   function workshopKit(){
-    var out='<div class="divi" style="margin-top:16px;"><span class="ml">GET THE MAPS</span></div>'+
+    var out='<div class="divi" style="margin-top:16px;"><span class="ml" role="heading" aria-level="2">GET THE MAPS</span></div>'+
       '<p class="mhow" style="margin-top:0;">Each opens its Steam Workshop page — hit <b style="color:var(--text);">Subscribe</b> and it downloads into CS2 under <b style="color:var(--text);">Play ▸ Workshop Maps</b>. New here? The three marked <span class="wstag">START HERE</span> cover most of the plan.</p>';
     WS_GROUPS.forEach(function(grp){
       var items=WORKSHOP.filter(function(m){return m.g===grp[0];});
       if(!items.length)return;
-      out+='<div class="wsgrouph">'+esc(grp[1])+'</div><div class="wsgrid">';
+      out+='<div class="wsgrouph" role="heading" aria-level="3">'+esc(grp[1])+'</div><div class="wsgrid">';
       items.forEach(function(m){
         out+='<a class="wsrow" href="'+workshopUrl(m.id)+'" target="_blank" rel="noopener noreferrer" '+
           'aria-label="Open '+esc(m.t)+' on the Steam Workshop'+(m.s?' — recommended starter map':'')+'">'+
@@ -1571,7 +1598,7 @@
       'mp_maxmoney 60000; mp_startmoney 60000\nmp_buytime 9999; mp_buy_anywhere 1\n'+
       'mp_freezetime 0; mp_roundtime 60; mp_roundtime_defuse 60\nmp_warmup_end\n'+
       'sv_grenade_trajectory_prac_pipreview 1\ncl_grenadepreview 1\nsv_showimpacts 1\nbot_kick\nmp_restartgame 1';
-    return '<div class="divi"><span class="ml">PRACTICE SETUP</span></div><div class="card">'+
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">PRACTICE SETUP</span></div><div class="card">'+
       '<div class="mh" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span class="mname">Your practice-server config</span><button class="btncopy" data-copy="1">COPY</button></div>'+
       '<pre class="pcfg" id="pcfg">'+esc(cfg)+'</pre>'+
       '<p class="mhow" style="margin-top:9px;">Load it on a local map (<code>map de_mirage</code>, then <code>bot_kick</code>) for unlimited nade + prefire reps with trajectories on. CS2 command names shift between patches — if the console rejects one, check its current spelling.</p>'+
@@ -1600,7 +1627,7 @@
     cal+='</div><div class="calleg"><span><i class="swatch" style="background:color-mix(in oklab,var(--hero) 12%,transparent);border:1px solid var(--hero)"></i>trained</span><span><i class="swatch" style="background:var(--hero)"></i>full session</span><span><i class="swatch" style="background:transparent;border:1px dashed var(--bad)"></i>missed weekday</span></div></div>';
     var pw=programWeek(plan,now);
     var due=pw>=12?"w12":pw>=8?"w8":pw>=4?"w4":"base";
-    var mx='<div class="divi"><span class="ml">LEETIFY CHECKPOINTS · WK '+pw+'/12</span></div><div class="card">';
+    var mx='<div class="divi"><span class="ml" role="heading" aria-level="2">LEETIFY CHECKPOINTS · WK '+pw+'/12</span></div><div class="card">';
     mx+='<p class="mhow" style="margin-top:0;">Type your Leetify numbers in at the start (BASE) and again at weeks 4 / 8 / 12. The chip shows movement from base.</p>'+'<p class="help" style="margin:0 0 12px;">Optional — Leetify’s free tier covers these. Skip it if you don’t use it: your streak, calendar and drills work without any of it.</p>';
     plan.targets.forEach(function(t,ti){
       var key=tkey(t.n), v=(st.metrics||{})[key]||{};
@@ -1753,7 +1780,7 @@
             '<img class="lfybadge lt" src="'+LFY_BADGE_LIGHT+'" alt="Data provided by Leetify">'+
           '</a>'+
         '</div>'+
-        '<div class="divi" style="margin:12px 0 8px;"><span class="ml">WHAT LOCKIN READS FROM THIS</span></div>'+
+        '<div class="divi" style="margin:12px 0 8px;"><span class="ml" role="heading" aria-level="2">WHAT LOCKIN READS FROM THIS</span></div>'+
         notes+
         '<p class="qhint" style="margin:8px 0 0;">Ticked below — change anything that doesn\'t fit. You know your game better than a number does.</p>'+
         '</div>';
@@ -1765,7 +1792,7 @@
       err+'</div>';
   }
   function glossary(){
-    return '<div class="divi"><span class="ml">WHERE TO FIND THESE</span></div><div class="card">'+
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">WHERE TO FIND THESE</span></div><div class="card">'+
       '<p class="mhow" style="margin:0 0 10px;">Open your <b style="color:var(--text);">Leetify</b> profile → any recent match → the <b style="color:var(--text);">Aim</b> tab. Every number below lives there.</p>'+
       '<div class="glo"><b>Counter-strafing %</b><span>Of your rifle shots (AWP &amp; crouched shots excluded), how often you were under 34% of max speed — where accuracy returns.</span></div>'+
       '<div class="glo"><b>Crosshair placement (°)</b><span>How far your crosshair sat from a head the moment you spotted someone. Lower is better.</span></div>'+
@@ -1841,7 +1868,7 @@
       '<div class="sparkrow"><div class="sl"><b>Sessions / week</b><span>last 8 weeks</span></div>'+bars+'</div>'+
       '<div class="sparkrow"><div class="sl"><b>Hand feel</b><span>'+(recent.length?"out of 5":"1–5 scale")+'</span></div>'+
         (feel||'<div class="chempty">Rate your hand feel after a session and it charts here.</div>')+'</div></div>';
-    return '<div class="divi"><span class="ml">INSIGHTS</span></div>'+tiles+rows+
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">INSIGHTS</span></div>'+tiles+rows+
       '<button class="btncopy" data-sharecard="1" style="margin-top:10px;">⬇ SAVE PROGRESS CARD (PNG)</button>';
   }
 
@@ -1862,11 +1889,16 @@
     if(sum>0){
       var top=null;for(var k in tot){if(top===null||tot[k]>tot[top])top=k;}
       var lbl=CAUSES.filter(function(x){return x[0]===top;})[0][1];
-      var bar='<div class="leakbar">'+CAUSES.map(function(x){
+      // the bar is colour-only, so it carries a text summary for screen readers and a
+      // labelled legend beneath it for everyone (red 'aim' sits next to green 'utility').
+      var summary=CAUSES.filter(function(x){return tot[x[0]]>0;}).map(function(x){return x[1]+' '+tot[x[0]];}).join(", ");
+      var bar='<div class="leakbar" role="img" aria-label="Deaths by cause, last 30 days: '+esc(summary)+'">'+CAUSES.map(function(x){
         var pc=(tot[x[0]]/sum)*100;return pc>0?'<i style="width:'+pc.toFixed(1)+'%;background:'+CAUSE_COL[x[0]]+'"></i>':"";}).join("")+'</div>';
-      body=bar+'<p class="mhow" style="margin-top:10px;">Last 30 days · <b style="color:var(--text);">'+esc(lbl.toLowerCase())+'</b> is your biggest leak ('+tot[top]+' of '+sum+' deaths). That is the pattern to fix — not your aim.</p>';
+      var legend='<div class="calleg" style="margin-top:9px;">'+CAUSES.map(function(x){
+        return tot[x[0]]>0?'<span><i class="swatch" style="background:'+CAUSE_COL[x[0]]+'"></i>'+esc(x[1])+' '+tot[x[0]]+'</span>':"";}).join("")+'</div>';
+      body=bar+legend+'<p class="mhow" style="margin-top:10px;">Last 30 days · <b style="color:var(--text);">'+esc(lbl.toLowerCase())+'</b> is your biggest leak ('+tot[top]+' of '+sum+' deaths). That is the pattern to fix — not your aim.</p>';
     }else body='<p class="mhow" style="margin-top:10px;">Watch a demo and, for each death, tap what <em>actually</em> killed you. After a few sessions the pattern shows up — and patterns are fixable.</p>';
-    return '<div class="divi"><span class="ml">DEATH AUDIT</span></div><div class="card">'+
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">DEATH AUDIT</span></div><div class="card">'+
       '<p class="mhow" style="margin-top:0;">One death per round — what was the real cause?</p>'+btns+body+
       (Object.keys(today).length?'<button class="btncopy" data-deathclear="1" style="margin-top:10px;">CLEAR TODAY</button>':"")+'</div>';
   }
@@ -1943,7 +1975,7 @@
     var lo=(st.settings&&st.settings.loadout)||{};
     var sn=parseFloat(lo.sens),dp=parseFloat(lo.dpi);
     var edpi=(sn>0&&dp>0)?Math.round(sn*dp):null;
-    return '<div class="divi"><span class="ml">LOADOUT</span></div><div class="card">'+
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">LOADOUT</span></div><div class="card">'+
       '<div class="lo-grid">'+
         '<div class="field"><label for="lo_sens">Sensitivity</label><input id="lo_sens" type="text" inputmode="decimal" data-lo="sens" value="'+esc(lo.sens||"")+'" placeholder="1.25"></div>'+
         '<div class="field"><label for="lo_dpi">Mouse DPI</label><input id="lo_dpi" type="text" inputmode="numeric" data-lo="dpi" value="'+esc(lo.dpi||"")+'" placeholder="800"></div>'+
@@ -1974,7 +2006,7 @@
     var action=isNative
       ? '<button class="datarow" data-fbcopy>'+SPEECH+'<span>Send feedback<small>Copies the link — paste it in your browser</small></span></button>'
       : '<a class="datarow" href="'+esc(feedbackLink())+'" target="_blank" rel="noopener noreferrer">'+SPEECH+'<span>Send feedback<small>Opens GitHub in a new tab</small></span></a>';
-    return '<div class="divi"><span class="ml">FEEDBACK</span></div>'+
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">FEEDBACK</span></div>'+
       '<div style="display:flex;flex-direction:column;gap:8px;">'+action+'</div>'+
       '<p class="help">Found a bug, or the plan doesn’t fit? Tell me. Your version is filled in automatically — nothing else about you is sent.</p>';
   }
@@ -1988,11 +2020,11 @@
     var prof='<div class="card"><div class="prof"><div class="avatar">'+RET+'</div><div style="flex:1;">'+
       '<div class="ph">'+wp+role+'</div><div class="pm">'+rankLabel(p)+' · FOCUS '+esc(plan.keystoneName).toUpperCase()+' · STREAK '+streak+'</div></div>'+
       '<button class="gbtn" data-act="retake">RETAKE</button></div></div>';
-    var cueSec='<div class="divi"><span class="ml">YOUR DAILY CUE</span></div>'+
+    var cueSec='<div class="divi"><span class="ml" role="heading" aria-level="2">YOUR DAILY CUE</span></div>'+
       '<div class="card"><div class="field"><label>“After ___, I do the ten.”</label>'+
       '<input type="text" data-cue aria-label="Your daily cue" value="'+esc(st.settings.cue||"")+'" placeholder="e.g. after dinner, before the couch"></div>'+
       '<p class="help">A plan with a specific <em>when</em> actually happens. Yours shows on the Today screen.</p></div>';
-    var app='<div class="divi"><span class="ml">APPEARANCE</span></div>'+
+    var app='<div class="divi"><span class="ml" role="heading" aria-level="2">APPEARANCE</span></div>'+
       '<div class="segctl" role="group" aria-label="Theme"><button data-theme-set="dark" aria-pressed="'+(curTheme(st)==="dark"?"true":"false")+'" class="'+(curTheme(st)==="dark"?"on":"")+'">DARK</button><button data-theme-set="light" aria-pressed="'+(curTheme(st)==="light"?"true":"false")+'" class="'+(curTheme(st)==="light"?"on":"")+'">LIGHT</button></div>';
     var remSec='';
     if(isNative||webNotifyAvailable()){
@@ -2000,14 +2032,14 @@
       var remHelp=isNative
         ?"Lockin sits in your tray and pings you at your time. Turning it on also launches Lockin at login so the reminder actually fires."
         :"Lockin nudges you at your time while it's open in a tab or installed as an app. For a reminder when Lockin is closed, use the desktop app.";
-      remSec='<div class="divi"><span class="ml">DAILY REMINDER · '+(isNative?"DESKTOP":"THIS BROWSER")+'</span></div>'+
+      remSec='<div class="divi"><span class="ml" role="heading" aria-level="2">DAILY REMINDER · '+(isNative?"DESKTOP":"THIS BROWSER")+'</span></div>'+
         '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">'+
         '<div><div class="mname">“Go train” notification</div><div class="help" style="margin-top:2px;">'+remHelp+'</div></div>'+
         '<button class="rtoggle'+(rem.on?" on":"")+'" data-rem-toggle role="switch" aria-checked="'+(rem.on?"true":"false")+'" aria-label="Daily reminder">'+(rem.on?"ON":"OFF")+'</button></div>'+
         '<div class="field" style="margin-top:12px;"><label for="remTime">Remind me at</label><input type="time" id="remTime" data-rem-time value="'+esc(rem.time||"19:00")+'"'+(rem.on?"":" disabled")+'></div>'+
         '</div>';
     }
-    var data='<div class="divi"><span class="ml">DATA · LOCAL ONLY</span></div>'+
+    var data='<div class="divi"><span class="ml" role="heading" aria-level="2">DATA · LOCAL ONLY</span></div>'+
       '<div style="display:flex;flex-direction:column;gap:8px;">'+
       '<button class="datarow" data-act="export">'+DL+'<span>Export backup<small>Everything as a .json file — plan, streak, sessions</small></span></button>'+
       '<button class="datarow" data-act="import">'+UL+'<span>Restore backup<small>Load a previously exported file — you’ll get a confirmation first</small></span></button>'+
@@ -2358,7 +2390,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard};
 })();
 </script>
 </body>
