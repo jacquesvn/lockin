@@ -779,6 +779,21 @@ ok('Plan is now just strategy — drills, protocol and maps moved off it', (func
          gearRet && gearRet[1].indexOf('loadoutSec') >= 0 &&                     // gear owns the config
          html.indexOf('data-go="drills"') >= 0 && html.indexOf('data-go="maps"') >= 0;   // pointers on Plan
 })());
+// --- v0.22: automatic backup — continue where you left off ---
+ok('desktop mirrors state to a file and restores it when localStorage is empty', (function () {
+  var s = script;
+  return s.indexOf('backup_write') >= 0 && s.indexOf('backup_read') >= 0 &&
+         /function mirrorBackup\(st\)\{\s*if\(!isNative\)return/.test(s) &&   // mirror is desktop-only (gate is the first line)
+         s.indexOf('mirrorBackup(st)') >= 0;                              // wired into save()
+})());
+ok('the backup restore only fires when there is no local plan (localStorage stays authoritative)', (function () {
+  // in the init: restore is inside the `if(st.plan){...return}` else-path, gated on isNative
+  return /if\(st\.plan\)\{boot\("today"\);return;\}/.test(script) &&
+         /backup_read[\s\S]*?localStorage\.setItem\(KEY,json\)/.test(script);
+})());
+ok('web asks the browser to keep storage persistent', (function () {
+  return script.indexOf('navigator.storage') >= 0 && script.indexOf('.persist(') >= 0;
+})());
 // --- v0.21: optional gamertag ---
 ok('playerTag reads settings.tag and is empty by default', (function () {
   return playerTag({ settings: {} }) === '' && playerTag({ settings: { tag: 'Zywoo' } }) === 'Zywoo' &&

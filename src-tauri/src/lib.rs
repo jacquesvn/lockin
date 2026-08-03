@@ -162,6 +162,32 @@ fn scan_workshop(ids: Vec<String>) -> WorkshopScan {
     WorkshopScan { ok: true, installed }
 }
 
+// ---- automatic backup: mirror the app state to a file so a wiped WebView cache can't
+// lose a streak. localStorage stays the live source of truth; this file just shadows it
+// (written debounced on save) and is read back only when localStorage comes up empty. It
+// lives in the roaming app-data dir, so clearing browser data never touches it.
+fn backup_path(app: &tauri::AppHandle) -> Option<PathBuf> {
+    app.path().app_data_dir().ok().map(|d| d.join("lockin-state.json"))
+}
+
+#[tauri::command]
+fn backup_write(app: tauri::AppHandle, json: String) -> Result<(), String> {
+    let path = backup_path(&app).ok_or("no app data dir")?;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    // write to a temp file then rename, so a crash mid-write can't corrupt the backup
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, json.as_bytes()).map_err(|e| e.to_string())?;
+    std::fs::rename(&tmp, &path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn backup_read(app: tauri::AppHandle) -> Option<String> {
+    let path = backup_path(&app)?;
+    std::fs::read_to_string(&path).ok()
+}
+
 // Enable/disable launch-at-login so the tray app is around to deliver reminders.
 #[tauri::command]
 fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
@@ -222,7 +248,9 @@ pub fn run() {
             check_update,
             install_update,
             open_url,
-            scan_workshop
+            scan_workshop,
+            backup_write,
+            backup_read
         ])
         .setup(|app| {
             let show = MenuItem::with_id(app, "show", "Open Lockin", true, None::<&str>)?;

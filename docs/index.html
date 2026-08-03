@@ -565,7 +565,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.21.0";
+  var VERSION="0.22.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -1017,7 +1017,16 @@
   /* ---------- storage ---------- */
   function blank(){return {plan:null,sessions:{},settings:{},metrics:{},reviews:{},lineups:{},planReviews:{}};}
   function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};o.reviews=o.reviews||{};o.lineups=o.lineups||{};o.planReviews=o.planReviews||{};migrate(o);return o;}catch(e){storageOk=false;return mem||blank();}}
-  function save(st){mem=st;try{localStorage.setItem(KEY,JSON.stringify(st));storageOk=true;}catch(e){storageOk=false;}}
+  function save(st){mem=st;try{localStorage.setItem(KEY,JSON.stringify(st));storageOk=true;}catch(e){storageOk=false;}mirrorBackup(st);}
+  // Desktop only: shadow the live state to a file (debounced) so a wiped WebView cache
+  // can't cost a streak. localStorage stays authoritative; this is read back only when
+  // localStorage comes up empty (see the boot restore). No-op on web.
+  var _mirrorT=null;
+  function mirrorBackup(st){
+    if(!isNative)return;
+    if(_mirrorT)clearTimeout(_mirrorT);
+    _mirrorT=setTimeout(function(){try{TAURI.core.invoke("backup_write",{json:JSON.stringify(st)}).catch(function(){});}catch(_){}},800);
+  }
   // the player's gamertag (optional) — always esc() it at the call site, it's user input
   function playerTag(st){var t=(st||load()).settings;t=t&&t.tag;return t?String(t):"";}
   function migrate(o){
@@ -2245,6 +2254,9 @@
         '</div>';
     }
     var data='<div class="divi"><span class="ml" role="heading" aria-level="2">DATA · LOCAL ONLY</span></div>'+
+      '<p class="help" style="margin:0 0 8px;">'+(isNative
+        ?'<b style="color:var(--text);">Auto-backup is on.</b> Your progress is mirrored to a file on this PC and restored automatically if the app’s cache is ever cleared. Export a copy to move to another machine.'
+        :'Your progress is saved on this device and kept as long as the browser allows. Export a copy now and then so you can restore it anywhere.')+'</p>'+
       '<div style="display:flex;flex-direction:column;gap:8px;">'+
       '<button class="datarow" data-act="export">'+DL+'<span>Export backup<small>Everything as a .json file — plan, streak, sessions</small></span></button>'+
       '<button class="datarow" data-act="import">'+UL+'<span>Restore backup<small>Load a previously exported file — you’ll get a confirmation first</small></span></button>'+
@@ -2583,7 +2595,22 @@
   /* ---------- init ---------- */
   (function(){
     var st=load();applyTheme(curTheme(st));
-    if(st.plan)boot("today");else renderOnboard();
+    // web: ask the browser to keep our storage persistent (less likely to be evicted).
+    // Best-effort — installed PWAs are usually granted it; a plain tab may not be.
+    if(!isNative){try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(_){}}
+    if(st.plan){boot("today");return;}
+    // No plan here. On desktop, the auto-backup file is what lets someone pick up where
+    // they left off after a wiped cache or a reinstall — try it before showing the quiz.
+    if(isNative){
+      try{
+        TAURI.core.invoke("backup_read").then(function(json){
+          try{if(json){var o=JSON.parse(json);if(o&&o.plan&&validBackup(o)){localStorage.setItem(KEY,json);applyTheme(curTheme(load()));boot("today");return;}}}catch(_){}
+          renderOnboard();
+        },function(){renderOnboard();});
+        return;
+      }catch(_){}
+    }
+    renderOnboard();
   })();
   if(isNative||("Notification" in window))setInterval(reminderTick,30000);
   // quiet auto-check shortly after launch; failures stay silent (offline is normal, not an error)
