@@ -90,6 +90,8 @@
   .tab svg{width:19px;height:19px;}
   .tab span{font-family:var(--fm);font-size:9px;letter-spacing:0.04em;font-weight:700;white-space:nowrap;}
   .tab.on{color:var(--hero-ink);background:color-mix(in oklab,var(--hero) 10%, transparent);}
+  /* seven sections fit the bottom bar as icons (labels live in the desktop sidebar) */
+  #tabbar .tab span{display:none;} #tabbar .tab{padding:11px 2px;} #tabbar .tab svg{width:22px;height:22px;}
   .scr{display:none;} .scr.show{display:block;animation:lk-rise .22s ease;}
 
   @media (min-width:720px){
@@ -561,7 +563,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.19.0";
+  var VERSION="0.20.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -574,6 +576,8 @@
   var CAL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
   var MAPICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>';
   var COMPASS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>';
+  var TARGET='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>';
+  var MOUSE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 7v4"/></svg>';
 
   /* ---------- coaching catalog (research-corrected Jul 2026) ---------- */
   // where = the map or server you load; sub = how to approach it once there;
@@ -1333,13 +1337,15 @@
      sidebar, and shown once automatically (settings.tourSeen). The overlay lives outside
      #main, so navigating between screens mid-tour never disturbs it. */
   var TOUR=[
-    {title:"Welcome to Lockin",body:"A 30-second tour of where everything lives, so nothing gets missed. Skip whenever you like."},
-    {screen:"today",sel:".snav, #tabbar",k:"GETTING AROUND",title:"Move around here",body:"Five sections — Today, Plan, Maps, Progress, Setup. That's the whole app."},
+    {title:"Welcome to Lockin",body:"A quick tour of where everything lives, so nothing gets missed. Skip whenever you like."},
+    {screen:"today",sel:".snav, #tabbar",k:"GETTING AROUND",title:"Move around here",body:"Seven sections down the side — that's the whole app. On mobile they're the icons along the bottom."},
     {screen:"today",sel:'[data-tour="today"]',k:"TODAY",title:"Your day, in one place",body:"Your streak and this week up top; the day's drills to tick off are just below, with a hand-feel log. Ten focused minutes counts as a day."},
-    {screen:"plan",sel:'[data-tour="plan"]',k:"PLAN",title:"Your 12-week plan",body:"Every drill for your focus and how to measure it, your weekly rotation, and a coach-built session you can run start to finish."},
+    {screen:"plan",sel:'[data-tour="plan"]',k:"PLAN",title:"Your 12-week plan",body:"Your diagnosis, the phase-by-phase arc, and a weekly rotation you can rearrange to match when you actually play."},
+    {screen:"drills",sel:'[data-tour="drills"]',k:"DRILLS",title:"What to train",body:"Every drill for your focus with a read-ahead why, how to measure each one, and the coach-built protocol you can run start to finish."},
     {screen:"maps",sel:'[data-tour="maps"]',k:"MAPS",title:"Get the training maps",body:"One-click Steam Workshop downloads — the desktop app even shows which you already have — plus utility jobs and prefire routes for all seven maps."},
     {screen:"progress",sel:'[data-tour="progress"]',k:"PROGRESS",title:"See it working",body:"Streak, calendar and hand-feel trend, optional Leetify checkpoints, and a death audit that names your biggest leak."},
-    {screen:"setup",sel:'[data-tour="setup"]',k:"SETUP",title:"Make it yours",body:"Your sens and crosshair, a daily reminder, backup and restore — and you can retake the quiz or replay this tour any time."},
+    {screen:"gear",sel:'[data-tour="gear"]',k:"GEAR",title:"Your config, one tap away",body:"Sens, DPI and eDPI, your crosshair code and launch options — kept here so you can copy them without leaving a match."},
+    {screen:"setup",sel:'[data-tour="setup"]',k:"SETUP",title:"Make it yours",body:"Your profile, a daily reminder, backup and restore — and you can retake the quiz or replay this tour any time."},
     {title:"That's the tour",body:"Replay it whenever from the sidebar, or from Setup on mobile. Now go tick your first drill."}
   ];
   var TOUR_I=-1, tourKey=null, tourReturnFocus=null;
@@ -1441,8 +1447,10 @@
       var main=document.getElementById("main");
       if(screen==="today")main.innerHTML=htmlToday(st);
       else if(screen==="plan")main.innerHTML=htmlPlan(st);
+      else if(screen==="drills")main.innerHTML=htmlDrills(st);
       else if(screen==="maps")main.innerHTML=htmlMaps(st);
       else if(screen==="progress")main.innerHTML=htmlProgress(st);
+      else if(screen==="gear")main.innerHTML=htmlGear(st);
       else main.innerHTML=htmlSetup(st);
       wire(st);
     }catch(err){renderRecovery(err);return;}
@@ -1474,7 +1482,7 @@
     var streak=computeStreak(st,new Date());
     function nb(k,l,ic){return '<button data-go="'+k+'" class="'+(screen===k?"on":"")+'"'+(screen===k?' aria-current="page"':'')+'>'+ic+'<span>'+l+'</span></button>';}
     side.innerHTML='<div class="brand">'+ '<span style="width:22px;height:22px;color:var(--hero-ink);display:inline-block;">'+RET+'</span><span class="wordmark">LOCK<b>IN</b></span></div>'+
-      '<nav class="snav" aria-label="Primary">'+nb("today","TODAY",RET)+nb("plan","PLAN",LIST)+nb("maps","MAPS",MAPICON)+nb("progress","PROGRESS",CAL)+nb("setup","SETUP",GEAR)+'</nav>'+
+      '<nav class="snav" aria-label="Primary">'+nb("today","TODAY",RET)+nb("plan","PLAN",LIST)+nb("drills","DRILLS",TARGET)+nb("maps","MAPS",MAPICON)+nb("progress","PROGRESS",CAL)+nb("gear","GEAR",MOUSE)+nb("setup","SETUP",GEAR)+'</nav>'+
       '<div class="smini"><div><div class="ml">STREAK</div><div class="dsp" style="font-size:30px;color:var(--hero-ink);">'+streak+'</div></div>'+
       '<button class="gbtn tourbtn" data-act="tour" style="width:100%;"><span class="tourico">'+COMPASS+'</span>TAKE A TOUR</button>'+
       '<button class="gbtn" data-act="retake" style="width:100%;">RETAKE QUIZ</button>'+
@@ -1483,7 +1491,7 @@
   function renderTabs(){
     var tb=document.getElementById("tabbar");
     function t(k,l,ic){return '<button class="tab'+(screen===k?" on":"")+'" data-go="'+k+'" aria-label="'+l+'"'+(screen===k?' aria-current="page"':'')+'>'+ic+'<span>'+l+'</span></button>';}
-    tb.innerHTML=t("today","TODAY",RET)+t("plan","PLAN",LIST)+t("maps","MAPS",MAPICON)+t("progress","PROGRESS",CAL)+t("setup","SETUP",GEAR);
+    tb.innerHTML=t("today","TODAY",RET)+t("plan","PLAN",LIST)+t("drills","DRILLS",TARGET)+t("maps","MAPS",MAPICON)+t("progress","PROGRESS",CAL)+t("gear","GEAR",MOUSE)+t("setup","SETUP",GEAR);
   }
 
   /* ---------- TODAY ---------- */
@@ -1607,7 +1615,7 @@
     var hd='<div class="hd"><div><div class="ml">YOUR PROGRAM</div><h1 class="dsp">PLAN</h1></div></div>';
     var diag='<div class="card diagcard" style="max-width:none;"><div class="ml" style="margin-bottom:6px;">DIAGNOSIS · FOCUS ▸ '+esc(plan.keystoneName).toUpperCase()+'</div>'+
       '<p style="font-size:13.5px;color:var(--muted);">'+richText(plan.diagnosis)+'</p></div>';
-    var ph='<div class="divi"><span class="ml" role="heading" aria-level="2">12-WEEK PHASES</span></div><div class="card">';
+    var ph='<div class="divi"><span class="ml" role="heading" aria-level="2">12-WEEK PHASES</span></div><div class="card" data-tour="plan">';
     for(var i=0;i<plan.phases.length;i++){var P=plan.phases[i];
       ph+='<div class="phrow"><div class="phnum">'+(i+1)+'</div><div><b>'+esc(P.t)+'</b><span class="wl">'+esc(P.w)+'</span><p>'+esc(P.d)+'</p></div></div>';}
     ph+='</div>';
@@ -1632,10 +1640,20 @@
     var rotc='<div class="divi"><span class="ml" role="heading" aria-level="2">WEEKLY FOCUS ROTATION</span></div>'+
       '<p class="mhow" style="margin:0 0 10px;">Tap any day to change it — match nights are yours to set.</p>'+
       '<div class="rotgrid">'+rot+'</div>'+picker;
-    // The library runs long (three drills for each focus in use), so it takes the
-    // full width in a flowing grid rather than stacking in one column — a tall
-    // column beside a short one left most of the page empty on desktop.
-    var lib='<div class="divi"><span class="ml" role="heading" aria-level="2">DRILL LIBRARY</span></div><div class="card" data-tour="plan"><div class="libgrid">';
+    // Plan is now just the strategy — the drill library + protocol, and the map/practice
+    // content, each moved to their own tab. Compact pointers keep the moved parts findable.
+    var drillsPointer='<button class="card ptrcard" data-go="drills"><div><div class="ml" style="color:var(--hero-ink);">DRILL LIBRARY &amp; PROTOCOL ▸</div>'+
+      '<p class="mhow" style="margin:4px 0 0;">Every drill for your focus, how to measure each one, and the coach-built session — on the <b style="color:var(--text);">Drills</b> tab.</p></div><span class="ptrchev">›</span></button>';
+    var mapsPointer='<button class="card ptrcard" data-go="maps" style="margin-top:10px;"><div><div class="ml" style="color:var(--hero-ink);">MAP PREP &amp; DOWNLOADS ▸</div>'+
+      '<p class="mhow" style="margin:4px 0 0;">Utility jobs and prefire routes for all seven maps, one-click Workshop downloads, and your practice config — on the <b style="color:var(--text);">Maps</b> tab.</p></div><span class="ptrchev">›</span></button>';
+    return hd+diag+'<div class="plan-cols"><div>'+ph+'</div><div>'+rotc+'</div></div>'+drillsPointer+mapsPointer;
+  }
+  // DRILLS — the drill library, how to measure each metric, and the coach-built protocol.
+  // The library runs long, so it flows full-width rather than stacking in one column.
+  function htmlDrills(st){
+    var plan=st.plan;
+    var hd='<div class="hd"><div><div class="ml">WHAT TO TRAIN</div><h1 class="dsp">DRILLS</h1></div></div>';
+    var lib='<div class="divi"><span class="ml" role="heading" aria-level="2">DRILL LIBRARY</span></div><div class="card" data-tour="drills"><div class="libgrid">';
     plan.used.forEach(function(k){var F=FOCI[k];
       F.drills.forEach(function(d){
         lib+='<div class="librow"><div class="cat">'+esc(F.name).toUpperCase()+(k===plan.keystone?' · KEYSTONE':'')+'</div>'+
@@ -1648,11 +1666,7 @@
     var tg='<div class="divi"><span class="ml" role="heading" aria-level="2">HOW TO MEASURE IT</span></div><div class="card"><div class="libgrid">';
     plan.targets.forEach(function(t){tg+='<div class="librow"><div class="ln"><span>'+esc(t.n)+'</span></div><div class="lm">'+esc(t.h)+'</div></div>';});
     tg+='</div></div>';
-    // Map prep + downloads + practice config now live on their own MAPS tab (they were
-    // buried at the bottom of a very long Plan) — a small pointer keeps them discoverable.
-    var mapsPointer='<button class="card ptrcard" data-go="maps"><div><div class="ml" style="color:var(--hero-ink);">MAP PREP &amp; DOWNLOADS ▸</div>'+
-      '<p class="mhow" style="margin:4px 0 0;">Utility jobs and prefire routes for all seven maps, one-click Workshop downloads, and your practice-server config — now on the <b style="color:var(--text);">Maps</b> tab.</p></div><span class="ptrchev">›</span></button>';
-    return hd+diag+'<div class="plan-cols"><div>'+ph+'</div><div>'+rotc+'</div></div>'+lib+tg+protocolCard()+mapsPointer;
+    return hd+lib+tg+protocolCard();
   }
   function htmlMaps(st){
     var hd='<div class="hd"><div><div class="ml">PRACTICE &amp; DOWNLOADS</div><h1 class="dsp">MAPS</h1></div></div>';
@@ -2220,7 +2234,13 @@
       '<button class="datarow" data-act="reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span>Erase all data<small>Delete everything and start over — can’t be undone</small></span></button>'+
       '<input type="file" id="impF" accept="application/json" style="display:none;"></div>'+
       (storageOk?'':'<div class="ml" style="color:var(--bad);margin-top:8px;">⚠ STORAGE BLOCKED — EXPORT TO KEEP YOUR DATA</div>');
-    return hd+prof+cueSec+loadoutSec(st)+app+remSec+updateSec()+data+feedbackSec()+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
+    return hd+prof+cueSec+app+remSec+updateSec()+data+feedbackSec()+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
+  }
+  // GEAR — your sens/DPI/eDPI, crosshair code and launch options. Its own tab so you can
+  // pull it up mid-game to copy a crosshair or double-check your eDPI.
+  function htmlGear(st){
+    var hd='<div class="hd"><div><div class="ml">YOUR CONFIG</div><h1 class="dsp">GEAR</h1></div></div>';
+    return hd+'<div data-tour="gear">'+loadoutSec(st)+'</div>';
   }
 
   /* ---------- interactions ---------- */

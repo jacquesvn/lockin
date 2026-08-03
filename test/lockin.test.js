@@ -748,11 +748,12 @@ ok('Plan library renders the why line', html.indexOf('class="lwhy"') >= 0);
   })());
 })();
 // --- v0.19: first-run guided tour + Maps tab ---
-ok('the tour walks all five sections with content on every step', (function () {
-  if (!Array.isArray(TOUR) || TOUR.length < 6) return false;
+ok('the tour walks every section with content on every step', (function () {
+  var SECTIONS = ['today','plan','drills','maps','progress','gear','setup'];
+  if (!Array.isArray(TOUR) || TOUR.length < 8) return false;
   var screens = TOUR.map(function (s) { return s.screen; }).filter(Boolean);
-  var allSections = ['today','plan','maps','progress','setup'].every(function (sc) { return screens.indexOf(sc) >= 0; });
-  var okScreens = TOUR.every(function (s) { return !s.screen || ['today','plan','maps','progress','setup'].indexOf(s.screen) >= 0; });
+  var allSections = SECTIONS.every(function (sc) { return screens.indexOf(sc) >= 0; });
+  var okScreens = TOUR.every(function (s) { return !s.screen || SECTIONS.indexOf(s.screen) >= 0; });
   var okContent = TOUR.every(function (s) { return s.title && s.body; });
   return allSections && okScreens && okContent;
 })());
@@ -762,15 +763,21 @@ ok('every tour anchor points at a real element, not just the step list', (functi
     return (html.split(r).length - 1) >= 2;   // once in the TOUR sel + at least once on an element
   });
 })());
-ok('Maps is its own screen, reachable from the nav and a Plan pointer', (function () {
-  return html.indexOf('screen==="maps"') >= 0 && html.indexOf('function htmlMaps') >= 0 &&
-         html.indexOf('nb("maps"') >= 0 && html.indexOf('t("maps"') >= 0 && html.indexOf('data-go="maps"') >= 0;
+ok('every section is a routed screen, in the nav (sidebar + tabs), and reachable', (function () {
+  return ['maps','drills','gear'].every(function (s) {
+    return html.indexOf('screen==="' + s + '"') >= 0 &&
+           html.indexOf('function html' + s.charAt(0).toUpperCase() + s.slice(1)) >= 0 &&
+           html.indexOf('nb("' + s + '"') >= 0 && html.indexOf('t("' + s + '"') >= 0;
+  });
 })());
-ok('the map + practice sections moved off Plan into htmlMaps', (function () {
+ok('Plan is now just strategy — drills, protocol and maps moved off it', (function () {
   var planRet = html.match(/function htmlPlan[\s\S]*?\n {4}return ([^\n]*)/);
-  var mapsRet = html.match(/function htmlMaps[\s\S]*?return ([^\n]*)/);
-  return planRet && planRet[1].indexOf('practiceCard') < 0 && planRet[1].indexOf('mapPrep') < 0 &&
-         mapsRet && mapsRet[1].indexOf('mapPrep') >= 0 && mapsRet[1].indexOf('practiceCard') >= 0;
+  var drillsRet = html.match(/function htmlDrills[\s\S]*?return ([^\n]*)/);
+  var gearRet = html.match(/function htmlGear[\s\S]*?return ([^\n]*)/);
+  return planRet && ['practiceCard','mapPrep','protocolCard','+lib+','+tg+'].every(function (x) { return planRet[1].indexOf(x) < 0; }) &&
+         drillsRet && drillsRet[1].indexOf('protocolCard') >= 0 &&               // drills owns the library + protocol
+         gearRet && gearRet[1].indexOf('loadoutSec') >= 0 &&                     // gear owns the config
+         html.indexOf('data-go="drills"') >= 0 && html.indexOf('data-go="maps"') >= 0;   // pointers on Plan
 })());
 ok('web build shows plain map links, never a download badge', (function () {
   var h = workshopKit();   // default sandbox is web (isNative false) — must never badge
