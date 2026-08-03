@@ -470,8 +470,9 @@
   #session .sdk{display:block;font-family:var(--fm);font-size:10px;letter-spacing:0.13em;color:var(--faint);margin-bottom:5px;}
   #session .sdo{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--hero);border-radius:12px;padding:12px 15px;}
   #session .sdotxt{display:block;font-size:16px;line-height:1.4;color:var(--text);}
-  #session .sgoal{font-size:13.5px;color:var(--muted);line-height:1.5;}
-  #session .sgk{font-family:var(--fm);font-size:10px;letter-spacing:0.12em;color:var(--faint);margin-right:7px;}
+  #session .sgoal{border:1px solid var(--line);border-radius:12px;padding:12px 15px;}
+  #session .sgk{display:block;font-family:var(--fm);font-size:10px;letter-spacing:0.13em;color:var(--faint);margin-bottom:5px;}
+  #session .sgoaltxt{display:block;font-size:14px;line-height:1.45;color:var(--muted);}
   #session .srw{display:grid;grid-template-columns:1fr;gap:10px;}
   #session .srwc{border-radius:12px;padding:11px 13px;border:1px solid;}
   #session .srwc.rgood{background:color-mix(in oklab,var(--good) 9%,transparent);border-color:color-mix(in oklab,var(--good) 38%,transparent);}
@@ -502,7 +503,7 @@
     #session .srw{grid-template-columns:1fr 1fr;}
     #session .smap{font-size:13px;margin-top:14px;}
     #session .sdotxt{font-size:18px;}
-    #session .srwt,#session .sgoal{font-size:15px;}
+    #session .srwt,#session .sgoaltxt{font-size:15px;}
     #session .smindc{font-size:21px;}
   }
 
@@ -536,7 +537,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.18.0";
+  var VERSION="0.18.1";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -2357,7 +2358,7 @@
       (d.where?'<div class="smap"><span class="smapk">MAP</span>'+esc(d.where)+'</div>':'')+
       '<div class="sbody">'+
         (d.sub?'<div class="sdo"><span class="sdk">DO</span><span class="sdotxt">'+esc(d.sub)+'</span></div>':'')+
-        (d.goal?'<div class="sgoal"><span class="sgk">GOAL</span>'+esc(d.goal)+'</div>':'')+
+        (d.goal?'<div class="sgoal"><span class="sgk">GOAL</span><span class="sgoaltxt">'+esc(d.goal)+'</span></div>':'')+
         ((d.m||d.rule)?'<div class="srw">'+
           (d.m?'<div class="srwc rgood"><div class="srwh"><span aria-hidden="true">✓</span><span class="srwl">RIGHT</span></div><div class="srwt">'+esc(d.m)+'</div></div>':'')+
           (d.rule?'<div class="srwc rbad"><div class="srwh"><span aria-hidden="true">✕</span><span class="srwl">WRONG</span></div><div class="srwt">'+esc(d.rule)+'</div></div>':'')+
