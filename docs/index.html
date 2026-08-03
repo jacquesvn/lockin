@@ -50,6 +50,29 @@
   .dsp{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;}
   .ml{font-family:var(--fm);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--faint);font-weight:600;}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;}
+  /* a card that's also a button — the Plan → Maps pointer */
+  .ptrcard{width:100%;text-align:left;cursor:pointer;display:flex;align-items:center;gap:12px;color:inherit;font:inherit;}
+  .ptrcard:hover{border-color:var(--hero);}
+  .ptrchev{margin-left:auto;color:var(--hero-ink);font-size:22px;line-height:1;}
+  /* guided tour: a lit cut-out over a dimmed app */
+  #tour{position:fixed;inset:0;z-index:90;}
+  #tour .tdim{position:absolute;inset:0;background:transparent;}
+  #tour.center .tdim{background:rgba(0,0,0,0.62);}
+  #tour .tspot{position:fixed;border-radius:12px;box-shadow:0 0 0 100vmax rgba(0,0,0,0.62);pointer-events:none;transition:top .22s,left .22s,width .22s,height .22s;}
+  #tour.center .tspot{display:none;}
+  #tour .tpop{position:fixed;max-width:322px;width:calc(100vw - 32px);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--hero);border-radius:14px;padding:15px 17px;box-shadow:0 12px 44px rgba(0,0,0,0.45);}
+  #tour.center .tpop{top:50%;left:50%;transform:translate(-50%,-50%);}
+  #tour .tk{font-family:var(--fm);font-size:10px;letter-spacing:0.13em;color:var(--hero-ink);}
+  #tour .tt{font-family:var(--fd);font-weight:800;font-size:19px;letter-spacing:-0.01em;margin:5px 0 0;}
+  #tour .tb{font-size:13.5px;color:var(--muted);line-height:1.55;margin:8px 0 0;}
+  #tour .tnav{display:flex;align-items:center;gap:8px;margin-top:15px;}
+  #tour .tsteps{font-family:var(--fm);font-size:11px;color:var(--faint);margin-right:auto;}
+  #tour .tskip{background:none;border:none;color:var(--faint);font:inherit;font-size:12px;cursor:pointer;text-decoration:underline;padding:0;}
+  #tour .tbtn{border:1px solid var(--line2);background:transparent;color:var(--text);border-radius:9px;padding:8px 13px;font-family:var(--fm);font-size:12px;letter-spacing:0.05em;cursor:pointer;}
+  #tour .tbtn.pri{background:var(--hero);border-color:var(--hero);color:var(--onhero);font-weight:700;}
+  .profacts{display:flex;flex-direction:column;gap:7px;}
+  .tourbtn{display:flex;align-items:center;justify-content:center;gap:7px;}
+  .tourico{display:inline-flex;width:15px;height:15px;} .tourico svg{width:15px;height:15px;}
   .wrap{max-width:640px;margin:0 auto;padding:18px 16px 96px;}
   /* Vertical rhythm on these screens comes from .divi (20px above, 10px below).
      Where two blocks stack with no divider between them they collided at 0px —
@@ -65,7 +88,7 @@
   #tabbar{position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--surface);border-top:1px solid var(--line);display:flex;padding:6px 8px calc(6px + env(safe-area-inset-bottom));gap:4px;}
   .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:transparent;border:none;border-radius:10px;padding:7px 4px;cursor:pointer;color:var(--faint);}
   .tab svg{width:19px;height:19px;}
-  .tab span{font-family:var(--fm);font-size:9.5px;letter-spacing:0.12em;font-weight:700;}
+  .tab span{font-family:var(--fm);font-size:9px;letter-spacing:0.04em;font-weight:700;white-space:nowrap;}
   .tab.on{color:var(--hero-ink);background:color-mix(in oklab,var(--hero) 10%, transparent);}
   .scr{display:none;} .scr.show{display:block;animation:lk-rise .22s ease;}
 
@@ -531,13 +554,14 @@
 </div>
 <nav id="tabbar" style="display:none;" aria-label="Primary"></nav>
 <div id="session"></div>
+<div id="tour" style="display:none;"></div>
 <div id="cele" aria-live="polite"></div>
 
 <script>
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.18.1";
+  var VERSION="0.19.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -548,6 +572,8 @@
   var DL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M12 3v11M7 10l5 5 5-5M4 20h16"/></svg>';
   var UL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M12 14V3M7 8l5-5 5 5M4 20h16"/></svg>';
   var CAL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+  var MAPICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>';
+  var COMPASS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>';
 
   /* ---------- coaching catalog (research-corrected Jul 2026) ---------- */
   // where = the map or server you load; sub = how to approach it once there;
@@ -1187,7 +1213,9 @@
         '</div>'+
         '<button class="pbtn rise" id="startBtn" style="padding:14px 30px;">START DAY 1 ▸</button>'+
         '</div></div>';
-      document.getElementById("startBtn").onclick=function(){revealed=null;host.style.display="none";boot("today");};
+      document.getElementById("startBtn").onclick=function(){revealed=null;host.style.display="none";boot("today");
+        // first-run: walk a brand-new user through the app once (skippable)
+        if(!load().settings.tourSeen)setTimeout(startTour,150);};
       document.getElementById("startBtn").focus();   // land on the one action, not <body>
       return;
     }
@@ -1298,6 +1326,94 @@
     render();
   }
   function go(s){screen=s;render();}
+
+  /* ---------- first-run guided tour (spotlight coach-marks) ----------
+     A dark overlay with a lit cut-out around one element at a time, walking a new user
+     through every section so features aren't missed. Skippable, replayable from the
+     sidebar, and shown once automatically (settings.tourSeen). The overlay lives outside
+     #main, so navigating between screens mid-tour never disturbs it. */
+  var TOUR=[
+    {title:"Welcome to Lockin",body:"A 30-second tour of where everything lives, so nothing gets missed. Skip whenever you like."},
+    {screen:"today",sel:".snav, #tabbar",k:"GETTING AROUND",title:"Move around here",body:"Five sections — Today, Plan, Maps, Progress, Setup. That's the whole app."},
+    {screen:"today",sel:'[data-tour="today"]',k:"TODAY",title:"Your day, in one place",body:"Your streak and this week up top; the day's drills to tick off are just below, with a hand-feel log. Ten focused minutes counts as a day."},
+    {screen:"plan",sel:'[data-tour="plan"]',k:"PLAN",title:"Your 12-week plan",body:"Every drill for your focus and how to measure it, your weekly rotation, and a coach-built session you can run start to finish."},
+    {screen:"maps",sel:'[data-tour="maps"]',k:"MAPS",title:"Get the training maps",body:"One-click Steam Workshop downloads — the desktop app even shows which you already have — plus utility jobs and prefire routes for all seven maps."},
+    {screen:"progress",sel:'[data-tour="progress"]',k:"PROGRESS",title:"See it working",body:"Streak, calendar and hand-feel trend, optional Leetify checkpoints, and a death audit that names your biggest leak."},
+    {screen:"setup",sel:'[data-tour="setup"]',k:"SETUP",title:"Make it yours",body:"Your sens and crosshair, a daily reminder, backup and restore — and you can retake the quiz or replay this tour any time."},
+    {title:"That's the tour",body:"Replay it whenever from the sidebar, or from Setup on mobile. Now go tick your first drill."}
+  ];
+  var TOUR_I=-1, tourKey=null, tourReturnFocus=null;
+  function tourTarget(sel){
+    if(!sel)return null;
+    var els=document.querySelectorAll(sel);
+    for(var i=0;i<els.length;i++){if(els[i].offsetParent!==null||els[i].getClientRects().length)return els[i];}
+    return els[0]||null;
+  }
+  function startTour(){
+    if(!load().plan)return;                       // nothing to tour without a plan
+    tourReturnFocus=document.activeElement;
+    TOUR_I=0;
+    if(!tourKey){
+      tourKey=function(e){
+        if(TOUR_I<0)return;
+        if(e.key==="Escape"){e.preventDefault();endTour();}
+        else if(e.key==="ArrowRight"||e.key==="Enter"){e.preventDefault();TOUR_I++;showTourStep();}
+        else if(e.key==="ArrowLeft"&&TOUR_I>0){e.preventDefault();TOUR_I--;showTourStep();}
+      };
+      document.addEventListener("keydown",tourKey);
+    }
+    showTourStep();
+  }
+  function endTour(){
+    TOUR_I=-1;
+    var t=document.getElementById("tour");if(t){t.style.display="none";t.className="";t.innerHTML="";}
+    if(tourKey){document.removeEventListener("keydown",tourKey);tourKey=null;}
+    var st=load();if(!st.settings.tourSeen){st.settings.tourSeen=true;save(st);}
+    if(tourReturnFocus&&tourReturnFocus.focus){try{tourReturnFocus.focus();}catch(_){}}
+    tourReturnFocus=null;
+  }
+  function showTourStep(){
+    if(TOUR_I<0)return;
+    if(TOUR_I>=TOUR.length){endTour();return;}
+    var step=TOUR[TOUR_I];
+    if(step.screen&&screen!==step.screen){screen=step.screen;render();}   // navigate first
+    // synchronous: getBoundingClientRect below forces the layout we need, and this keeps
+    // the tour working even where requestAnimationFrame is paused (a hidden/idle tab).
+    placeTour(step);
+  }
+  function placeTour(step){
+    var t=document.getElementById("tour");if(!t||TOUR_I<0)return;
+    var el=step.sel?tourTarget(step.sel):null;
+    if(el)try{el.scrollIntoView({block:"center",inline:"nearest"});}catch(_){}
+    var center=!el,last=TOUR_I===TOUR.length-1;
+    t.style.display="block";t.className=center?"center":"";
+    t.innerHTML='<div class="tdim" data-tour-act="none"></div>'+(center?'':'<div class="tspot"></div>')+
+      '<div class="tpop" role="dialog" aria-modal="true" aria-label="App tour" tabindex="-1">'+
+        (step.k?'<div class="tk">'+esc(step.k)+'</div>':'')+
+        '<div class="tt">'+esc(step.title)+'</div><p class="tb">'+esc(step.body)+'</p>'+
+        '<div class="tnav"><span class="tsteps">'+(TOUR_I+1)+' / '+TOUR.length+'</span>'+
+          (last?'':'<button class="tskip" data-tour-act="skip">Skip</button>')+
+          (TOUR_I>0?'<button class="tbtn" data-tour-act="back">Back</button>':'')+
+          '<button class="tbtn pri" data-tour-act="next">'+(last?"Done":"Next")+'</button>'+
+        '</div></div>';
+    var pop=t.querySelector(".tpop");
+    if(el){
+      var r=el.getBoundingClientRect(),spot=t.querySelector(".tspot"),pad=8;
+      spot.style.top=(r.top-pad)+"px";spot.style.left=(r.left-pad)+"px";
+      spot.style.width=(r.width+pad*2)+"px";spot.style.height=(r.height+pad*2)+"px";
+      var ph=pop.offsetHeight,pw=pop.offsetWidth,vh=window.innerHeight,vw=window.innerWidth;
+      var top=r.bottom+14;if(top+ph>vh-10)top=r.top-ph-14;if(top<10)top=Math.max(10,(vh-ph)/2);
+      pop.style.top=top+"px";pop.style.left=Math.min(Math.max(10,r.left),vw-pw-10)+"px";
+    }
+    if(pop)try{pop.focus();}catch(_){}
+    var acts=t.querySelectorAll("[data-tour-act]");
+    for(var i=0;i<acts.length;i++)(function(b){b.onclick=function(){
+      var a=b.getAttribute("data-tour-act");
+      if(a==="skip")endTour();
+      else if(a==="back"){TOUR_I--;showTourStep();}
+      else if(a==="next"){TOUR_I++;showTourStep();}
+    };})(acts[i]);
+  }
   // some webviews (Tauri/WebView2) block or async-ify window.confirm; a missing dialog must not
   // silently swallow this non-destructive action (your streak and sessions are kept either way).
   function confirmRetake(msg){
@@ -1325,6 +1441,7 @@
       var main=document.getElementById("main");
       if(screen==="today")main.innerHTML=htmlToday(st);
       else if(screen==="plan")main.innerHTML=htmlPlan(st);
+      else if(screen==="maps")main.innerHTML=htmlMaps(st);
       else if(screen==="progress")main.innerHTML=htmlProgress(st);
       else main.innerHTML=htmlSetup(st);
       wire(st);
@@ -1357,15 +1474,16 @@
     var streak=computeStreak(st,new Date());
     function nb(k,l,ic){return '<button data-go="'+k+'" class="'+(screen===k?"on":"")+'"'+(screen===k?' aria-current="page"':'')+'>'+ic+'<span>'+l+'</span></button>';}
     side.innerHTML='<div class="brand">'+ '<span style="width:22px;height:22px;color:var(--hero-ink);display:inline-block;">'+RET+'</span><span class="wordmark">LOCK<b>IN</b></span></div>'+
-      '<nav class="snav" aria-label="Primary">'+nb("today","TODAY",RET)+nb("plan","PLAN",LIST)+nb("progress","PROGRESS",CAL)+nb("setup","SETUP",GEAR)+'</nav>'+
+      '<nav class="snav" aria-label="Primary">'+nb("today","TODAY",RET)+nb("plan","PLAN",LIST)+nb("maps","MAPS",MAPICON)+nb("progress","PROGRESS",CAL)+nb("setup","SETUP",GEAR)+'</nav>'+
       '<div class="smini"><div><div class="ml">STREAK</div><div class="dsp" style="font-size:30px;color:var(--hero-ink);">'+streak+'</div></div>'+
+      '<button class="gbtn tourbtn" data-act="tour" style="width:100%;"><span class="tourico">'+COMPASS+'</span>TAKE A TOUR</button>'+
       '<button class="gbtn" data-act="retake" style="width:100%;">RETAKE QUIZ</button>'+
       '<div class="segctl" role="group" aria-label="Theme"><button data-theme-set="dark" aria-pressed="'+(curTheme(st)==="dark"?"true":"false")+'" class="'+(curTheme(st)==="dark"?"on":"")+'">DARK</button><button data-theme-set="light" aria-pressed="'+(curTheme(st)==="light"?"true":"false")+'" class="'+(curTheme(st)==="light"?"on":"")+'">LIGHT</button></div></div>';
   }
   function renderTabs(){
     var tb=document.getElementById("tabbar");
     function t(k,l,ic){return '<button class="tab'+(screen===k?" on":"")+'" data-go="'+k+'" aria-label="'+l+'"'+(screen===k?' aria-current="page"':'')+'>'+ic+'<span>'+l+'</span></button>';}
-    tb.innerHTML=t("today","TODAY",RET)+t("plan","PLAN",LIST)+t("progress","PROGRESS",CAL)+t("setup","SETUP",GEAR);
+    tb.innerHTML=t("today","TODAY",RET)+t("plan","PLAN",LIST)+t("maps","MAPS",MAPICON)+t("progress","PROGRESS",CAL)+t("setup","SETUP",GEAR);
   }
 
   /* ---------- TODAY ---------- */
@@ -1419,7 +1537,7 @@
     var bfToggle=backfill?'<button class="bftoggle on" data-backfill="1">◂ BACK TO TODAY</button>':(ydTrainable?'<button class="bftoggle" data-backfill="1">LOG YESTERDAY</button>':'');
     var hd='<div class="hd"><div><div class="ml">'+dstr.toUpperCase()+' · WK '+programWeek(plan,now)+'/12</div><h1 class="dsp">TODAY</h1></div>'+
       '<div style="display:flex;gap:8px;align-items:center;">'+bfToggle+'<button class="iconbtn" data-go="setup" aria-label="Setup">'+GEAR+'</button></div></div>';
-    var hero='<div class="hero-card"><div class="hero-row">'+
+    var hero='<div class="hero-card" data-tour="today"><div class="hero-row">'+
       '<div><div class="ml">CURRENT STREAK</div><div class="big-n">'+streak+'</div><div class="ml" style="color:var(--muted);">DAYS LOCKED IN</div></div>'+
       '<div class="hr-r"><div class="ml">THIS WEEK</div><div class="n2 dsp">'+wd+'<span style="color:var(--faint);">/'+target+'</span></div>'+
       '<div class="ml '+(wd>=target?"status-good":"status-mut")+'">'+(wd>=target?"TARGET HIT":"ON PACE")+'</div></div></div>'+
@@ -1517,7 +1635,7 @@
     // The library runs long (three drills for each focus in use), so it takes the
     // full width in a flowing grid rather than stacking in one column — a tall
     // column beside a short one left most of the page empty on desktop.
-    var lib='<div class="divi"><span class="ml" role="heading" aria-level="2">DRILL LIBRARY</span></div><div class="card"><div class="libgrid">';
+    var lib='<div class="divi"><span class="ml" role="heading" aria-level="2">DRILL LIBRARY</span></div><div class="card" data-tour="plan"><div class="libgrid">';
     plan.used.forEach(function(k){var F=FOCI[k];
       F.drills.forEach(function(d){
         lib+='<div class="librow"><div class="cat">'+esc(F.name).toUpperCase()+(k===plan.keystone?' · KEYSTONE':'')+'</div>'+
@@ -1530,7 +1648,15 @@
     var tg='<div class="divi"><span class="ml" role="heading" aria-level="2">HOW TO MEASURE IT</span></div><div class="card"><div class="libgrid">';
     plan.targets.forEach(function(t){tg+='<div class="librow"><div class="ln"><span>'+esc(t.n)+'</span></div><div class="lm">'+esc(t.h)+'</div></div>';});
     tg+='</div></div>';
-    return hd+diag+'<div class="plan-cols"><div>'+ph+'</div><div>'+rotc+'</div></div>'+lib+tg+protocolCard()+mapPrep(st)+practiceCard();
+    // Map prep + downloads + practice config now live on their own MAPS tab (they were
+    // buried at the bottom of a very long Plan) — a small pointer keeps them discoverable.
+    var mapsPointer='<button class="card ptrcard" data-go="maps"><div><div class="ml" style="color:var(--hero-ink);">MAP PREP &amp; DOWNLOADS ▸</div>'+
+      '<p class="mhow" style="margin:4px 0 0;">Utility jobs and prefire routes for all seven maps, one-click Workshop downloads, and your practice-server config — now on the <b style="color:var(--text);">Maps</b> tab.</p></div><span class="ptrchev">›</span></button>';
+    return hd+diag+'<div class="plan-cols"><div>'+ph+'</div><div>'+rotc+'</div></div>'+lib+tg+protocolCard()+mapsPointer;
+  }
+  function htmlMaps(st){
+    var hd='<div class="hd"><div><div class="ml">PRACTICE &amp; DOWNLOADS</div><h1 class="dsp">MAPS</h1></div></div>';
+    return hd+mapPrep(st)+practiceCard();
   }
   function mapPrep(st){
     var sel=(st.settings&&st.settings.mainMap)||MAPS[0].id,M=null;
@@ -1612,7 +1738,7 @@
   function workshopKit(){
     if(isNative&&!WSCAN.done&&!WSCAN.busy)scanWorkshop();   // lazy, once; re-render adds badges
     var scanned=isNative&&WSCAN.done&&WSCAN.ok;             // only badge when we truly read the install
-    var out='<div class="divi" style="margin-top:16px;"><span class="ml" role="heading" aria-level="2">GET THE MAPS</span></div>'+
+    var out='<div class="divi" style="margin-top:16px;" data-tour="maps"><span class="ml" role="heading" aria-level="2">GET THE MAPS</span></div>'+
       '<p class="mhow" style="margin-top:0;">Each opens its Steam Workshop page — hit <b style="color:var(--text);">Subscribe</b> and it downloads into CS2 under <b style="color:var(--text);">Play ▸ Workshop Maps</b>. New here? The three marked <span class="wstag">START HERE</span> cover most of the plan.</p>';
     if(scanned){
       var have=WORKSHOP.filter(function(m){return WSCAN.installed[m.id];}).length;
@@ -1901,7 +2027,7 @@
   function insightsCard(st){
     var wds=warmDays(st),cur=computeStreak(st,new Date()),best=bestStreak(st);
     var fs=feelSeries(st,14),avg=fs.length?(fs.reduce(function(a,b){return a+b;},0)/fs.length):0;
-    var tiles='<div class="stats4">'+
+    var tiles='<div class="stats4" data-tour="progress">'+
       '<div class="stt"><div class="v">'+cur+'</div><div class="k">Current streak</div></div>'+
       '<div class="stt"><div class="v">'+best+'</div><div class="k">Best streak</div></div>'+
       '<div class="stt"><div class="v">'+wds.length+'</div><div class="k">Days trained</div></div>'+
@@ -2064,9 +2190,10 @@
     var hd='<div class="hd"><div><div class="ml">PROFILE &amp; DATA</div><h1 class="dsp">SETUP</h1></div></div>';
     var wp=p.weapon==="awp"?"AWP":p.weapon==="rifle"?"RIFLER":"FLEX";
     var role=(p.role&&p.role!=="unsure")?(" · "+esc(String(p.role).toUpperCase())):"";
-    var prof='<div class="card"><div class="prof"><div class="avatar">'+RET+'</div><div style="flex:1;">'+
+    var prof='<div class="card" data-tour="setup"><div class="prof"><div class="avatar">'+RET+'</div><div style="flex:1;">'+
       '<div class="ph">'+wp+role+'</div><div class="pm">'+rankLabel(p)+' · FOCUS '+esc(plan.keystoneName).toUpperCase()+' · STREAK '+streak+'</div></div>'+
-      '<button class="gbtn" data-act="retake">RETAKE</button></div></div>';
+      '<div class="profacts"><button class="gbtn" data-act="retake">RETAKE</button>'+
+      '<button class="gbtn tourbtn" data-act="tour"><span class="tourico">'+COMPASS+'</span>TOUR</button></div></div></div>';
     var cueSec='<div class="divi"><span class="ml" role="heading" aria-level="2">YOUR DAILY CUE</span></div>'+
       '<div class="card"><div class="field"><label>“After ___, I do the ten.”</label>'+
       '<input type="text" data-cue aria-label="Your daily cue" value="'+esc(st.settings.cue||"")+'" placeholder="e.g. after dinner, before the couch"></div>'+
@@ -2105,6 +2232,8 @@
     for(var t=0;t<th.length;t++)(function(b){b.onclick=function(){setTheme(b.getAttribute("data-theme-set"));};})(th[t]);
     var rk=root.querySelectorAll('[data-act="retake"]');
     for(var r=0;r<rk.length;r++)rk[r].onclick=retake;
+    var tct=root.querySelectorAll('[data-act="tour"]');
+    for(var tci=0;tci<tct.length;tci++)tct[tci].onclick=function(){startTour();};
     var cb=root.querySelectorAll("[data-cal]");
     for(var cbi=0;cbi<cb.length;cbi++)(function(b){b.onclick=function(){viewDate=new Date(viewDate.getFullYear(),viewDate.getMonth()+parseInt(b.getAttribute("data-cal"),10),1);render();};})(cb[cbi]);
     var mi=root.querySelectorAll("[data-mk]");
@@ -2442,7 +2571,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR};
 })();
 </script>
 </body>

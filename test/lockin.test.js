@@ -49,7 +49,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, MAPS,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
-        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard } = sandbox.module.exports;
+        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -747,6 +747,31 @@ ok('Plan library renders the why line', html.indexOf('class="lwhy"') >= 0);
     return pass;
   })());
 })();
+// --- v0.19: first-run guided tour + Maps tab ---
+ok('the tour walks all five sections with content on every step', (function () {
+  if (!Array.isArray(TOUR) || TOUR.length < 6) return false;
+  var screens = TOUR.map(function (s) { return s.screen; }).filter(Boolean);
+  var allSections = ['today','plan','maps','progress','setup'].every(function (sc) { return screens.indexOf(sc) >= 0; });
+  var okScreens = TOUR.every(function (s) { return !s.screen || ['today','plan','maps','progress','setup'].indexOf(s.screen) >= 0; });
+  var okContent = TOUR.every(function (s) { return s.title && s.body; });
+  return allSections && okScreens && okContent;
+})());
+ok('every tour anchor points at a real element, not just the step list', (function () {
+  var refs = TOUR.map(function (s) { return s.sel; }).filter(Boolean).join(' ').match(/data-tour="([^"]+)"/g) || [];
+  return refs.length >= 4 && refs.every(function (r) {
+    return (html.split(r).length - 1) >= 2;   // once in the TOUR sel + at least once on an element
+  });
+})());
+ok('Maps is its own screen, reachable from the nav and a Plan pointer', (function () {
+  return html.indexOf('screen==="maps"') >= 0 && html.indexOf('function htmlMaps') >= 0 &&
+         html.indexOf('nb("maps"') >= 0 && html.indexOf('t("maps"') >= 0 && html.indexOf('data-go="maps"') >= 0;
+})());
+ok('the map + practice sections moved off Plan into htmlMaps', (function () {
+  var planRet = html.match(/function htmlPlan[\s\S]*?\n {4}return ([^\n]*)/);
+  var mapsRet = html.match(/function htmlMaps[\s\S]*?return ([^\n]*)/);
+  return planRet && planRet[1].indexOf('practiceCard') < 0 && planRet[1].indexOf('mapPrep') < 0 &&
+         mapsRet && mapsRet[1].indexOf('mapPrep') >= 0 && mapsRet[1].indexOf('practiceCard') >= 0;
+})());
 ok('web build shows plain map links, never a download badge', (function () {
   var h = workshopKit();   // default sandbox is web (isNative false) — must never badge
   return h.indexOf('class="wsinst"') < 0 && h.indexOf('class="wsmiss"') < 0 && h.indexOf('data-wsrecheck') < 0;
