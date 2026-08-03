@@ -384,6 +384,8 @@
   .field{margin-top:0;} .field label{font-family:var(--fm);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:5px;}
   .field input{width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;color:var(--text);font-family:var(--fb);font-size:14px;}
   .field input:focus{outline:none;border-color:var(--hero);}
+  .taglead{width:100%;max-width:300px;text-align:left;}
+  .taglead label{text-align:center;}
   .help{font-size:11.5px;color:var(--faint);margin-top:8px;line-height:1.5;}
   .glo{padding:9px 0;border-bottom:1px solid var(--line);} .glo:last-of-type{border-bottom:0;}
   .glo b{display:block;font-size:12.5px;} .glo span{display:block;font-size:12px;color:var(--muted);margin-top:2px;}
@@ -563,7 +565,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.20.0";
+  var VERSION="0.21.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -971,7 +973,7 @@
       ? '<p class="lapseback">One drill. Five minutes. That is all it takes to be back on.</p>'+
         '<div class="revacts"><button class="pbtn" data-quickstart="1">START A 5-MIN SESSION</button></div>'
       : '<p class="lapseback">Today is not a training day on your plan'+(lp.next?' — your next one is <b>'+esc(lp.next)+'</b>':'')+'. Nothing to make up.</p>';
-    return '<div class="card lapsecard"><div class="ml" style="color:var(--hero-ink);">WELCOME BACK</div>'+
+    return '<div class="card lapsecard"><div class="ml" style="color:var(--hero-ink);">WELCOME BACK'+(playerTag()?', '+esc(playerTag().toUpperCase()):'')+'</div>'+
       '<p class="lapselede">You were away '+lp.days+' days — '+lp.missed+' training '+(lp.missed===1?"day":"days")+
       ' missed. That happens, and <b>the plan does not restart.</b></p>'+
       '<div class="lapsestats">You are still in <b>week '+lp.week+'</b> of 12 · best streak <b>'+lp.best+
@@ -1016,6 +1018,8 @@
   function blank(){return {plan:null,sessions:{},settings:{},metrics:{},reviews:{},lineups:{},planReviews:{}};}
   function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};o.reviews=o.reviews||{};o.lineups=o.lineups||{};o.planReviews=o.planReviews||{};migrate(o);return o;}catch(e){storageOk=false;return mem||blank();}}
   function save(st){mem=st;try{localStorage.setItem(KEY,JSON.stringify(st));storageOk=true;}catch(e){storageOk=false;}}
+  // the player's gamertag (optional) — always esc() it at the call site, it's user input
+  function playerTag(st){var t=(st||load()).settings;t=t&&t.tag;return t?String(t):"";}
   function migrate(o){
     if(o._m>=2)return; // one-time: load() runs on a 30s timer, so migration must not mutate on every read
     for(var k in o.sessions){var f=o.sessions[k]&&o.sessions[k].feel;if(f&&f>5)o.sessions[k].feel=Math.min(5,Math.ceil(f/2));}
@@ -1208,7 +1212,7 @@
       var p=revealed;
       host.innerHTML='<div class="wrap"><div class="cstage">'+
         '<div class="badge">'+RET+'<span class="ping"></span></div>'+
-        '<div class="dsp rise" style="font-size:34px;">LOCKED <span style="color:var(--hero-ink)">IN</span></div>'+
+        '<div class="dsp rise" style="font-size:34px;">LOCKED <span style="color:var(--hero-ink)">IN</span>'+(playerTag()?', <span style="color:var(--hero-ink)">'+esc(playerTag().toUpperCase())+'</span>':'')+'</div>'+
         '<div class="card diagcard rise">'+
           '<div class="ml" style="margin-bottom:8px;">YOUR DIAGNOSIS</div>'+
           '<div class="diagrow"><span class="k">FOCUS</span><span class="v">'+esc(p.keystoneName).toUpperCase()+'</span></div>'+
@@ -1228,10 +1232,15 @@
         '<div class="brand" style="justify-content:center;"><span style="width:30px;height:30px;color:var(--hero-ink);display:inline-block;">'+RET+'</span><span class="wordmark" style="font-size:24px;">LOCK<b>IN</b></span></div>'+
         '<div class="dsp" style="font-size:clamp(26px,7vw,34px);">YOUR POCKET CS2 COACH.</div>'+
         '<p style="color:var(--muted);font-size:15px;max-width:42ch;">Answer '+QUIZ.length+' quick questions and Lockin builds you a personalised training plan you can actually stick to — free, forever. No coach required.</p>'+
+        '<div class="field taglead"><label for="tagIn">What should we call you?</label>'+
+        '<input id="tagIn" type="text" maxlength="24" autocomplete="off" spellcheck="false" placeholder="your gamertag — optional" value="'+esc((load().settings||{}).tag||"")+'"></div>'+
         '<button class="pbtn" id="beginBtn" style="padding:14px 30px;">BUILD MY PLAN ▸</button>'+
         '<div class="ml">YOUR ANSWERS STAY ON YOUR DEVICE</div>'+
         '</div></div>';
-      document.getElementById("beginBtn").onclick=function(){step=1;obFocus="q";renderOnboard();};
+      document.getElementById("beginBtn").onclick=function(){
+        var ti=document.getElementById("tagIn"),tag=ti?String(ti.value||"").trim().slice(0,24):"";
+        var s=load();s.settings.tag=tag;save(s);          // kept in settings, survives quiz + retake
+        step=1;obFocus="q";renderOnboard();};
       return;
     }
     var qi=step-1,item=QUIZ[qi];
@@ -1543,7 +1552,8 @@
     // backfill toggle (only if yesterday was a trainable day)
     var ydTrainable=plan.weekly[addDays(now,-1).getDay()]!=="rest";
     var bfToggle=backfill?'<button class="bftoggle on" data-backfill="1">◂ BACK TO TODAY</button>':(ydTrainable?'<button class="bftoggle" data-backfill="1">LOG YESTERDAY</button>':'');
-    var hd='<div class="hd"><div><div class="ml">'+dstr.toUpperCase()+' · WK '+programWeek(plan,now)+'/12</div><h1 class="dsp">TODAY</h1></div>'+
+    var tag=playerTag(st);
+    var hd='<div class="hd"><div><div class="ml">'+(tag?'HEY '+esc(tag.toUpperCase())+' · ':'')+dstr.toUpperCase()+' · WK '+programWeek(plan,now)+'/12</div><h1 class="dsp">TODAY</h1></div>'+
       '<div style="display:flex;gap:8px;align-items:center;">'+bfToggle+'<button class="iconbtn" data-go="setup" aria-label="Setup">'+GEAR+'</button></div></div>';
     var hero='<div class="hero-card" data-tour="today"><div class="hero-row">'+
       '<div><div class="ml">CURRENT STREAK</div><div class="big-n">'+streak+'</div><div class="ml" style="color:var(--muted);">DAYS LOCKED IN</div></div>'+
@@ -2102,6 +2112,9 @@
       x.font="800 21px Helvetica,Arial,sans-serif";
       x.fillStyle="#ECE9E0";x.fillText("LOCK",72,84);
       x.fillStyle="#EAC54F";x.fillText("IN",72+x.measureText("LOCK").width,84);
+      var tag=playerTag(st);
+      if(tag){x.fillStyle="#9A9482";x.font="700 15px Helvetica,Arial,sans-serif";x.textAlign="right";
+        x.fillText(tag.toUpperCase().slice(0,20),W-72,84);x.textAlign="left";}
       var streak=computeStreak(st,new Date());
       x.fillStyle="#EAC54F";x.font="800 118px Helvetica,Arial,sans-serif";x.fillText(String(streak),68,208);
       x.fillStyle="#9A9482";x.font="600 14px ui-monospace,Consolas,monospace";x.fillText("DAYS LOCKED IN",72,238);
@@ -2208,6 +2221,10 @@
       '<div class="ph">'+wp+role+'</div><div class="pm">'+rankLabel(p)+' · FOCUS '+esc(plan.keystoneName).toUpperCase()+' · STREAK '+streak+'</div></div>'+
       '<div class="profacts"><button class="gbtn" data-act="retake">RETAKE</button>'+
       '<button class="gbtn tourbtn" data-act="tour"><span class="tourico">'+COMPASS+'</span>TOUR</button></div></div></div>';
+    var tagSec='<div class="divi"><span class="ml" role="heading" aria-level="2">GAMERTAG</span></div>'+
+      '<div class="card"><div class="field"><label for="tagEdit">What the app calls you</label>'+
+      '<input id="tagEdit" type="text" data-tag maxlength="24" autocomplete="off" spellcheck="false" placeholder="your gamertag — optional" value="'+esc(playerTag(st))+'"></div>'+
+      '<p class="help">Optional, and stored only on your device. Clear it to go back to plain labels.</p></div>';
     var cueSec='<div class="divi"><span class="ml" role="heading" aria-level="2">YOUR DAILY CUE</span></div>'+
       '<div class="card"><div class="field"><label>“After ___, I do the ten.”</label>'+
       '<input type="text" data-cue aria-label="Your daily cue" value="'+esc(st.settings.cue||"")+'" placeholder="e.g. after dinner, before the couch"></div>'+
@@ -2234,7 +2251,7 @@
       '<button class="datarow" data-act="reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span>Erase all data<small>Delete everything and start over — can’t be undone</small></span></button>'+
       '<input type="file" id="impF" accept="application/json" style="display:none;"></div>'+
       (storageOk?'':'<div class="ml" style="color:var(--bad);margin-top:8px;">⚠ STORAGE BLOCKED — EXPORT TO KEEP YOUR DATA</div>');
-    return hd+prof+cueSec+app+remSec+updateSec()+data+feedbackSec()+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
+    return hd+prof+tagSec+cueSec+app+remSec+updateSec()+data+feedbackSec()+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
   }
   // GEAR — your sens/DPI/eDPI, crosshair code and launch options. Its own tab so you can
   // pull it up mid-game to copy a crosshair or double-check your eDPI.
@@ -2280,6 +2297,8 @@
     if(wsr)wsr.onclick=function(){wsr.textContent="↻ Checking…";scanWorkshop(true);};
     var cueI=root.querySelector("[data-cue]");
     if(cueI)cueI.onchange=function(e){var s2=load();s2.settings.cue=e.target.value.trim();save(s2);};
+    var tagI=root.querySelector("[data-tag]");
+    if(tagI)tagI.onchange=function(e){var s2=load();s2.settings.tag=String(e.target.value||"").trim().slice(0,24);save(s2);render();};
     var rtog=root.querySelector("[data-rem-toggle]");
     if(rtog)rtog.onclick=function(){var s2=load();var r=s2.settings.reminder||{on:false,time:"19:00"};r.on=!r.on;
       if(r.on){
@@ -2591,7 +2610,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag};
 })();
 </script>
 </body>

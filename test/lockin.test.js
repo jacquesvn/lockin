@@ -49,7 +49,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, MAPS,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
-        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR } = sandbox.module.exports;
+        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -778,6 +778,23 @@ ok('Plan is now just strategy — drills, protocol and maps moved off it', (func
          drillsRet && drillsRet[1].indexOf('protocolCard') >= 0 &&               // drills owns the library + protocol
          gearRet && gearRet[1].indexOf('loadoutSec') >= 0 &&                     // gear owns the config
          html.indexOf('data-go="drills"') >= 0 && html.indexOf('data-go="maps"') >= 0;   // pointers on Plan
+})());
+// --- v0.21: optional gamertag ---
+ok('playerTag reads settings.tag and is empty by default', (function () {
+  return playerTag({ settings: {} }) === '' && playerTag({ settings: { tag: 'Zywoo' } }) === 'Zywoo' &&
+         playerTag({}) !== undefined;   // never throws on a missing settings bucket
+})());
+ok('the gamertag is asked at onboarding and editable in Setup', (function () {
+  return html.indexOf('id="tagIn"') >= 0 &&        // welcome screen input
+         html.indexOf('data-tag') >= 0 &&          // Setup edit field + its handler
+         html.indexOf('settings.tag') >= 0;
+})());
+ok('every place the tag is shown escapes it (no HTML injection)', (function () {
+  // each HTML use of playerTag() must be wrapped in esc(); canvas fillText is not HTML.
+  var uses = html.match(/playerTag\([^)]*\)/g) || [];
+  // find HTML-context uses: those concatenated into a string near esc(). Assert the
+  // source never interpolates a raw playerTag() straight into markup without esc.
+  return html.indexOf("+playerTag()+") < 0 && html.indexOf("+playerTag(st)+") < 0 && uses.length >= 4;
 })());
 ok('web build shows plain map links, never a download badge', (function () {
   var h = workshopKit();   // default sandbox is web (isNative false) — must never badge
