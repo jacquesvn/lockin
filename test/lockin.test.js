@@ -727,7 +727,33 @@ ok('Plan library renders the why line', html.indexOf('class="lwhy"') >= 0);
     nUPD.state = 'idle';
     return /UPDATING/i.test(h) && h.indexOf('data-updnow') < 0;
   })());
+  // --- v0.17: desktop map-download badges (Get the maps) ---
+  var nKit = nsb.module.exports.workshopKit, nWSCAN = nsb.module.exports.WSCAN, nWORK = nsb.module.exports.WORKSHOP;
+  ok('map badges: a scanned install marks installed maps ✓ and the rest as missing', (function () {
+    nWSCAN.done = true; nWSCAN.ok = true; nWSCAN.busy = false;
+    nWSCAN.installed = {}; nWSCAN.installed[nWORK[0].id] = true;   // first map present, others not
+    var h = nKit();
+    var pass = h.indexOf('class="wsinst"') >= 0 && h.indexOf('class="wsmiss"') >= 0 && h.indexOf('data-wsrecheck') >= 0;
+    nWSCAN.done = false; nWSCAN.ok = false; nWSCAN.installed = {};
+    return pass;
+  })());
+  ok('map badges FAIL SAFE: Steam unreadable (ok:false) shows NO badges, never false "missing"', (function () {
+    nWSCAN.done = true; nWSCAN.ok = false; nWSCAN.busy = false; nWSCAN.installed = {};
+    var h = nKit();
+    var pass = h.indexOf('class="wsinst"') < 0 && h.indexOf('class="wsmiss"') < 0 && h.indexOf('data-wsrecheck') < 0;
+    nWSCAN.done = false;
+    return pass;
+  })());
 })();
+ok('web build shows plain map links, never a download badge', (function () {
+  var h = workshopKit();   // default sandbox is web (isNative false) — must never badge
+  return h.indexOf('class="wsinst"') < 0 && h.indexOf('class="wsmiss"') < 0 && h.indexOf('data-wsrecheck') < 0;
+})());
+// the native command that backs the badges, and its fail-safe contract, live in Rust —
+// assert the frontend actually calls it and treats an un-ok scan as "show nothing"
+ok('frontend invokes scan_workshop and only badges on ok', (function () {
+  return script.indexOf('scan_workshop') >= 0 && /WSCAN\.done\s*&&\s*WSCAN\.ok/.test(script);
+})());
 ok('update banner mounts in the app shell, above the screen content', (function () {
   return html.indexOf('id="updbar"') >= 0 && html.indexOf('id="updbar"') < html.indexOf('id="main"');
 })());

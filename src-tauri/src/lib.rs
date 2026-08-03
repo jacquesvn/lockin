@@ -3,6 +3,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager, WindowEvent,
 };
+use std::path::{Path, PathBuf};
 use tauri_plugin_autostart::{ManagerExt as _, MacosLauncher};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
@@ -37,6 +38,128 @@ fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
     app.opener()
         .open_url(u, None::<&str>)
         .map_err(|e| e.to_string())
+}
+
+// ---- optional, desktop-only: which Workshop maps are already downloaded ----
+// A passive hint for the "Get the maps" panel. Reads only — Steam's own registry key
+// (HKCU, the user's hive) and workshop folders under the Steam library — so it needs no
+// admin and never writes. FAIL-SAFE: if Steam can't be located, `ok` is false and the UI
+// shows no badges rather than claiming every map is missing.
+#[derive(serde::Serialize)]
+struct WorkshopScan {
+    ok: bool,
+    installed: Vec<String>,
+}
+
+#[cfg(windows)]
+fn steam_root() -> Option<PathBuf> {
+    use winreg::enums::HKEY_CURRENT_USER;
+    use winreg::RegKey;
+    let key = RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey("Software\\Valve\\Steam")
+        .ok()?;
+    let p: String = key.get_value("SteamPath").ok()?;
+    let root = PathBuf::from(p);
+    // Reject a UNC registry value BEFORE the is_dir() below stats it (see is_local_path),
+    // and sanity-check it's a real install so a stale path can't cry wolf.
+    if is_local_path(&root) && root.join("steamapps").is_dir() {
+        Some(root)
+    } else {
+        None
+    }
+}
+
+#[cfg(not(windows))]
+fn steam_root() -> Option<PathBuf> {
+    None
+}
+
+// A path is rejected as non-local if it begins with two slashes — i.e. a UNC / network
+// path like \\host\share. is_dir() on such a path makes Windows open an outbound SMB
+// connection and attempt an NTLM handshake, so a crafted registry value or a tampered
+// libraryfolders.vdf could coerce a credential leak just by our checking a folder exists.
+// Steam library roots are always local drive paths, so this loses nothing legitimate.
+fn is_local_path(p: &Path) -> bool {
+    let s = p.as_os_str().to_string_lossy();
+    let b = s.as_bytes();
+    !(b.len() >= 2 && (b[0] == b'\\' || b[0] == b'/') && (b[1] == b'\\' || b[1] == b'/'))
+}
+
+// Every Steam library root: the main install plus any extra library folders declared in
+// libraryfolders.vdf. Returns None if the vdf can't be read — a PARTIAL enumeration would
+// let a map on an unread library get a false "not downloaded", so the caller fails closed
+// (hides all badges) rather than asserting something wrong. UNC library entries are skipped.
+fn steam_libraries(root: &Path) -> Option<Vec<PathBuf>> {
+    let mut libs = vec![root.to_path_buf()];
+    let vdf = root.join("steamapps").join("libraryfolders.vdf");
+    let text = std::fs::read_to_string(&vdf).ok()?;
+    for line in text.lines() {
+        let l = line.trim();
+        if !l.starts_with("\"path\"") {
+            continue;
+        }
+        // line: "path"    "D:\\SteamLibrary"  -> take the second quoted string,
+        // unescaping the VDF's doubled backslashes.
+        let after = &l[6..];
+        if let Some(open) = after.find('"') {
+            let rest = &after[open + 1..];
+            if let Some(close) = rest.find('"') {
+                let p = PathBuf::from(rest[..close].replace("\\\\", "\\"));
+                if is_local_path(&p) {
+                    libs.push(p);
+                }
+            }
+        }
+        if libs.len() >= 32 {
+            break; // bound a vdf padded with fabricated blocks
+        }
+    }
+    Some(libs)
+}
+
+#[tauri::command]
+fn scan_workshop(ids: Vec<String>) -> WorkshopScan {
+    let root = match steam_root() {
+        Some(r) => r,
+        None => {
+            return WorkshopScan {
+                ok: false,
+                installed: vec![],
+            }
+        }
+    };
+    // fail closed: if libraries can't be fully enumerated, hide badges instead of
+    // reporting a map on an unread library as "not downloaded".
+    let libs = match steam_libraries(&root) {
+        Some(l) => l,
+        None => {
+            return WorkshopScan {
+                ok: false,
+                installed: vec![],
+            }
+        }
+    };
+    let mut installed = Vec::new();
+    for id in ids {
+        // ids come from our own catalog, but validate anyway so a folder name can never
+        // escape the workshop path (no traversal even if the frontend is tampered with)
+        if id.is_empty() || !id.chars().all(|c| c.is_ascii_digit()) {
+            continue;
+        }
+        for lib in &libs {
+            let p = lib
+                .join("steamapps")
+                .join("workshop")
+                .join("content")
+                .join("730")
+                .join(&id);
+            if p.is_dir() {
+                installed.push(id.clone());
+                break;
+            }
+        }
+    }
+    WorkshopScan { ok: true, installed }
 }
 
 // Enable/disable launch-at-login so the tray app is around to deliver reminders.
@@ -98,7 +221,8 @@ pub fn run() {
             set_autostart,
             check_update,
             install_update,
-            open_url
+            open_url,
+            scan_workshop
         ])
         .setup(|app| {
             let show = MenuItem::with_id(app, "show", "Open Lockin", true, None::<&str>)?;

@@ -1,6 +1,6 @@
 [package]
 name = "lockin"
-version = "0.16.3"
+version = "0.17.0"
 description = "Lockin — your pocket CS2 coach"
 authors = ["jacquesvn"]
 edition = "2021"
@@ -23,3 +23,9 @@ tauri-plugin-notification = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"
+
+# Reading Steam's install path from the registry (HKCU) to detect which Workshop maps are
+# already downloaded. Windows-only, read-only, no admin. Other platforms fall back to
+# "can't tell" and the map badges simply don't show.
+[target.'cfg(windows)'.dependencies]
+winreg = "0.52"

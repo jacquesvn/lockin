@@ -230,9 +230,13 @@
   .wsrow{display:flex;flex-direction:column;gap:3px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:11px 13px;text-decoration:none;color:inherit;transition:border-color .12s,transform .12s;}
   .wsrow:hover{border-color:var(--hero);transform:translateY(-1px);}
   .wsrow:focus-visible{outline:2px solid var(--hero);outline-offset:2px;}
-  .wstop{display:flex;align-items:center;justify-content:space-between;gap:8px;}
-  .wsname{font-weight:600;font-size:13.5px;color:var(--text);}
+  .wstop{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+  .wsname{font-weight:600;font-size:13.5px;color:var(--text);margin-right:auto;}
   .wstag{flex:none;font-family:var(--fm);font-size:8.5px;letter-spacing:0.1em;font-weight:700;color:var(--onhero);background:var(--hero);border-radius:5px;padding:2px 5px;}
+  /* map-download status badges (desktop only). installed = green outline, missing = muted */
+  .wsinst{flex:none;font-family:var(--fm);font-size:8.5px;letter-spacing:0.08em;font-weight:700;color:var(--good);border:1px solid color-mix(in oklab,var(--good) 45%,transparent);border-radius:5px;padding:2px 5px;}
+  .wsmiss{flex:none;font-family:var(--fm);font-size:8.5px;letter-spacing:0.08em;font-weight:700;color:var(--faint);border:1px solid var(--line2);border-radius:5px;padding:2px 5px;}
+  .wsrecheck{background:none;border:none;color:var(--hero-ink);font:inherit;font-size:12.5px;cursor:pointer;text-decoration:underline;padding:0;}
   .wsdesc{font-size:12px;color:var(--muted);line-height:1.45;}
   .wsget{font-family:var(--fm);font-size:10px;letter-spacing:0.08em;color:var(--hero-ink);margin-top:4px;}
   .wsrow:hover .wsget{text-decoration:underline;}
@@ -517,7 +521,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.16.3";
+  var VERSION="0.17.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -1048,6 +1052,22 @@
   }
   function nativeNotify(body){ if(isNative)TAURI.core.invoke("notify",{title:"Lockin",body:body}).catch(function(){}); }
   function setAutostart(on){ if(isNative)TAURI.core.invoke("set_autostart",{enabled:!!on}).catch(function(){}); }
+  // Desktop-only "which maps do I already have" check, fed to the Get-the-maps badges.
+  // ok=false means we couldn't read the Steam install — the UI then shows NO badges (never
+  // a false "missing"). Web/PWA never scans, so it degrades to plain links. `busy` guards
+  // against overlapping scans; `force` re-runs it (the re-check button after a download).
+  var WSCAN={done:false,ok:false,busy:false,installed:{}};
+  function scanWorkshop(force){
+    if(!isNative||typeof WORKSHOP==="undefined")return;
+    if(WSCAN.busy||(WSCAN.done&&!force))return;
+    WSCAN.busy=true;
+    var ids=WORKSHOP.map(function(m){return m.id;});
+    TAURI.core.invoke("scan_workshop",{ids:ids}).then(function(res){
+      WSCAN.busy=false;WSCAN.done=true;WSCAN.ok=!!(res&&res.ok);WSCAN.installed={};
+      if(res&&res.installed)for(var i=0;i<res.installed.length;i++)WSCAN.installed[res.installed[i]]=true;
+      render();
+    },function(){WSCAN.busy=false;WSCAN.done=true;WSCAN.ok=false;render();});
+  }
   // web fallback: the Notification API works while Lockin is open (tab or installed PWA).
   // Closed-app reminders need the desktop build — the UI says so rather than pretending.
   function webNotifyAvailable(){return !isNative&&typeof window!=="undefined"&&("Notification" in window);}
@@ -1574,22 +1594,33 @@
   var WS_GROUPS=[["aim","Aim & warm-up"],["pre","Prefire & utility"],["mov","Movement"],["fun","When it feels like a chore"]];
   function workshopUrl(id){return "https://steamcommunity.com/sharedfiles/filedetails/?id="+id;}
   function workshopKit(){
+    if(isNative&&!WSCAN.done&&!WSCAN.busy)scanWorkshop();   // lazy, once; re-render adds badges
+    var scanned=isNative&&WSCAN.done&&WSCAN.ok;             // only badge when we truly read the install
     var out='<div class="divi" style="margin-top:16px;"><span class="ml" role="heading" aria-level="2">GET THE MAPS</span></div>'+
       '<p class="mhow" style="margin-top:0;">Each opens its Steam Workshop page — hit <b style="color:var(--text);">Subscribe</b> and it downloads into CS2 under <b style="color:var(--text);">Play ▸ Workshop Maps</b>. New here? The three marked <span class="wstag">START HERE</span> cover most of the plan.</p>';
+    if(scanned){
+      var have=WORKSHOP.filter(function(m){return WSCAN.installed[m.id];}).length;
+      out+='<p class="mhow" style="margin-top:6px;">Checked against your CS2 install — <b style="color:var(--text);">'+have+' of '+WORKSHOP.length+'</b> already downloaded. '+
+        '<button class="wsrecheck" data-wsrecheck="1">↻ Re-check</button></p>';
+    }
     WS_GROUPS.forEach(function(grp){
       var items=WORKSHOP.filter(function(m){return m.g===grp[0];});
       if(!items.length)return;
       out+='<div class="wsgrouph" role="heading" aria-level="3">'+esc(grp[1])+'</div><div class="wsgrid">';
       items.forEach(function(m){
+        var inst=scanned?!!WSCAN.installed[m.id]:null;      // null = don't know → no badge (web, or Steam not found)
+        var badge=inst===true?'<span class="wsinst">✓ Installed</span>':inst===false?'<span class="wsmiss">Not downloaded</span>':'';
+        var st=inst===true?', installed':inst===false?', not downloaded':'';
         out+='<a class="wsrow" href="'+workshopUrl(m.id)+'" target="_blank" rel="noopener noreferrer" '+
-          'aria-label="Open '+esc(m.t)+' on the Steam Workshop'+(m.s?' — recommended starter map':'')+'">'+
-          '<span class="wstop"><span class="wsname">'+esc(m.t)+'</span>'+(m.s?'<span class="wstag">START HERE</span>':'')+'</span>'+
+          'aria-label="Open '+esc(m.t)+' on the Steam Workshop'+(m.s?' — recommended starter map':'')+st+'">'+
+          '<span class="wstop"><span class="wsname">'+esc(m.t)+'</span>'+(m.s?'<span class="wstag">START HERE</span>':'')+badge+'</span>'+
           '<span class="wsdesc">'+esc(m.d)+'</span>'+
           '<span class="wsget">Open on Steam Workshop ↗</span></a>';
       });
       out+='</div>';
     });
-    out+='<p class="help" style="margin-top:11px;">All free. A couple of these are betas or have near-identical copies and CS:GO-era leftovers — if a link is ever dead, search the exact title on the Workshop and take the one with the most subscribers. You do not need all of them.</p>';
+    out+='<p class="help" style="margin-top:11px;">All free. A couple of these are betas or have near-identical copies and CS:GO-era leftovers — if a link is ever dead, search the exact title on the Workshop and take the one with the most subscribers. You do not need all of them.'+
+      (scanned?' “Installed” means the map’s folder is in your Steam library — a hint, not a guarantee it’s the latest version.':'')+'</p>';
     return out;
   }
   function practiceCard(){
@@ -2080,6 +2111,8 @@
     if(ssb)ssb.onclick=function(){startSession();};
     var cpb=root.querySelector("[data-copy]");
     if(cpb)cpb.onclick=function(){var pc=document.getElementById("pcfg");if(pc)copyText(pc.textContent,cpb);};
+    var wsr=root.querySelector("[data-wsrecheck]");
+    if(wsr)wsr.onclick=function(){wsr.textContent="↻ Checking…";scanWorkshop(true);};
     var cueI=root.querySelector("[data-cue]");
     if(cueI)cueI.onchange=function(e){var s2=load();s2.settings.cue=e.target.value.trim();save(s2);};
     var rtog=root.querySelector("[data-rem-toggle]");
@@ -2390,7 +2423,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN};
 })();
 </script>
 </body>
