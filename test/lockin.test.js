@@ -640,7 +640,9 @@ ok('every drill still has title, method, measure and duration', Object.keys(FOCI
   });
 }));
 ok('session renders each fact under its own label', (function () {
-  return ['>MAP<', '>DO<', '>GOAL<', '>MINDSET<', '>RIGHT<', '>WRONG<'].every(function (l) { return html.indexOf(l) >= 0; });
+  // MAP chip · DO card · GOAL line · RIGHT/WRONG pair · MINDSET callout
+  return ['>MAP<', '>DO<', '>GOAL<', '>RIGHT<', '>WRONG<'].every(function (l) { return html.indexOf(l) >= 0; }) &&
+         html.indexOf('class="smind"') >= 0;
 })());
 
 
@@ -799,7 +801,7 @@ ok('goal appended without shifting any field', Object.keys(FOCI).every(function 
 }));
 ok('drill screen labels the right-vs-wrong contrast', (function () {
   return html.indexOf('>RIGHT<') >= 0 && html.indexOf('>WRONG<') >= 0 &&
-         html.indexOf('sv good') >= 0 && html.indexOf('sv warn') >= 0;
+         html.indexOf('srwc rgood') >= 0 && html.indexOf('srwc rbad') >= 0;
 })());
 ok('Plan surfaces carry the same depth (drillDepth)', (function () {
   return html.indexOf('function drillDepth') >= 0 &&
