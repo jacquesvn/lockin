@@ -50,7 +50,8 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, MAPS,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
         lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag,
-        curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements } = sandbox.module.exports;
+        curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements,
+        weeklyRecap, recapCard, debriefCard } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -129,6 +130,29 @@ ok('2-day plan: prescribed rest day does not break streak (regression)',
 ok('2-day plan: missing a training day still breaks streak',
   computeStreak({ plan: twoDayPlan, sessions: { '2026-07-13': { warm: true } } }, new Date('2026-07-15T00:00:00')) === 0);
 
+// --- v0.24: feedback loop (post-match debrief + weekly recap) ---
+var everyDayW = { weekly:{0:'cstrafe',1:'cstrafe',2:'cstrafe',3:'cstrafe',4:'cstrafe',5:'cstrafe',6:'cstrafe'}, keystone:'cstrafe' };
+var NEXT_MON = new Date('2026-08-10T00:00:00');   // a Monday; last week = Aug 3–9
+ok('weekly recap rolls up last week and names the most-logged leak', (function () {
+  var st = { plan: everyDayW, sessions: { '2026-08-03':{warm:true,feel:4}, '2026-08-04':{warm:true,feel:3}, '2026-08-05':{warm:true,feel:5} },
+             reviews: {}, debriefs: { '2026-08-06': { leak:'pos', win:'held angles', mood:'good' } }, settings: {} };
+  var rc = weeklyRecap(st, NEXT_MON);
+  return rc && rc.trained === 3 && rc.leakTop === 'pos' && rc.feel === 4 && /LAST WEEK/.test(recapCard(st, rc));
+})());
+ok('weekly recap fires once per week and never on an empty week', (function () {
+  var empty = { plan: everyDayW, sessions:{}, reviews:{}, debriefs:{}, settings:{} };
+  var already = { plan: everyDayW, sessions:{ '2026-08-04':{warm:true} }, reviews:{}, debriefs:{}, settings:{ lastRecap:'2026-08-10' } };
+  return weeklyRecap(empty, NEXT_MON) === null && weeklyRecap(already, NEXT_MON) === null;
+})());
+ok('recap does not read "X of Y" when you trained more than planned (rest-day training)', (function () {
+  var over = recapCard({}, { trained:6, planned:1, feel:4, leakTop:null, thisKey:'x' });
+  var under = recapCard({}, { trained:2, planned:4, feel:4, leakTop:null, thisKey:'x' });
+  return /trained <b>6<\/b> days last week/.test(over) && /trained <b>2<\/b> of 4 planned/.test(under);
+})());
+ok('the debrief offers a leak, a win field and a mood', (function () {
+  var h = debriefCard({ debriefs: {} }, '2026-08-07');
+  return h.indexOf('data-dbleak') >= 0 && h.indexOf('data-dbwin') >= 0 && h.indexOf('data-dbmood') >= 0;
+})());
 // --- v0.23: streak freeze + milestones ---
 var everyDay = { weekly: {0:'cstrafe',1:'cstrafe',2:'cstrafe',3:'cstrafe',4:'cstrafe',5:'cstrafe',6:'cstrafe'}, keystone:'cstrafe' };
 ok('freeze budget: one per 7 training days, capped at 3', (function () {

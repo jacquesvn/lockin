@@ -396,6 +396,7 @@
   .field input:focus{outline:none;border-color:var(--hero);}
   .taglead{width:100%;max-width:300px;text-align:left;}
   .taglead label{text-align:center;}
+  .dbk{font-family:var(--fm);font-size:10px;letter-spacing:0.12em;color:var(--faint);margin-bottom:7px;}
   .help{font-size:11.5px;color:var(--faint);margin-top:8px;line-height:1.5;}
   .glo{padding:9px 0;border-bottom:1px solid var(--line);} .glo:last-of-type{border-bottom:0;}
   .glo b{display:block;font-size:12.5px;} .glo span{display:block;font-size:12px;color:var(--muted);margin-top:2px;}
@@ -575,7 +576,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.23.0";
+  var VERSION="0.24.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -1033,11 +1034,66 @@
     return '<div class="card revcard"><div class="ml" style="color:var(--hero-ink);">WEEK '+rv.n+' REVIEW · WEEKS '+rv.weeks+'</div>'+
       lines+tail+'</div>';
   }
+
+  /* ---------- feedback loop: post-match debrief + weekly recap ----------
+     The debrief turns a match into one honest data point (a leak, a win, how you felt);
+     the recap rolls the week up on the next Monday and points at next week's focus. */
+  var MOODS=[["fried","Fried"],["flat","Flat"],["fine","Fine"],["good","Good"],["locked","Locked in"]];
+  function debriefCard(st,dk){
+    var db=(st.debriefs||{})[dk]||{};
+    var leakChips=CAUSES.map(function(c){
+      return '<button class="mchip'+(db.leak===c[0]?" on":"")+'" aria-pressed="'+(db.leak===c[0]?"true":"false")+'" data-dbleak="'+c[0]+'">'+esc(c[1])+'</button>';}).join("");
+    var moodChips=MOODS.map(function(m){
+      return '<button class="mchip'+(db.mood===m[0]?" on":"")+'" aria-pressed="'+(db.mood===m[0]?"true":"false")+'" data-dbmood="'+m[0]+'">'+esc(m[1])+'</button>';}).join("");
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">AFTER THE MATCH</span></div>'+
+      '<div class="card"><p class="mhow" style="margin-top:0;">One honest read on tonight — it becomes your week’s data.</p>'+
+      '<div class="dbk">WHAT LET YOU DOWN MOST</div><div class="mapchips">'+leakChips+'</div>'+
+      '<div class="dbk" style="margin-top:12px;">ONE THING THAT CLICKED</div>'+
+      '<div class="field"><input type="text" data-dbwin maxlength="80" autocomplete="off" placeholder="e.g. held my crosshair at head height all night" value="'+esc(db.win||"")+'"></div>'+
+      '<div class="dbk" style="margin-top:12px;">WALKING AWAY FEELING</div><div class="mapchips">'+moodChips+'</div></div>';
+  }
+  function weeklyRecap(st,now){
+    if(!st.plan)return null;
+    now=now||new Date();
+    var thisKey=dateKey(mondayOf(now));
+    if((st.settings.lastRecap||"")===thisKey)return null;              // already shown this week
+    var lastMon=addDays(mondayOf(now),-7),lastSun=addDays(mondayOf(now),-1);
+    var trained=0,planned=0,feelSum=0,feelN=0,leaks={aim:0,pos:0,util:0,info:0,trade:0};
+    for(var d=new Date(lastMon);d<=lastSun;d=addDays(d,1)){
+      var dk=dateKey(d);
+      if(isTrainingDay(st.plan,d))planned++;
+      var s=(st.sessions||{})[dk];if(s&&s.warm)trained++;
+      if(s&&s.feel>0){feelSum+=s.feel;feelN++;}
+      var r=(st.reviews||{})[dk];if(r)for(var c in leaks)if(r[c])leaks[c]+=r[c];
+      var db=(st.debriefs||{})[dk];if(db&&db.leak&&leaks[db.leak]!=null)leaks[db.leak]++;
+    }
+    if(trained===0&&feelN===0)return null;                            // nothing happened — don't nag
+    var sum=0,top=null;for(var k in leaks){sum+=leaks[k];if(top===null||leaks[k]>leaks[top])top=k;}
+    return {thisKey:thisKey,weekOf:lastMon,trained:trained,planned:planned,
+      feel:feelN?Math.round((feelSum/feelN)*10)/10:null,leakTop:sum>0?top:null};
+  }
+  function recapCard(st,rc){
+    if(!rc)return "";
+    // training on a rest day is legitimate, so trained can exceed planned — "6 of 1" reads broken
+    var lines=(rc.trained<=rc.planned)
+      ?'<div class="revrow">You trained <b>'+rc.trained+'</b> of '+rc.planned+' planned days.</div>'
+      :'<div class="revrow">You trained <b>'+rc.trained+'</b> days last week.</div>';
+    if(rc.feel!=null)lines+='<div class="revrow">Average hand feel <b>'+rc.feel+'</b> / 5.</div>';
+    var tail;
+    if(rc.leakTop){
+      var lbl=CAUSES.filter(function(x){return x[0]===rc.leakTop;})[0][1];
+      var foc=LEAK_FOCUS[rc.leakTop],fname=(foc&&FOCI[foc])?FOCI[foc].name:null;
+      lines+='<div class="revrow">Your most-logged leak was <b>'+esc(lbl.toUpperCase())+'</b>.</div>';
+      tail='<p class="revwhy">'+(fname?'This week, lean into your <b>'+esc(fname.toLowerCase())+'</b> drills.':'Keep the reps honest this week.')+'</p>';
+    } else tail='<p class="revwhy">Log a death audit or a match debrief and next week’s recap will spot your pattern.</p>';
+    return '<div class="card revcard"><div class="ml" style="color:var(--hero-ink);">LAST WEEK · IN REVIEW</div>'+
+      lines+tail+'<div class="revacts"><button class="pbtn" data-recap="ok">GOT IT</button></div></div>';
+  }
   function programWeek(plan,today){if(!plan||!plan.created)return 1;var days=Math.round((midnight(today)-parseKey(plan.created))/86400000);var wk=Math.floor(days/7)+1;return Math.max(1,Math.min(12,wk));}
 
   /* ---------- storage ---------- */
-  function blank(){return {plan:null,sessions:{},settings:{},metrics:{},reviews:{},lineups:{},planReviews:{}};}
-  function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};o.reviews=o.reviews||{};o.lineups=o.lineups||{};o.planReviews=o.planReviews||{};migrate(o);return o;}catch(e){storageOk=false;return mem||blank();}}
+  function blank(){return {plan:null,sessions:{},settings:{},metrics:{},reviews:{},lineups:{},planReviews:{},debriefs:{}};}
+  function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};o.reviews=o.reviews||{};o.lineups=o.lineups||{};o.planReviews=o.planReviews||{};o.debriefs=o.debriefs||{};migrate(o);return o;}catch(e){storageOk=false;return mem||blank();}}
   function save(st){mem=st;try{localStorage.setItem(KEY,JSON.stringify(st));storageOk=true;}catch(e){storageOk=false;}mirrorBackup(st);}
   // Desktop only: shadow the live state to a file (debounced) so a wiped WebView cache
   // can't cost a streak. localStorage stays authoritative; this is read back only when
@@ -1641,7 +1697,7 @@
          '<button class="quickbtn" data-quickstart="1">⚡ 5 MIN</button></div>'
         :'';
       // the reappraisal script is read BEFORE the gate checklist, as in the study
-      var gate=(focusKey==="match"&&!backfill)?(reappraisalCard()+gateCard(sess)):"";
+      var gate=(focusKey==="match"&&!backfill)?(reappraisalCard()+gateCard(sess)+debriefCard(st,actK)):"";
       body='<div class="divi"><span class="ml" role="heading" aria-level="2">'+(backfill?'YESTERDAY':'TODAY')+' ▸ '+esc(F.name).toUpperCase()+kx+'</span></div>'+
         bfBanner+nmt+gate+sessRow+
         '<div class="cols"><div><div class="dlist">'+rows+'</div></div>'+
@@ -1650,7 +1706,11 @@
         '<div class="card rulecard" style="margin-top:12px;"><div class="ml" style="color:var(--hero-ink);">THE RULE</div>'+
         '<p>Ten focused minutes beats a skipped hour. Tick one drill and today counts.</p></div></div></div>';
     }
-    return hd+hero+lapseCard(lapse)+reviewCard(st,planReview(st,now))+cuebar+body+'<div class="motto">LOCKIN · TEN FOCUSED MINUTES BEATS A SKIPPED HOUR</div>';
+    // one milestone card at a time, so Today never piles up: a returning user gets the
+    // welcome-back; otherwise a due plan-review; otherwise the weekly recap.
+    var pr=planReview(st,now);
+    var recap=(!lapse&&!pr)?weeklyRecap(st,now):null;
+    return hd+hero+lapseCard(lapse)+reviewCard(st,pr)+recapCard(st,recap)+cuebar+body+'<div class="motto">LOCKIN · TEN FOCUSED MINUTES BEATS A SKIPPED HOUR</div>';
   }
 
   /* ---------- PLAN ---------- */
@@ -2441,6 +2501,20 @@
       s2.planReviews[String(rv.n)]={at:dateKey(new Date()),action:(act==="apply"&&rv.suggest)?"applied":"kept"};
       save(s2);render();
     };})(rvb[rvi]);
+    // post-match debrief: leak + mood chips toggle, the win field saves on change
+    function setDebrief(field,val,toggle){
+      var s2=load(),dk=dateKey(actDate());s2.debriefs=s2.debriefs||{};var db=s2.debriefs[dk]||{};
+      if(toggle&&db[field]===val)delete db[field];else db[field]=val;
+      s2.debriefs[dk]=db;save(s2);render();
+    }
+    var dbl=root.querySelectorAll("[data-dbleak]");
+    for(var dli=0;dli<dbl.length;dli++)(function(b){b.onclick=function(){setDebrief("leak",b.getAttribute("data-dbleak"),true);};})(dbl[dli]);
+    var dbm=root.querySelectorAll("[data-dbmood]");
+    for(var dmi=0;dmi<dbm.length;dmi++)(function(b){b.onclick=function(){setDebrief("mood",b.getAttribute("data-dbmood"),true);};})(dbm[dmi]);
+    var dbw=root.querySelector("[data-dbwin]");
+    if(dbw)dbw.onchange=function(){setDebrief("win",String(dbw.value||"").trim().slice(0,80),false);};
+    var rcp=root.querySelector('[data-recap="ok"]');
+    if(rcp)rcp.onclick=function(){var s2=load();s2.settings.lastRecap=dateKey(mondayOf(new Date()));save(s2);render();};
     var ubg=root.querySelector("[data-updnow]");
     if(ubg)ubg.onclick=installUpdate;
     var ubx=root.querySelector("[data-upddismiss]");
@@ -2703,7 +2777,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard};
 })();
 </script>
 </body>
