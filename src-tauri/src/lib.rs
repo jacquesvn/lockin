@@ -188,6 +188,115 @@ fn backup_read(app: tauri::AppHandle) -> Option<String> {
     std::fs::read_to_string(&path).ok()
 }
 
+// ---- read a couple of settings straight from CS2's own files, so the Gear tab can
+// self-fill. Sensitivity is a plain "sensitivity" "x" line in the user convars; launch
+// options live in Steam's localconfig.vdf under app 730. DPI is a hardware setting CS2
+// never stores, and the crosshair *code* would need share-code generation, so both stay
+// manual. Reads only; fail-safe (every field is optional and absence is fine).
+#[derive(serde::Serialize, Default)]
+struct CsConfig {
+    found: bool,
+    sensitivity: Option<String>,
+    launch: Option<String>,
+}
+
+// The next quoted string after `key` — for `"sensitivity"   "1.15"` returns "1.15".
+fn quoted_after(text: &str, key: &str) -> Option<String> {
+    let i = text.find(key)?;
+    let after = &text[i + key.len()..];
+    let a = after.find('"')?;
+    let rest = &after[a + 1..];
+    let b = rest.find('"')?;
+    let v = rest[..b].trim().to_string();
+    if v.is_empty() { None } else { Some(v) }
+}
+
+fn matching_brace(text: &str, open: usize) -> Option<usize> {
+    let b = text.as_bytes();
+    let mut depth = 0i32;
+    for i in open..b.len() {
+        match b[i] {
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+// LaunchOptions of app 730 in localconfig.vdf: find a `"730"` KEY (one immediately
+// followed by a `{` block, not a value), brace-match its block, read LaunchOptions inside.
+fn launch_opts_730(text: &str) -> Option<String> {
+    let mut from = 0;
+    while let Some(rel) = text[from..].find("\"730\"") {
+        let pos = from + rel;
+        let after = &text[pos + 5..];
+        if let Some(brace) = after.find('{') {
+            if after[..brace].trim().is_empty() {
+                let start = pos + 5 + brace;
+                if let Some(end) = matching_brace(text, start) {
+                    if let Some(v) = quoted_after(&text[start..=end], "\"LaunchOptions\"") {
+                        return Some(v);
+                    }
+                }
+            }
+        }
+        from = pos + 5;
+    }
+    None
+}
+
+#[tauri::command]
+fn read_cs_config() -> CsConfig {
+    let mut out = CsConfig::default();
+    let root = match steam_root() {
+        Some(r) => r,
+        None => return out,
+    };
+    let userdata = root.join("userdata");
+    let entries = match std::fs::read_dir(&userdata) {
+        Ok(e) => e,
+        Err(_) => return out,
+    };
+    // a machine can have several Steam accounts — take the one whose CS2 convars file was
+    // written most recently (the account actually being played).
+    let mut best: Option<(std::time::SystemTime, PathBuf, PathBuf)> = None;
+    for e in entries.flatten() {
+        let acc = e.path();
+        if !acc.is_dir() {
+            continue;
+        }
+        for sub in ["local", "remote"] {
+            let vcfg = acc
+                .join("730")
+                .join(sub)
+                .join("cfg")
+                .join("cs2_user_convars_0_slot0.vcfg");
+            if let Ok(meta) = std::fs::metadata(&vcfg) {
+                let mt = meta.modified().unwrap_or(std::time::UNIX_EPOCH);
+                if best.as_ref().map_or(true, |b| mt > b.0) {
+                    best = Some((mt, vcfg.clone(), acc.clone()));
+                }
+            }
+        }
+    }
+    if let Some((_, vcfg, acc)) = best {
+        out.found = true;
+        if let Ok(text) = std::fs::read_to_string(&vcfg) {
+            out.sensitivity = quoted_after(&text, "\"sensitivity\"");
+        }
+        if let Ok(text) = std::fs::read_to_string(acc.join("config").join("localconfig.vdf")) {
+            out.launch = launch_opts_730(&text);
+        }
+    }
+    out
+}
+
 // Enable/disable launch-at-login so the tray app is around to deliver reminders.
 #[tauri::command]
 fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
@@ -250,7 +359,8 @@ pub fn run() {
             open_url,
             scan_workshop,
             backup_write,
-            backup_read
+            backup_read,
+            read_cs_config
         ])
         .setup(|app| {
             let show = MenuItem::with_id(app, "show", "Open Lockin", true, None::<&str>)?;

@@ -576,7 +576,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.24.0";
+  var VERSION="0.25.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -1188,6 +1188,23 @@
   }
   function nativeNotify(body){ if(isNative)TAURI.core.invoke("notify",{title:"Lockin",body:body}).catch(function(){}); }
   function setAutostart(on){ if(isNative)TAURI.core.invoke("set_autostart",{enabled:!!on}).catch(function(){}); }
+  // desktop: pull sensitivity + launch options straight from CS2's own files into Gear.
+  var CSREAD=null;   // {ok,msg} of the last read, shown in the loadout card
+  function readCsConfig(){
+    if(!isNative)return;
+    CSREAD={ok:true,msg:"Reading CS2…"};render();
+    TAURI.core.invoke("read_cs_config").then(function(r){
+      if(r&&r.found&&(r.sensitivity||r.launch)){
+        var st=load();st.settings.loadout=st.settings.loadout||{};
+        var got=[];
+        if(r.sensitivity){st.settings.loadout.sens=r.sensitivity;got.push("sensitivity");}
+        if(r.launch){st.settings.loadout.launch=r.launch;got.push("launch options");}
+        save(st);
+        CSREAD={ok:true,msg:"Filled "+got.join(" and ")+" from CS2. Add your mouse DPI for eDPI."};
+      }else CSREAD={ok:false,msg:"Couldn’t find your CS2 config — enter it by hand below."};
+      render();
+    },function(){CSREAD={ok:false,msg:"Couldn’t read your CS2 config — enter it by hand below."};render();});
+  }
   // Desktop-only "which maps do I already have" check, fed to the Get-the-maps badges.
   // ok=false means we couldn't read the Steam install — the UI then shows NO badges (never
   // a false "missing"). Web/PWA never scans, so it degrades to plain links. `busy` guards
@@ -2309,6 +2326,8 @@
     var sn=parseFloat(lo.sens),dp=parseFloat(lo.dpi);
     var edpi=(sn>0&&dp>0)?Math.round(sn*dp):null;
     return '<div class="divi"><span class="ml" role="heading" aria-level="2">LOADOUT</span></div><div class="card">'+
+      (isNative?'<button class="gbtn tourbtn" data-cs-read="1" style="width:100%;margin-bottom:6px;"><span class="tourico">'+MOUSE+'</span>READ FROM CS2</button>'+
+        (CSREAD?'<p class="help" style="margin:0 0 12px;'+(CSREAD.ok?'':'color:var(--bad);')+'">'+esc(CSREAD.msg)+'</p>':'<p class="help" style="margin:0 0 12px;">Pull your sensitivity and launch options straight from CS2.</p>'):'')+
       '<div class="lo-grid">'+
         '<div class="field"><label for="lo_sens">Sensitivity</label><input id="lo_sens" type="text" inputmode="decimal" data-lo="sens" value="'+esc(lo.sens||"")+'" placeholder="1.25"></div>'+
         '<div class="field"><label for="lo_dpi">Mouse DPI</label><input id="lo_dpi" type="text" inputmode="numeric" data-lo="dpi" value="'+esc(lo.dpi||"")+'" placeholder="800"></div>'+
@@ -2485,6 +2504,8 @@
     var lcp=root.querySelectorAll("[data-locopy]");
     for(var lci=0;lci<lcp.length;lci++)(function(b){b.onclick=function(){
       var lo=(load().settings.loadout)||{};copyText(lo[b.getAttribute("data-locopy")]||"",b);};})(lcp[lci]);
+    var csr=root.querySelector("[data-cs-read]");
+    if(csr)csr.onclick=function(){readCsConfig();};
     var shc=root.querySelector("[data-sharecard]");
     if(shc)shc.onclick=function(){shareCard(load());};
     var uck=root.querySelector("[data-updcheck]");

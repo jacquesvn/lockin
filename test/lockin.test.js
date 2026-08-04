@@ -825,6 +825,16 @@ ok('Plan is now just strategy — drills, protocol and maps moved off it', (func
          gearRet && gearRet[1].indexOf('loadoutSec') >= 0 &&                     // gear owns the config
          html.indexOf('data-go="drills"') >= 0 && html.indexOf('data-go="maps"') >= 0;   // pointers on Plan
 })());
+// --- v0.25: desktop reads sens + launch options from CS2 ---
+ok('desktop can self-fill Gear from CS2; web never sees the button', (function () {
+  return script.indexOf('read_cs_config') >= 0 &&
+         /isNative\?[\s\S]*?READ FROM CS2/.test(script) &&                 // button is native-gated
+         /function readCsConfig\(\)\{\s*if\(!isNative\)return/.test(script);  // no-op on web (gate is first line)
+})());
+ok('the CS2 read fills only sensitivity + launch (DPI and crosshair stay manual)', (function () {
+  return /loadout\.sens=r\.sensitivity/.test(script) && /loadout\.launch=r\.launch/.test(script) &&
+         script.indexOf('loadout.dpi=r.') < 0 && script.indexOf('loadout.cross=r.') < 0;
+})());
 // --- v0.22: automatic backup — continue where you left off ---
 ok('desktop mirrors state to a file and restores it when localStorage is empty', (function () {
   var s = script;
