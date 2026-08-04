@@ -1,9 +1,11 @@
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WindowEvent,
+    Emitter, Manager, WindowEvent,
 };
+use std::io::Read as _;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri_plugin_autostart::{ManagerExt as _, MacosLauncher};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
@@ -297,6 +299,113 @@ fn read_cs_config() -> CsConfig {
     out
 }
 
+// ---- CS2 auto-tracking via Game State Integration (desktop only) ----
+// CS2 will POST live match JSON to a local URL if a gamestate_integration_*.cfg names one.
+// We (1) run a tiny loopback-only HTTP listener that receives those POSTs, and (2) write the
+// cfg into the CS2 folder on request. The listener forwards two things to the webview: a
+// `gsi-beat` on every payload (so the UI can show "connected"), and a `gsi-match` when a match
+// ends (map.phase -> "gameover") carrying win/loss so the frontend can log it and drive the
+// stop-loss. Bound to 127.0.0.1 and gated by a shared token that only lives in the cfg + here,
+// so nothing off-machine — and no other local app lacking the token — can inject fake results.
+static GSI_STARTED: AtomicBool = AtomicBool::new(false);
+
+#[tauri::command]
+fn start_gsi(app: tauri::AppHandle, port: u16, token: String) -> Result<(), String> {
+    // idempotent: the frontend calls this on every boot, but one listener per process is enough.
+    if GSI_STARTED.swap(true, Ordering::SeqCst) {
+        return Ok(());
+    }
+    std::thread::spawn(move || gsi_loop(app, port, token));
+    Ok(())
+}
+
+fn gsi_loop(app: tauri::AppHandle, port: u16, token: String) {
+    // loopback only: never 0.0.0.0, so the listener is unreachable from the network.
+    let server = match tiny_http::Server::http(("127.0.0.1", port)) {
+        Ok(s) => s,
+        Err(_) => {
+            GSI_STARTED.store(false, Ordering::SeqCst); // let a later retry rebind
+            return;
+        }
+    };
+    // remember the last map phase so we fire exactly once per match, on the live->gameover edge.
+    let mut prev_phase = String::new();
+    for mut req in server.incoming_requests() {
+        let mut body = String::new();
+        let _ = req.as_reader().read_to_string(&mut body);
+        // always 200 so CS2 doesn't back off; body is ignored by the game.
+        let _ = req.respond(tiny_http::Response::from_string(""));
+        let v: serde_json::Value = match serde_json::from_str(&body) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        // reject anything without our token before it can move any UI state.
+        let tok = v.pointer("/auth/token").and_then(|t| t.as_str()).unwrap_or("");
+        if tok != token {
+            continue;
+        }
+        let _ = app.emit("gsi-beat", ());
+        let phase = v
+            .pointer("/map/phase")
+            .and_then(|p| p.as_str())
+            .unwrap_or("")
+            .to_string();
+        if phase == "gameover" && prev_phase != "gameover" {
+            let ct = v.pointer("/map/team_ct/score").and_then(|s| s.as_i64()).unwrap_or(0);
+            let t = v.pointer("/map/team_t/score").and_then(|s| s.as_i64()).unwrap_or(0);
+            let team = v.pointer("/player/team").and_then(|s| s.as_str()).unwrap_or("");
+            let map = v.pointer("/map/name").and_then(|s| s.as_str()).unwrap_or("");
+            // player.team can be absent (spectating/HLTV) — then we log the match but can't take
+            // sides, so "unknown" tells the frontend not to touch the loss counter.
+            let result = if team != "CT" && team != "T" {
+                "unknown"
+            } else if ct == t {
+                "tie"
+            } else if (ct > t) == (team == "CT") {
+                "win"
+            } else {
+                "loss"
+            };
+            let _ = app.emit(
+                "gsi-match",
+                serde_json::json!({ "result": result, "ct": ct, "t": t, "map": map }),
+            );
+        }
+        prev_phase = phase;
+    }
+    GSI_STARTED.store(false, Ordering::SeqCst);
+}
+
+// Write CS2's gamestate_integration_lockin.cfg so the game starts POSTing to our listener.
+// This is the only place the app writes into the CS2 folder, and only on an explicit button.
+// token/port are supplied by the frontend and echoed into the cfg verbatim; token is app-minted
+// hex and port is a u16, so neither can break out of the KeyValues quoting.
+#[tauri::command]
+fn write_gsi_config(token: String, port: u16) -> Result<String, String> {
+    let root = steam_root().ok_or("Couldn't find Steam")?;
+    let libs = steam_libraries(&root).ok_or("Couldn't read Steam libraries")?;
+    for lib in libs {
+        let csgo = lib
+            .join("steamapps")
+            .join("common")
+            .join("Counter-Strike Global Offensive")
+            .join("game")
+            .join("csgo");
+        if !csgo.is_dir() {
+            continue;
+        }
+        let cfg = csgo.join("cfg");
+        std::fs::create_dir_all(&cfg).map_err(|e| e.to_string())?;
+        let path = cfg.join("gamestate_integration_lockin.cfg");
+        let content = format!(
+            "\"Lockin auto-tracking\"\n{{\n  \"uri\" \"http://127.0.0.1:{port}/\"\n  \"timeout\" \"5.0\"\n  \"buffer\" \"0.1\"\n  \"throttle\" \"0.5\"\n  \"heartbeat\" \"30.0\"\n  \"auth\"\n  {{\n    \"token\" \"{token}\"\n  }}\n  \"data\"\n  {{\n    \"provider\" \"1\"\n    \"map\" \"1\"\n    \"round\" \"1\"\n    \"player_id\" \"1\"\n    \"player_state\" \"1\"\n    \"player_match_stats\" \"1\"\n  }}\n}}\n"
+        );
+        std::fs::write(&path, content).map_err(|e| e.to_string())?;
+        return Ok(path.to_string_lossy().to_string());
+    }
+    Err("Couldn't find your CS2 install".into())
+}
+
 // Enable/disable launch-at-login so the tray app is around to deliver reminders.
 #[tauri::command]
 fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
@@ -360,7 +469,9 @@ pub fn run() {
             scan_workshop,
             backup_write,
             backup_read,
-            read_cs_config
+            read_cs_config,
+            start_gsi,
+            write_gsi_config
         ])
         .setup(|app| {
             let show = MenuItem::with_id(app, "show", "Open Lockin", true, None::<&str>)?;

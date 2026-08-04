@@ -576,7 +576,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.25.0";
+  var VERSION="0.26.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -1092,8 +1092,8 @@
   function programWeek(plan,today){if(!plan||!plan.created)return 1;var days=Math.round((midnight(today)-parseKey(plan.created))/86400000);var wk=Math.floor(days/7)+1;return Math.max(1,Math.min(12,wk));}
 
   /* ---------- storage ---------- */
-  function blank(){return {plan:null,sessions:{},settings:{},metrics:{},reviews:{},lineups:{},planReviews:{},debriefs:{}};}
-  function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};o.reviews=o.reviews||{};o.lineups=o.lineups||{};o.planReviews=o.planReviews||{};o.debriefs=o.debriefs||{};migrate(o);return o;}catch(e){storageOk=false;return mem||blank();}}
+  function blank(){return {plan:null,sessions:{},settings:{},metrics:{},reviews:{},lineups:{},planReviews:{},debriefs:{},matches:{}};}
+  function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};o.reviews=o.reviews||{};o.lineups=o.lineups||{};o.planReviews=o.planReviews||{};o.debriefs=o.debriefs||{};o.matches=o.matches||{};migrate(o);return o;}catch(e){storageOk=false;return mem||blank();}}
   function save(st){mem=st;try{localStorage.setItem(KEY,JSON.stringify(st));storageOk=true;}catch(e){storageOk=false;}mirrorBackup(st);}
   // Desktop only: shadow the live state to a file (debounced) so a wiped WebView cache
   // can't cost a streak. localStorage stays authoritative; this is read back only when
@@ -1204,6 +1204,54 @@
       }else CSREAD={ok:false,msg:"Couldn’t find your CS2 config — enter it by hand below."};
       render();
     },function(){CSREAD={ok:false,msg:"Couldn’t read your CS2 config — enter it by hand below."};render();});
+  }
+  // desktop CS2 auto-tracking (Game State Integration). A tiny Rust listener receives CS2's
+  // live match JSON and forwards two events: gsi:beat on every payload (=> we're connected) and
+  // gsi:match when a match ends, carrying win/loss. We log the match and, on a loss, bump
+  // tonight's stop-loss counter — the same one the manual +1 LOSS button feeds, so hand-logging
+  // still works for anyone who hasn't set this up. All local; the app never reads more than score.
+  var GSI_PORT=3121, gsiLastBeat=0, GSISET=null;   // GSISET={ok,msg,path} of the last cfg write
+  function randToken(){var a=new Uint8Array(16);try{window.crypto.getRandomValues(a);}catch(_){}
+    var s="";for(var i=0;i<a.length;i++)s+=("0"+(a[i]&255).toString(16)).slice(-2);return s;}
+  // one stable token per install, shared between the cfg we write and the listener that checks it
+  function gsiToken(){var st=load();if(!st.settings.gsiToken){st.settings.gsiToken=randToken();save(st);}return st.settings.gsiToken;}
+  function gsiLive(){return isNative&&gsiLastBeat>0&&(Date.now()-gsiLastBeat<90000);}  // beat is a 30s heartbeat
+  function startGsi(){
+    if(!isNative)return;
+    try{TAURI.core.invoke("start_gsi",{port:GSI_PORT,token:gsiToken()}).catch(function(){});}catch(_){}
+    if(TAURI.event&&TAURI.event.listen){
+      TAURI.event.listen("gsi-beat",function(){var first=!gsiLastBeat;gsiLastBeat=Date.now();if(first)render();});
+      TAURI.event.listen("gsi-match",function(e){onGsiMatch(e&&e.payload);});
+    }
+  }
+  // pure state change (kept separate from onGsiMatch so it's testable without a DOM/native bridge)
+  function applyGsiMatch(st,m,dk){
+    if(!m||!m.result)return st;
+    st.matches=st.matches||{};st.matches[dk]=st.matches[dk]||[];
+    var arr=st.matches[dk],last=arr[arr.length-1];
+    // dedup a repeat of the very same match (e.g. the app restarts while a finished match is still
+    // on the scoreboard and CS2 re-POSTs gameover) so it can't double-count a loss.
+    if(last&&last.result===m.result&&last.ct===m.ct&&last.t===m.t&&last.map===(m.map||""))return st;
+    arr.push({result:m.result,ct:m.ct,t:m.t,map:m.map||""});
+    // only a decided loss touches the stop-loss; win/tie/unknown are logged but never penalised.
+    if(m.result==="loss"){var s=st.sessions[dk]||{warm:false,deep:false,feel:0,drills:{}};s.losses=(s.losses||0)+1;st.sessions[dk]=s;}
+    return st;
+  }
+  function onGsiMatch(m){
+    if(!m||!m.result)return;
+    var st=load(),dk=dateKey(new Date()),before=(st.matches&&st.matches[dk]||[]).length;
+    applyGsiMatch(st,m,dk);
+    if((st.matches[dk]||[]).length===before)return;   // deduped — nothing changed, don't buzz
+    save(st);
+    nativeNotify(m.result==="win"?"Match won — logged.":m.result==="loss"?"Match lost — logged. Mind the stop-loss.":"Match logged.");
+    render();
+  }
+  function writeGsiConfig(){
+    if(!isNative)return;
+    GSISET={ok:true,msg:"Writing config…"};render();
+    TAURI.core.invoke("write_gsi_config",{token:gsiToken(),port:GSI_PORT}).then(function(path){
+      GSISET={ok:true,path:path,msg:"Done. Restart CS2 (or finish a match) and it'll track itself."};render();
+    },function(err){GSISET={ok:false,msg:String(err||"Couldn’t find your CS2 install.")};render();});
   }
   // Desktop-only "which maps do I already have" check, fed to the Get-the-maps badges.
   // ok=false means we couldn't read the Steam install — the UI then shows NO badges (never
@@ -2310,6 +2358,7 @@
     var g=sess.gate||{},losses=sess.losses||0;
     function chk(k,label){return '<button class="gcheck'+(g[k]?" on":"")+'" data-gate="'+k+'" aria-pressed="'+(g[k]?"true":"false")+'"><span class="gbox">'+CHK+'</span><span>'+label+'</span></button>';}
     var stop=losses>=2?'<div class="warnbanner" style="margin-top:13px;">🛑 <b>Stop-loss hit.</b> Two on the bounce — the next one gets played tilted. Call it here and come back warm.</div>':"";
+    var auto=gsiLive()?'<p class="help" style="margin:10px 0 0;color:var(--good);">● CS2 auto-tracking on — finished matches and losses log themselves.</p>':"";
     return '<div class="card gate" style="margin-bottom:12px;"><div class="ml" style="color:var(--hero-ink);">THE GATE · BEFORE YOU QUEUE</div>'+
       chk("warm","I warmed up — not cold-queueing")+
       chk("calm","I'm not tilted or fried")+
@@ -2317,7 +2366,7 @@
       '<input id="pgoal" type="text" data-goal aria-label="Process goal for tonight" value="'+esc(sess.goal||"")+'" placeholder="e.g. stop before every shot"></div>'+
       '<div class="losswrap"><div><div class="ml">LOSSES TONIGHT</div><div class="lossn" style="color:'+(losses>=2?"var(--bad)":"var(--text)")+'">'+losses+'</div></div>'+
       '<div style="display:flex;gap:8px;"><button class="gbtn" data-loss="1">+1 LOSS</button><button class="gbtn" data-loss="0">RESET</button></div></div>'+
-      stop+'</div>';
+      auto+stop+'</div>';
   }
 
   /* ---------- v0.7: loadout vault ---------- */
@@ -2396,6 +2445,17 @@
         '<div class="field" style="margin-top:12px;"><label for="remTime">Remind me at</label><input type="time" id="remTime" data-rem-time value="'+esc(rem.time||"19:00")+'"'+(rem.on?"":" disabled")+'></div>'+
         '</div>';
     }
+    var gsiSec='';
+    if(isNative){
+      var live=gsiLive();
+      gsiSec='<div class="divi"><span class="ml" role="heading" aria-level="2">CS2 AUTO-TRACKING · DESKTOP</span></div>'+
+        '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;">'+
+        '<div class="mname">Live match tracking</div>'+
+        '<span class="ml" style="color:'+(live?"var(--good)":"var(--faint)")+';">'+(live?"● CONNECTED":"○ NOT DETECTED")+'</span></div>'+
+        '<p class="help" style="margin:0 0 12px;">One click writes CS2’s Game State Integration config. After that, finished matches log themselves and a loss counts toward tonight’s stop-loss — no buttons to press. It reads the scoreboard only; nothing leaves this PC.</p>'+
+        '<button class="gbtn tourbtn" data-gsi-setup="1" style="width:100%;"><span class="tourico">'+SHIELD+'</span>'+((GSISET&&GSISET.path)?"RE-WRITE CS2 CONFIG":"SET UP AUTO-TRACKING")+'</button>'+
+        (GSISET?'<p class="help" style="margin:10px 0 0;'+(GSISET.ok?'':'color:var(--bad);')+'">'+esc(GSISET.msg)+'</p>':'')+'</div>';
+    }
     var data='<div class="divi"><span class="ml" role="heading" aria-level="2">DATA · LOCAL ONLY</span></div>'+
       '<p class="help" style="margin:0 0 8px;">'+(isNative
         ?'<b style="color:var(--text);">Auto-backup is on.</b> Your progress is mirrored to a file on this PC and restored automatically if the app’s cache is ever cleared. Export a copy to move to another machine.'
@@ -2406,7 +2466,7 @@
       '<button class="datarow" data-act="reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span>Erase all data<small>Delete everything and start over — can’t be undone</small></span></button>'+
       '<input type="file" id="impF" accept="application/json" style="display:none;"></div>'+
       (storageOk?'':'<div class="ml" style="color:var(--bad);margin-top:8px;">⚠ STORAGE BLOCKED — EXPORT TO KEEP YOUR DATA</div>');
-    return hd+prof+tagSec+cueSec+app+remSec+updateSec()+data+feedbackSec()+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
+    return hd+prof+tagSec+cueSec+app+remSec+gsiSec+updateSec()+data+feedbackSec()+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
   }
   // GEAR — your sens/DPI/eDPI, crosshair code and launch options. Its own tab so you can
   // pull it up mid-game to copy a crosshair or double-check your eDPI.
@@ -2506,6 +2566,8 @@
       var lo=(load().settings.loadout)||{};copyText(lo[b.getAttribute("data-locopy")]||"",b);};})(lcp[lci]);
     var csr=root.querySelector("[data-cs-read]");
     if(csr)csr.onclick=function(){readCsConfig();};
+    var gsb=root.querySelector("[data-gsi-setup]");
+    if(gsb)gsb.onclick=function(){writeGsiConfig();};
     var shc=root.querySelector("[data-sharecard]");
     if(shc)shc.onclick=function(){shareCard(load());};
     var uck=root.querySelector("[data-updcheck]");
@@ -2756,6 +2818,7 @@
   /* ---------- init ---------- */
   (function(){
     var st=load();applyTheme(curTheme(st));
+    startGsi();   // desktop: begin listening for CS2 match results (no-op on web)
     // web: ask the browser to keep our storage persistent (less likely to be evicted).
     // Best-effort — installed PWAs are usually granted it; a plain tab may not be.
     if(!isNative){try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(_){}}
@@ -2798,7 +2861,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch};
 })();
 </script>
 </body>

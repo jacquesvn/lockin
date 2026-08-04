@@ -1,6 +1,6 @@
 [package]
 name = "lockin"
-version = "0.25.0"
+version = "0.26.0"
 description = "Lockin — your pocket CS2 coach"
 authors = ["jacquesvn"]
 edition = "2021"
@@ -17,6 +17,10 @@ tauri-build = { version = "2", features = [] }
 # must declare these directly even though tauri already depends on them.
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# tiny local HTTP listener for CS2 Game State Integration (auto-tracking match results).
+# default-features=false so no optional TLS backend (OpenSSL) is pulled in — we only ever
+# bind a plaintext loopback socket, and an OpenSSL dep would break the Windows CI build.
+tiny_http = { version = "0.12", default-features = false }
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-opener = "2"
 tauri-plugin-notification = "2"

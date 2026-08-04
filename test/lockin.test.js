@@ -51,7 +51,7 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
         lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag,
         curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements,
-        weeklyRecap, recapCard, debriefCard } = sandbox.module.exports;
+        weeklyRecap, recapCard, debriefCard, applyGsiMatch } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -1199,6 +1199,65 @@ ok('it is a reappraisal script, not a calm-down instruction', (function () {
 })());
 ok('it only renders on match nights, before the gate checklist',
   /focusKey==="match"&&!backfill\)\?\(reappraisalCard\(\)\+gateCard/.test(html));
+
+// --- v0.26: CS2 auto-tracking via Game State Integration ---
+ok('match log is part of the state, blank and defaulted on load', (function () {
+  return script.indexOf('matches:{}}') >= 0 && script.indexOf('o.matches=o.matches||{}') >= 0;
+})());
+ok('a decided LOSS logs the match AND bumps tonight’s stop-loss counter', (function () {
+  var st = { sessions: {}, matches: {} };
+  applyGsiMatch(st, { result: 'loss', ct: 13, t: 16, map: 'de_mirage' }, 'D');
+  return st.matches['D'].length === 1 && st.matches['D'][0].result === 'loss' && st.sessions['D'].losses === 1;
+})());
+ok('a WIN/TIE/UNKNOWN is logged but never counts as a loss', (function () {
+  var win = { sessions: {}, matches: {} }, tie = { sessions: {}, matches: {} }, unk = { sessions: {}, matches: {} };
+  applyGsiMatch(win, { result: 'win', ct: 16, t: 9, map: 'a' }, 'D');
+  applyGsiMatch(tie, { result: 'tie', ct: 15, t: 15, map: 'b' }, 'D');
+  applyGsiMatch(unk, { result: 'unknown', ct: 16, t: 5, map: 'c' }, 'D');
+  return win.matches['D'].length === 1 && !win.sessions['D'] &&
+         tie.matches['D'].length === 1 && !tie.sessions['D'] &&
+         unk.matches['D'].length === 1 && !unk.sessions['D'];
+})());
+ok('the SAME finished match re-POSTed (app restart mid-scoreboard) is not double-counted', (function () {
+  var st = { sessions: {}, matches: {} }, m = { result: 'loss', ct: 10, t: 16, map: 'de_nuke' };
+  applyGsiMatch(st, m, 'D'); applyGsiMatch(st, m, 'D');
+  return st.matches['D'].length === 1 && st.sessions['D'].losses === 1;
+})());
+ok('two DISTINCT losses in a night stack to 2 (stop-loss territory)', (function () {
+  var st = { sessions: {}, matches: {} };
+  applyGsiMatch(st, { result: 'loss', ct: 13, t: 16, map: 'a' }, 'D');
+  applyGsiMatch(st, { result: 'loss', ct: 8, t: 16, map: 'b' }, 'D');
+  return st.matches['D'].length === 2 && st.sessions['D'].losses === 2;
+})());
+ok('an auto-loss augments an existing session — it never clobbers warm-up / drills', (function () {
+  var st = { sessions: { D: { warm: true, drills: { x: true }, losses: 1 } }, matches: {} };
+  applyGsiMatch(st, { result: 'loss', ct: 5, t: 16, map: 'z' }, 'D');
+  return st.sessions['D'].warm === true && st.sessions['D'].drills.x === true && st.sessions['D'].losses === 2;
+})());
+ok('a payload with no result is ignored (fail-safe)', (function () {
+  var st = { sessions: {}, matches: {} };
+  applyGsiMatch(st, null, 'D'); applyGsiMatch(st, {}, 'D');
+  return Object.keys(st.matches).length === 0 && Object.keys(st.sessions).length === 0;
+})());
+ok('the app writes CS2’s GSI config and runs a local listener, both native-gated (no-op on web)', (function () {
+  var s = script;
+  return s.indexOf('write_gsi_config') >= 0 && s.indexOf('start_gsi') >= 0 &&
+         /function startGsi\(\)\{\s*if\(!isNative\)return/.test(s) &&
+         /function writeGsiConfig\(\)\{\s*if\(!isNative\)return/.test(s) &&
+         script.indexOf('startGsi();') >= 0;                                  // wired into init
+})());
+ok('the listener + config both carry the shared token; only "loss" moves the stop-loss', (function () {
+  var s = script;
+  return /start_gsi",\{port:GSI_PORT,token:gsiToken\(\)\}/.test(s) &&
+         /write_gsi_config",\{token:gsiToken\(\),port:GSI_PORT\}/.test(s) &&
+         /if\(m\.result==="loss"\)\{var s=st\.sessions\[dk\]/.test(s);
+})());
+ok('the setup section + connected status are desktop-only; the Gate shows live status when connected', (function () {
+  var s = script;
+  return /if\(isNative\)\{\s*var live=gsiLive\(\);\s*gsiSec=/.test(s) &&     // section behind isNative
+         s.indexOf('data-gsi-setup') >= 0 && s.indexOf('CS2 AUTO-TRACKING') >= 0 &&
+         /var auto=gsiLive\(\)\?/.test(s) && /auto\+stop\+/.test(s);          // Gate indicator, gsiLive-gated
+})());
 
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
