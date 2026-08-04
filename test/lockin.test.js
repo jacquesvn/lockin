@@ -49,7 +49,8 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, MAPS,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
-        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag } = sandbox.module.exports;
+        lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag,
+        curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -127,6 +128,27 @@ ok('2-day plan: prescribed rest day does not break streak (regression)',
   computeStreak({ plan: twoDayPlan, sessions: { '2026-07-13': { warm: true }, '2026-07-14': { warm: true } } }, new Date('2026-07-16T00:00:00')) === 2);
 ok('2-day plan: missing a training day still breaks streak',
   computeStreak({ plan: twoDayPlan, sessions: { '2026-07-13': { warm: true } } }, new Date('2026-07-15T00:00:00')) === 0);
+
+// --- v0.23: streak freeze + milestones ---
+var everyDay = { weekly: {0:'cstrafe',1:'cstrafe',2:'cstrafe',3:'cstrafe',4:'cstrafe',5:'cstrafe',6:'cstrafe'}, keystone:'cstrafe' };
+ok('freeze budget: one per 7 training days, capped at 3', (function () {
+  function stN(n){ var s={}; for(var i=0;i<n;i++) s['2026-06-'+String(i+1).padStart(2,'0')]={warm:true}; return { plan: everyDay, sessions: s, settings: {} }; }
+  return freezeBudget(stN(6))===0 && freezeBudget(stN(7))===1 && freezeBudget(stN(14))===2 && freezeBudget(stN(40))===3;
+})());
+ok('a streak freeze bridges a single missed training day (strict streak still breaks)', (function () {
+  var s={}; ['2026-08-01','2026-08-02','2026-08-03','2026-08-04','2026-08-05','2026-08-06','2026-08-07','2026-08-09','2026-08-10'].forEach(function(d){ s[d]={warm:true}; });
+  var st={ plan: everyDay, sessions: s, settings: {} }, now=new Date('2026-08-10T00:00:00');
+  return computeStreak(st, now) === 2 && freezeBudget(st) === 1 && curStreak(st, now) === 9;   // bridge over the 08-08 miss
+})());
+ok('milestones unlock from real state, and the first check never retro-spams', (function () {
+  var st={ plan:{ weekly:{0:'rest',1:'cstrafe',2:'cstrafe',3:'cstrafe',4:'cstrafe',5:'match',6:'match'}, keystone:'cstrafe' },
+           sessions:{ '2026-06-02':{ warm:true, drills:{0:true} } }, settings:{} };
+  var earned0 = achState(st).filter(function(a){return a.earned;}).map(function(a){return a.id;});
+  var firstCall = checkAchievements(st);                    // baseline pass — must not celebrate
+  return earned0.indexOf('first')>=0 && earned0.indexOf('warm')>=0 &&
+         firstCall === null && st.settings.seenAch && st.settings.seenAch.first === 1 &&
+         ACHIEVEMENTS.length >= 10;
+})());
 
 // --- programWeek is 1..12 and starts at week 1 ---
 ok('programWeek day 0 = week 1', programWeek({ created: '2026-07-01' }, new Date('2026-07-01T12:00:00')) === 1);
