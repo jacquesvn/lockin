@@ -1067,14 +1067,24 @@ ok('generatePlan can be pinned to a focus without breaking normal selection', (f
 // ~34% of max speed, a counter-strafe reaches it instantly, and we must NOT tell
 // rifle players they need to be "fully stopped". The AWP is the exception — it
 // genuinely needs a near-full stop. These guards pin that distinction.
-ok('rifle counter-strafe copy never asserts a dead stop', (function () {
+ok('rifle counter-strafe copy never asserts a dead stop (drills AND protocol blocks)', (function () {
   var bad = [];
-  FOCI.cstrafe.drills.forEach(function (d) {
-    ['goal', 'm', 'rule', 'why', 'sub'].forEach(function (f) {
-      var v = d[f] || '';
+  function scan(label, obj, fields) {
+    fields.forEach(function (f) {
+      var v = obj[f] || '';
       // "the stop" / drill names are idiomatic; asserting you must BE stopped is not
       if (/(you're|you are|until|wait for (a|the))\s+(fully\s+)?stopped/i.test(v) ||
-          /\bfully stopped\b/i.test(v)) bad.push(d.t + '.' + f);
+          /\bfully stopped\b/i.test(v)) bad.push(label + '.' + f);
+    });
+  }
+  FOCI.cstrafe.drills.forEach(function (d) { scan(d.t, d, ['goal', 'm', 'rule', 'why', 'sub']); });
+  // the guard used to scan ONLY FOCI.cstrafe.drills, so a dead-stop assertion living in a PROTOCOLS
+  // block (an AK/rifle drill) shipped unchecked — scan every protocol block's text too, skipping
+  // anything AWP-flavoured (a near-full stop is genuinely correct there).
+  PROTOCOLS.forEach(function (p) {
+    (p.blocks || []).forEach(function (b) {
+      if (/awp/i.test((b.where || '') + (b.t || ''))) return;
+      scan(b.t || 'block', b, ['sub', 'm', 'cue', 'rule', 'why', 'goal']);
     });
   });
   if (bad.length) console.log('      dead-stop wording: ' + bad.join(', '));
@@ -1206,37 +1216,48 @@ ok('match log is part of the state, blank and defaulted on load', (function () {
 })());
 ok('a decided LOSS logs the match AND bumps tonight’s stop-loss counter', (function () {
   var st = { sessions: {}, matches: {} };
-  applyGsiMatch(st, { result: 'loss', ct: 13, t: 16, map: 'de_mirage' }, 'D');
+  applyGsiMatch(st, { result: 'loss', ct: 13, t: 16, map: 'de_mirage' }, 'D', 1e6);
   return st.matches['D'].length === 1 && st.matches['D'][0].result === 'loss' && st.sessions['D'].losses === 1;
 })());
 ok('a WIN/TIE/UNKNOWN is logged but never counts as a loss', (function () {
   var win = { sessions: {}, matches: {} }, tie = { sessions: {}, matches: {} }, unk = { sessions: {}, matches: {} };
-  applyGsiMatch(win, { result: 'win', ct: 16, t: 9, map: 'a' }, 'D');
-  applyGsiMatch(tie, { result: 'tie', ct: 15, t: 15, map: 'b' }, 'D');
-  applyGsiMatch(unk, { result: 'unknown', ct: 16, t: 5, map: 'c' }, 'D');
+  applyGsiMatch(win, { result: 'win', ct: 16, t: 9, map: 'a' }, 'D', 1e6);
+  applyGsiMatch(tie, { result: 'tie', ct: 15, t: 15, map: 'b' }, 'D', 1e6);
+  applyGsiMatch(unk, { result: 'unknown', ct: 16, t: 5, map: 'c' }, 'D', 1e6);
   return win.matches['D'].length === 1 && !win.sessions['D'] &&
          tie.matches['D'].length === 1 && !tie.sessions['D'] &&
          unk.matches['D'].length === 1 && !unk.sessions['D'];
 })());
-ok('the SAME finished match re-POSTed (app restart mid-scoreboard) is not double-counted', (function () {
+ok('the SAME finished match re-POSTed seconds later (app restart mid-scoreboard) is deduped', (function () {
   var st = { sessions: {}, matches: {} }, m = { result: 'loss', ct: 10, t: 16, map: 'de_nuke' };
-  applyGsiMatch(st, m, 'D'); applyGsiMatch(st, m, 'D');
+  applyGsiMatch(st, m, 'D', 1e6); applyGsiMatch(st, m, 'D', 1e6 + 5000);   // 5s later, inside the window
   return st.matches['D'].length === 1 && st.sessions['D'].losses === 1;
+})());
+ok('two IDENTICAL losses a full match apart BOTH count (the old content-only dedup dropped the 2nd)', (function () {
+  var st = { sessions: {}, matches: {} }, m = { result: 'loss', ct: 13, t: 16, map: 'de_mirage' };
+  applyGsiMatch(st, m, 'D', 1e6); applyGsiMatch(st, m, 'D', 1e6 + 40 * 60 * 1000);   // 40 min apart
+  return st.matches['D'].length === 2 && st.sessions['D'].losses === 2;
+})());
+ok('a re-post straddling midnight into a new day bucket is still deduped (no cross-day double-count)', (function () {
+  var st = { sessions: {}, matches: {} }, m = { result: 'loss', ct: 12, t: 16, map: 'de_ancient' };
+  applyGsiMatch(st, m, '2026-08-06', 1e6); applyGsiMatch(st, m, '2026-08-07', 1e6 + 120000);   // 2 min later, next day
+  return st.matches['2026-08-06'].length === 1 && (st.matches['2026-08-07'] || []).length === 0 &&
+         st.sessions['2026-08-06'].losses === 1 && !st.sessions['2026-08-07'];
 })());
 ok('two DISTINCT losses in a night stack to 2 (stop-loss territory)', (function () {
   var st = { sessions: {}, matches: {} };
-  applyGsiMatch(st, { result: 'loss', ct: 13, t: 16, map: 'a' }, 'D');
-  applyGsiMatch(st, { result: 'loss', ct: 8, t: 16, map: 'b' }, 'D');
+  applyGsiMatch(st, { result: 'loss', ct: 13, t: 16, map: 'a' }, 'D', 1e6);
+  applyGsiMatch(st, { result: 'loss', ct: 8, t: 16, map: 'b' }, 'D', 1e6 + 1000);
   return st.matches['D'].length === 2 && st.sessions['D'].losses === 2;
 })());
 ok('an auto-loss augments an existing session — it never clobbers warm-up / drills', (function () {
   var st = { sessions: { D: { warm: true, drills: { x: true }, losses: 1 } }, matches: {} };
-  applyGsiMatch(st, { result: 'loss', ct: 5, t: 16, map: 'z' }, 'D');
+  applyGsiMatch(st, { result: 'loss', ct: 5, t: 16, map: 'z' }, 'D', 1e6);
   return st.sessions['D'].warm === true && st.sessions['D'].drills.x === true && st.sessions['D'].losses === 2;
 })());
 ok('a payload with no result is ignored (fail-safe)', (function () {
   var st = { sessions: {}, matches: {} };
-  applyGsiMatch(st, null, 'D'); applyGsiMatch(st, {}, 'D');
+  applyGsiMatch(st, null, 'D', 1e6); applyGsiMatch(st, {}, 'D', 1e6);
   return Object.keys(st.matches).length === 0 && Object.keys(st.sessions).length === 0;
 })());
 ok('the app writes CS2’s GSI config and runs a local listener, both native-gated (no-op on web)', (function () {
@@ -1259,6 +1280,48 @@ ok('the setup section + connected status are desktop-only; the Gate shows live s
          /var auto=gsiLive\(\)\?/.test(s) && /auto\+stop\+/.test(s);          // Gate indicator, gsiLive-gated
 })());
 
+
+// --- v0.27: audit remediation guards ---
+ok('erasing data clears the backup AND cancels the pending mirror (no debounced write resurrects it)', (function () {
+  // `clearTimeout(_mirrorT);_mirrorT=null;` is unique to the reset handler (mirrorBackup re-arms with
+  // setTimeout, never nulls) — assert it cancels the mirror, then wipes storage, then deletes the file.
+  return script.indexOf('backup_delete') >= 0 &&
+         /clearTimeout\(_mirrorT\);_mirrorT=null;[\s\S]{0,140}removeItem\(KEY\)[\s\S]{0,320}invoke\("backup_delete"\)/.test(script);
+})());
+ok('a failed WRITE keeps mem authoritative; a successful READ never re-flips storageOk true', (function () {
+  return /function load\(\)\{\s*if\(!storageOk&&mem\)return mem;/.test(script) &&
+         script.indexOf('getItem(KEY);storageOk=true') < 0;   // the read no longer heals the write-blocked flag
+})());
+ok('GSI dedup is identity+time based (settings.lastGsi within a window), not today’s-last-entry content', (function () {
+  return script.indexOf('st.settings.lastGsi') >= 0 && /\(now-last\.at\)<600000/.test(script) &&
+         /applyGsiMatch\(st,m,dk,now\)/.test(script);   // now is threaded through
+})());
+ok('external CS2-triggered renders are focus-safe (skip while a text field is focused)', (function () {
+  // bound to gsiRender's OWN body: the fix is the early-return-on-focused-input, so a hollow
+  // `function gsiRender(){render();}` must fail this — not merely reach a later activeElement.
+  return /function gsiRender\(\)\{var a=document\.activeElement;\s*if\(a&&\([\s\S]{0,220}\)\)return;\s*render\(\);\}/.test(script) &&
+         /gsi-match"[\s\S]{0,80}onGsiMatch/.test(script);
+})());
+ok('the live "connected" indicator self-clears when heartbeats stop', (function () {
+  return /gsiOffT=setTimeout\(gsiRender,\s*95000\)/.test(script);
+})());
+ok('the CS2 connection status is announced to screen readers via a persistent live region', (function () {
+  return html.indexOf('id="gsiann"') >= 0 && /role="status" aria-live="polite"/.test(html) &&
+         /gsiAnnounce\("CS2 auto-tracking connected/.test(script);
+})());
+ok('the guided tour is a real modal — inert on the app/tab bar while open, cleared on close', (function () {
+  // the tour uses its own var names (ap/tbn) — distinct from the guided-session overlay's (app/tb) —
+  // and a bounded window, so the unbounded lazy match can't fall through to the session overlay's
+  // inert calls and pass when the tour's own inert lines are removed.
+  return /function startTour\(\)\{[\s\S]{0,700}if\(tbn\)tbn\.setAttribute\("inert",""\)/.test(script) &&
+         /function endTour\(\)\{[\s\S]{0,700}if\(tbn\)tbn\.removeAttribute\("inert"\)/.test(script);
+})());
+ok('long unbreakable user text wraps instead of forcing horizontal scroll', (function () {
+  return /\.dsp\{[^}]*overflow-wrap:anywhere/.test(html) && /\.lnrow \.lnb b\{[^}]*overflow-wrap:anywhere/.test(html);
+})());
+ok('best streak honors the freeze budget the live streak uses (record can’t go backwards)', (function () {
+  return /function bestStreak\(st\)\{[\s\S]*?freezeBudget\(st\)[\s\S]*?computeStreak\(st,parseKey\(keys\[i\]\),fb\)/.test(script);
+})());
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

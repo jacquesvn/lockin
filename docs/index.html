@@ -47,7 +47,7 @@
   html{scrollbar-gutter:stable;}
   body{background:var(--bg);color:var(--text);font-family:var(--fb);line-height:1.5;-webkit-font-smoothing:antialiased;}
   button{font-family:var(--fb);}
-  .dsp{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;}
+  .dsp{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;overflow-wrap:anywhere;}
   .ml{font-family:var(--fm);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--faint);font-weight:600;}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;}
   /* a card that's also a button — the Plan → Maps pointer */
@@ -475,7 +475,7 @@
   .lnrow{display:flex;gap:10px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line);}
   .lnrow:last-of-type{border-bottom:0;}
   .lnrow .lnb{flex:1;min-width:0;}
-  .lnrow .lnb b{display:block;font-size:13px;font-weight:600;}
+  .lnrow .lnb b{display:block;font-size:13px;font-weight:600;overflow-wrap:anywhere;}
   .lnrow .lnb span{display:block;font-size:12px;color:var(--muted);margin-top:2px;white-space:pre-wrap;word-break:break-word;}
   .lndel{background:transparent;border:1px solid var(--line);border-radius:7px;color:var(--faint);cursor:pointer;width:28px;height:28px;flex:0 0 auto;font-size:12px;}
   .lndel:hover{border-color:var(--bad);color:var(--bad);}
@@ -571,12 +571,15 @@
 <div id="session"></div>
 <div id="tour" style="display:none;"></div>
 <div id="cele" aria-live="polite"></div>
+<!-- persistent off-screen live region: the CS2 connection status lives in #main, which is rebuilt on
+     every render (so aria-live there never fires), so status changes are announced through here. -->
+<div id="gsiann" role="status" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;"></div>
 
 <script>
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.26.0";
+  var VERSION="0.27.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -680,7 +683,7 @@
       D("Angle discipline","aim_rush · AK","Hold ONE angle at head height and wait","You hold one angle at head height and wait; the target arrives on your crosshair.",3,true,"If I move my crosshair, I failed.","Chasing the target with your crosshair. If it moved, you failed.","Switches from mechanics to decisions. Hold one angle at head height and let the target walk into your crosshair — chasing the target is the exact habit this breaks.","Let the target walk into your crosshair — decisions, not mechanics."),
       D("Micro-peek confirmation","aim_rush · AK","Step out just enough to see, counter-strafe, one tap, reset","One tap lands, then you're back behind cover before they refrag — you were exposed for a fraction of a second.",3,true,"Show less. Decide faster.","A wide swing that shows the enemy your whole body.","Trains the minimal peek: step out just enough to see, counter-strafe, one tap, reset to cover. Wide swings show the enemy your whole body — show less, decide faster.","See the most while showing the least."),
       D("Reactive angle transfer","aim_rush · AK","Hold one angle, then transfer deliberately when it appears elsewhere","You spot the new target first, then commit the shot.",4,true,"See first. Shoot second.","Firing mid-transfer voids the rep; a miss means slow down.","Hold one angle, then transfer deliberately when a target appears elsewhere. Firing mid-transfer voids the rep — this trains seeing the new target before you commit the shot.","Transfer to a new target deliberately — see before you shoot."),
-      D("Controlled entry peeks","aim_rush · AK","Wider peeks, one angle each, fully stopped before the shot","A wider peek, fully stopped, shot taken after confirmation.",3,true,"Commit after confirmation.","Trying to fix bad placement mid-peek. Reset and go again.","Wider entry peeks, one angle each, fully stopped before the shot. You commit only after you've confirmed the target — never try to fix bad placement mid-peek.","Commit only after you've confirmed the target."),
+      D("Controlled entry peeks","aim_rush · AK","Wider peeks, one angle each — counter-strafe, then fire","A wider peek, speed killed with a counter-strafe, the shot taken after you confirm.",3,true,"Commit after confirmation.","Trying to fix bad placement mid-peek. Reset and go again.","Wider entry peeks, one angle each. Counter-strafe to kill your speed — you don't need a dead stop — then commit once you've confirmed the target; never try to fix bad placement mid-peek.","Commit only after you've confirmed the target."),
       CALM
     ]
   }];
@@ -1093,7 +1096,14 @@
 
   /* ---------- storage ---------- */
   function blank(){return {plan:null,sessions:{},settings:{},metrics:{},reviews:{},lineups:{},planReviews:{},debriefs:{},matches:{}};}
-  function load(){try{var s=localStorage.getItem(KEY);storageOk=true;if(!s)return blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};o.reviews=o.reviews||{};o.lineups=o.lineups||{};o.planReviews=o.planReviews||{};o.debriefs=o.debriefs||{};o.matches=o.matches||{};migrate(o);return o;}catch(e){storageOk=false;return mem||blank();}}
+  // If a WRITE has failed, localStorage holds a stale value while mem holds the real state, so mem is
+  // authoritative until a write succeeds again — otherwise the next read would resurrect the old value
+  // AND (by re-setting storageOk) dismiss the STORAGE-BLOCKED banner. A successful read never flips
+  // storageOk true; only a successful save() (proof of writability) does.
+  function load(){
+    if(!storageOk&&mem)return mem;
+    try{var s=localStorage.getItem(KEY);if(!s)return mem||blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};o.reviews=o.reviews||{};o.lineups=o.lineups||{};o.planReviews=o.planReviews||{};o.debriefs=o.debriefs||{};o.matches=o.matches||{};migrate(o);return o;}
+    catch(e){storageOk=false;return mem||blank();}}
   function save(st){mem=st;try{localStorage.setItem(KEY,JSON.stringify(st));storageOk=true;}catch(e){storageOk=false;}mirrorBackup(st);}
   // Desktop only: shadow the live state to a file (debounced) so a wiped WebView cache
   // can't cost a streak. localStorage stays authoritative; this is read back only when
@@ -1210,41 +1220,57 @@
   // gsi:match when a match ends, carrying win/loss. We log the match and, on a loss, bump
   // tonight's stop-loss counter — the same one the manual +1 LOSS button feeds, so hand-logging
   // still works for anyone who hasn't set this up. All local; the app never reads more than score.
-  var GSI_PORT=3121, gsiLastBeat=0, GSISET=null;   // GSISET={ok,msg,path} of the last cfg write
+  var GSI_PORT=3121, gsiLastBeat=0, gsiOffT=null, GSISET=null;   // GSISET={ok,msg,path} of the last cfg write
   function randToken(){var a=new Uint8Array(16);try{window.crypto.getRandomValues(a);}catch(_){}
     var s="";for(var i=0;i<a.length;i++)s+=("0"+(a[i]&255).toString(16)).slice(-2);return s;}
   // one stable token per install, shared between the cfg we write and the listener that checks it
   function gsiToken(){var st=load();if(!st.settings.gsiToken){st.settings.gsiToken=randToken();save(st);}return st.settings.gsiToken;}
   function gsiLive(){return isNative&&gsiLastBeat>0&&(Date.now()-gsiLastBeat<90000);}  // beat is a 30s heartbeat
+  // A re-render triggered by an EXTERNAL CS2 event must not yank focus or discard text the user is
+  // mid-typing into a blur-committed field (cue/goal/gamertag), so skip it while such a field is focused.
+  function gsiRender(){var a=document.activeElement;
+    if(a&&(a.tagName==="TEXTAREA"||(a.tagName==="INPUT"&&!/^(button|checkbox|radio|submit|reset)$/.test(a.type||"text"))))return;
+    render();}
+  function gsiAnnounce(msg){var el=document.getElementById("gsiann");if(el)el.textContent=msg;}
   function startGsi(){
     if(!isNative)return;
     try{TAURI.core.invoke("start_gsi",{port:GSI_PORT,token:gsiToken()}).catch(function(){});}catch(_){}
     if(TAURI.event&&TAURI.event.listen){
-      TAURI.event.listen("gsi-beat",function(){var first=!gsiLastBeat;gsiLastBeat=Date.now();if(first)render();});
+      TAURI.event.listen("gsi-beat",function(){
+        var first=!gsiLastBeat;gsiLastBeat=Date.now();
+        // beats stop when CS2 closes; re-render just past the 90s live window so the "connected"
+        // indicator clears itself instead of lingering green until the next incidental render.
+        clearTimeout(gsiOffT);gsiOffT=setTimeout(gsiRender,95000);
+        if(first){gsiAnnounce("CS2 auto-tracking connected.");gsiRender();}
+      });
       TAURI.event.listen("gsi-match",function(e){onGsiMatch(e&&e.payload);});
     }
   }
   // pure state change (kept separate from onGsiMatch so it's testable without a DOM/native bridge)
-  function applyGsiMatch(st,m,dk){
+  function applyGsiMatch(st,m,dk,now){
     if(!m||!m.result)return st;
-    st.matches=st.matches||{};st.matches[dk]=st.matches[dk]||[];
-    var arr=st.matches[dk],last=arr[arr.length-1];
-    // dedup a repeat of the very same match (e.g. the app restarts while a finished match is still
-    // on the scoreboard and CS2 re-POSTs gameover) so it can't double-count a loss.
-    if(last&&last.result===m.result&&last.ct===m.ct&&last.t===m.t&&last.map===(m.map||""))return st;
-    arr.push({result:m.result,ct:m.ct,t:m.t,map:m.map||""});
+    st.matches=st.matches||{};st.matches[dk]=st.matches[dk]||[];st.settings=st.settings||{};
+    var sig=m.result+"|"+m.ct+"|"+m.t+"|"+(m.map||""),last=st.settings.lastGsi;
+    // Dedup ONLY a re-post of the very same finished match — an app restart while CS2 is still on the
+    // gameover scoreboard re-emits it. Key on identical content within a short window (10 min): two
+    // DISTINCT matches are always far longer apart (a match runs 30+ min), so real back-to-back losses
+    // sharing a map/scoreline are NOT collapsed, and this survives a midnight day-bucket change (the
+    // previous content-vs-today's-last-entry check double-counted across midnight and dropped dupes).
+    if(last&&last.sig===sig&&(now-last.at)<600000)return st;
+    st.matches[dk].push({result:m.result,ct:m.ct,t:m.t,map:m.map||"",at:now});
     // only a decided loss touches the stop-loss; win/tie/unknown are logged but never penalised.
     if(m.result==="loss"){var s=st.sessions[dk]||{warm:false,deep:false,feel:0,drills:{}};s.losses=(s.losses||0)+1;st.sessions[dk]=s;}
+    st.settings.lastGsi={sig:sig,at:now};
     return st;
   }
   function onGsiMatch(m){
     if(!m||!m.result)return;
-    var st=load(),dk=dateKey(new Date()),before=(st.matches&&st.matches[dk]||[]).length;
-    applyGsiMatch(st,m,dk);
+    var st=load(),now=Date.now(),dk=dateKey(new Date()),before=(st.matches&&st.matches[dk]||[]).length;
+    applyGsiMatch(st,m,dk,now);
     if((st.matches[dk]||[]).length===before)return;   // deduped — nothing changed, don't buzz
     save(st);
     nativeNotify(m.result==="win"?"Match won — logged.":m.result==="loss"?"Match lost — logged. Mind the stop-loss.":"Match logged.");
-    render();
+    gsiRender();
   }
   function writeGsiConfig(){
     if(!isNative)return;
@@ -1521,6 +1547,10 @@
   function startTour(){
     if(!load().plan)return;                       // nothing to tour without a plan
     tourReturnFocus=document.activeElement;
+    // a real modal: take the app + tab bar out of the tab order so a keyboard user can't Tab onto
+    // (and Space-activate) the dimmed nav behind the tour. Mirrors the guided-session overlay.
+    var ap=document.getElementById("app"),tbn=document.getElementById("tabbar");
+    if(ap)ap.setAttribute("inert","");if(tbn)tbn.setAttribute("inert","");
     TOUR_I=0;
     if(!tourKey){
       tourKey=function(e){
@@ -1536,6 +1566,8 @@
   function endTour(){
     TOUR_I=-1;
     var t=document.getElementById("tour");if(t){t.style.display="none";t.className="";t.innerHTML="";}
+    var ap=document.getElementById("app"),tbn=document.getElementById("tabbar");
+    if(ap)ap.removeAttribute("inert");if(tbn)tbn.removeAttribute("inert");
     if(tourKey){document.removeEventListener("keydown",tourKey);tourKey=null;}
     var st=load();if(!st.settings.tourSeen){st.settings.tourSeen=true;save(st);}
     if(tourReturnFocus&&tourReturnFocus.focus){try{tourReturnFocus.focus();}catch(_){}}
@@ -2164,14 +2196,14 @@
 
   /* ---------- v0.7: insights + sparklines ---------- */
   function warmDays(st){var o=[];for(var k in st.sessions){if(st.sessions[k]&&st.sessions[k].warm)o.push(k);}return o.sort();}
+  // Best streak must honor the SAME freeze budget the live streak does, or the displayed record can
+  // go backwards: while a freeze-bridged run is current, max(best,current) shows the higher (freeze)
+  // value, then drops once only a strict best remains. Evaluating computeStreak (freeze-aware) from
+  // each warm-day endpoint keeps the record consistent with curStreak and monotonic (the freeze
+  // budget only grows as warmDays grows), and lets a freeze-bridged milestone be observed later.
   function bestStreak(st){
-    var keys=warmDays(st);if(!keys.length)return 0;var best=0;
-    for(var i=0;i<keys.length;i++){var s=0,d=parseKey(keys[i]);
-      while(true){var x=st.sessions[dateKey(d)];
-        if(x&&x.warm){s++;d=addDays(d,-1);}
-        else if(!isTrainingDay(st.plan,d)){d=addDays(d,-1);}
-        else break;}
-      if(s>best)best=s;}
+    var keys=warmDays(st);if(!keys.length)return 0;var fb=freezeBudget(st),best=0;
+    for(var i=0;i<keys.length;i++){var s=computeStreak(st,parseKey(keys[i]),fb);if(s>best)best=s;}
     return best;}
   /* ---------- milestones / achievements (all derived from existing state) ---------- */
   function drillsTicked(st){var n=0;for(var k in st.sessions){var dr=st.sessions[k]&&st.sessions[k].drills;if(dr)for(var i in dr)if(dr[i])n++;}return n;}
@@ -2644,7 +2676,14 @@
     var rst=root.querySelector('[data-act="reset"]');
     if(rst)rst.onclick=function(){
       if(!confirm("Erase ALL Lockin data on this device — plan, streak, sessions and metrics — and start over? This can't be undone."))return;
+      // Kill any pending debounced backup mirror FIRST: a backup_write queued by a save() up to
+      // ~800ms ago still holds the pre-erase state and would fire AFTER backup_delete, recreating
+      // lockin-state.json and resurrecting the "erased" data on next launch.
+      if(_mirrorT){clearTimeout(_mirrorT);_mirrorT=null;}
       try{localStorage.removeItem(KEY);}catch(_){}
+      // desktop: also delete the auto-backup file, or the boot-restore would silently resurrect the
+      // "erased" data on next launch (localStorage empty -> restore from lockin-state.json).
+      if(isNative)try{TAURI.core.invoke("backup_delete").catch(function(){});}catch(_){}
       mem=null;answers={};step=0;revealed=null;generating=false;backfill=false;
       document.getElementById("app").style.display="none";document.getElementById("tabbar").style.display="none";
       renderOnboard();
@@ -2743,7 +2782,11 @@
     render();
     if(sessReturnFocus&&sessReturnFocus.focus){try{sessReturnFocus.focus();}catch(_){}}
     sessReturnFocus=null;
-    if(doCele)celebrate(curStreak(load()));
+    // a session can complete a milestone (e.g. a streak) just like ticking a drill does, so check
+    // achievements here too — otherwise it would wait until the next boot/drill to unlock.
+    var ach=checkAchievements(load());
+    if(ach)celebrate(0,esc(ach.t.toUpperCase()),"MILESTONE UNLOCKED");
+    else if(doCele)celebrate(curStreak(load()));
   }
   function renderSession(){
     var ov=document.getElementById("session"),F=SESS.fk?FOCI[SESS.fk]:null,d=SESS.list[SESS.idx].d;
