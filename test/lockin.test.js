@@ -1447,6 +1447,12 @@ ok('paste only fires into an armed lineup, and the map links point at a real per
   return /addEventListener\("paste"/.test(script) && /if\(PICTARGET===null\|\|!e\.clipboardData\)return/.test(script) &&
          /https:\/\/csnades\.gg\/'\+esc\(sel\)/.test(script);
 })());
+ok('the find-lineups action is a hero-yellow button sitting right under the list, not a grey row', (function () {
+  return /\.findbtn\{[^}]*background:var\(--hero\)/.test(html) &&
+         /class="findbtn"/.test(script) &&
+         /lns\.length\+'<\/div>'\+lnList\+findBtn/.test(script) &&   // above the add form
+         script.indexOf('<a class="datarow" style="margin-top:8px;" href="https://csnades.gg/') < 0;
+})());
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

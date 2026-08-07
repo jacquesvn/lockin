@@ -487,6 +487,16 @@
     padding:6px 10px;border:1px dashed var(--line-2,var(--line));border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;}
   .picadd:hover{border-color:var(--hero);color:var(--text);}
   .picarm{margin-top:8px;padding:10px;border:1px dashed var(--hero);border-radius:8px;background:var(--surface);}
+  /* the "go get a lineup" action — the first thing to do on an empty vault, so it carries the
+     hero yellow like the other primary actions rather than sitting quietly as a grey row */
+  .findbtn{display:flex;align-items:center;gap:11px;width:100%;background:var(--hero);border:1px solid var(--hero);
+    color:var(--onhero);border-radius:12px;padding:13px 15px;margin:12px 0 4px;text-decoration:none;
+    font-family:var(--fm);font-weight:800;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;}
+  .findbtn:hover{background:var(--hero2);border-color:var(--hero2);}
+  .findbtn svg{width:18px;height:18px;flex:0 0 auto;color:var(--onhero);}
+  .findbtn small{display:block;font-family:var(--fb);font-weight:500;font-size:11.5px;letter-spacing:0;
+    text-transform:none;opacity:.8;margin-top:3px;}
+  .findbtn .fbchev{margin-left:auto;font-size:19px;line-height:1;opacity:.65;}
   #lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:70;display:none;align-items:center;justify-content:center;
     flex-direction:column;gap:14px;padding:20px;cursor:zoom-out;}
   #lightbox.show{display:flex;}
@@ -595,7 +605,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.29.0";
+  var VERSION="0.29.1";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -2125,8 +2135,13 @@
             '</div><button class="lndel" data-lndel="'+x.i+'" aria-label="Delete this lineup">✕</button></div>';}).join("");
         return (hasGroups?'<div class="ml" style="margin-top:10px;">'+(g?esc(g.toUpperCase()):'NO GROUP')+'</div>':'')+rows;
       }).join("");
-    }else lnList='<p class="mhow" style="margin:0;">Nothing saved for '+esc(M.n)+' yet. Learn one in the Yprac Hub, then write it down here in your own words — writing it is what makes it stick.</p>';
-    var vault='<div class="card" style="margin-top:10px;"><div class="ml">YOUR '+esc(M.n).toUpperCase()+' LINEUPS · '+lns.length+'</div>'+lnList+
+    }else lnList='<p class="mhow" style="margin:0;">Nothing saved for '+esc(M.n)+' yet — grab one below, screenshot it, and it\'s yours offline for good.</p>';
+    // The find-a-lineup action sits directly under the list, in hero yellow: on an empty vault
+    // it IS the next step, and it must not be missed under the add form.
+    var findBtn='<a class="findbtn" href="https://csnades.gg/'+esc(sel)+'" target="_blank" rel="noopener noreferrer">'+CAM+
+      '<span>Find '+esc(M.n)+' lineups<small>Opens csnades.gg — screenshot the throw, then paste it in</small></span>'+
+      '<span class="fbchev" aria-hidden="true">›</span></a>';
+    var vault='<div class="card" style="margin-top:10px;"><div class="ml">YOUR '+esc(M.n).toUpperCase()+' LINEUPS · '+lns.length+'</div>'+lnList+findBtn+
       '<div class="lnadd">'+
         '<div class="field"><label for="lnN">Name</label><input id="lnN" type="text" data-lnname placeholder="A exec — CT smoke"></div>'+
         '<div class="field"><label for="lnT">How you throw it</label><input id="lnT" type="text" data-lntext placeholder="T spawn, line up on the antenna, jump-throw"></div>'+
@@ -2134,7 +2149,6 @@
         '<button class="pbtn" data-lnadd="1">ADD</button>'+
       '</div>'+
       '<p class="help" style="margin-top:8px;">Add a picture to any lineup — paste a screenshot with <b style="color:var(--text);">Ctrl+V</b>, or use the button. Steam’s <b style="color:var(--text);">F12</b> or <b style="color:var(--text);">Win+Shift+S</b> grabs one in a second. Pictures stay on this device.</p>'+
-      '<a class="datarow" style="margin-top:8px;" href="https://csnades.gg/'+esc(sel)+'" target="_blank" rel="noopener noreferrer">'+CAM+'<span>Find '+esc(M.n)+' lineups<small>Opens csnades.gg — screenshot the throw, then paste it here</small></span></a>'+
       '<p class="help" style="margin-top:8px;">Saved lineups come back for a quick recall check on a spaced schedule — the review card appears up top when one is due.</p>'+
       '<input type="file" id="picF" accept="image/*" style="display:none;"></div>';
     var caveat='<p class="help" style="margin-top:10px;">These are the utility <em>jobs</em> that decide the map — deliberately not lineups. Exact throws are patch-specific, so learn them in <b style="color:var(--text);">Yprac Hub — utility mode, '+esc(M.n)+'</b> and save your own above.'+
