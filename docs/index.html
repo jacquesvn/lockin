@@ -477,6 +477,21 @@
   .lnrow .lnb{flex:1;min-width:0;}
   .lnrow .lnb b{display:block;font-size:13px;font-weight:600;overflow-wrap:anywhere;}
   .lnrow .lnb span{display:block;font-size:12px;color:var(--muted);margin-top:2px;white-space:pre-wrap;word-break:break-word;}
+  /* lineup pictures: thumbnails big enough to recognise a spot at a glance, tap to enlarge */
+  .lnthumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .lnthumb{padding:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface);cursor:pointer;line-height:0;}
+  .lnthumb:hover{border-color:var(--hero);}
+  .lnthumb img{width:118px;height:70px;object-fit:cover;display:block;}
+  .lnthumbs.big .lnthumb img{width:190px;height:112px;}
+  .picadd{display:inline-flex;align-items:center;gap:6px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    padding:6px 10px;border:1px dashed var(--line-2,var(--line));border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;}
+  .picadd:hover{border-color:var(--hero);color:var(--text);}
+  .picarm{margin-top:8px;padding:10px;border:1px dashed var(--hero);border-radius:8px;background:var(--surface);}
+  #lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:70;display:none;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;padding:20px;cursor:zoom-out;}
+  #lightbox.show{display:flex;}
+  #lightbox img{max-width:100%;max-height:82vh;object-fit:contain;border-radius:10px;}
+  .lbhint{color:var(--faint);}
   .lndel{background:transparent;border:1px solid var(--line);border-radius:7px;color:var(--faint);cursor:pointer;width:28px;height:28px;flex:0 0 auto;font-size:12px;}
   .lndel:hover{border-color:var(--bad);color:var(--bad);}
   .pmodel{font-family:var(--fm);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--hero-ink);border:1px dashed var(--hero-ink);border-radius:8px;padding:8px 11px;margin-top:12px;display:inline-block;}
@@ -571,6 +586,7 @@
 <div id="session"></div>
 <div id="tour" style="display:none;"></div>
 <div id="cele" aria-live="polite"></div>
+<div id="lightbox" role="dialog" aria-modal="true" aria-label="Lineup picture"></div>
 <!-- persistent off-screen live region: the CS2 connection status lives in #main, which is rebuilt on
      every render (so aria-live there never fires), so status changes are announced through here. -->
 <div id="gsiann" role="status" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;"></div>
@@ -579,7 +595,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.28.0";
+  var VERSION="0.29.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -594,6 +610,7 @@
   var COMPASS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>';
   var TARGET='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>';
   var MOUSE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 7v4"/></svg>';
+  var CAM='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;"><path d="M3 8h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.4"/></svg>';
   var SHIELD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg>';
   var MEDAL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="14.5" r="5.5"/><path d="M8 3h8M9.5 3l2.5 6M14.5 3l-2.5 6"/></svg>';
 
@@ -1112,7 +1129,7 @@
   function mirrorBackup(st){
     if(!isNative)return;
     if(_mirrorT)clearTimeout(_mirrorT);
-    _mirrorT=setTimeout(function(){try{TAURI.core.invoke("backup_write",{json:JSON.stringify(st)}).catch(function(){});}catch(_){}},800);
+    _mirrorT=setTimeout(function(){try{TAURI.core.invoke("backup_write",{json:JSON.stringify(stateForBackup(st))}).catch(function(){});}catch(_){}},800);
   }
   // the player's gamertag (optional) — always esc() it at the call site, it's user input
   function playerTag(st){var t=(st||load()).settings;t=t&&t.tag;return t?String(t):"";}
@@ -1130,7 +1147,8 @@
   }
 
   /* ---------- backup export / import validation ---------- */
-  function exportData(){var b=new Blob([JSON.stringify(load(),null,2)],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="lockin-backup-"+dateKey(new Date())+".json";a.click();}
+  // pictures ride along, or a restore on another PC would silently lose every one
+  function exportData(){var b=new Blob([JSON.stringify(stateForBackup(load()),null,2)],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="lockin-backup-"+dateKey(new Date())+".json";a.click();}
   function isObj(x){return x&&typeof x==="object"&&!Array.isArray(x);}
   // reject a restore file that isn't shaped like our data — an unvalidated plan could brick the app
   function validBackup(d2){
@@ -1877,6 +1895,160 @@
     var hd='<div class="hd"><div><div class="ml">PRACTICE &amp; DOWNLOADS</div><h1 class="dsp">MAPS</h1></div></div>';
     return hd+lineupReviewCard(st,LREV)+mapPrep(st)+practiceCard();
   }
+  /* ---------- v0.29: lineup pictures ----------
+     A lineup is visual — "aim at the antenna tip" is useless mid-match. You screenshot the
+     throw once (Steam F12 / Win+Shift+S), paste it in, and it's yours offline forever.
+     Pictures live in IndexedDB, NEVER localStorage: that's a ~5MB budget shared with every
+     other app on this origin, and filling it would cost you your plan and streak. They are
+     downscaled on the way in, and kept in memory too so export/desktop-mirror stay cheap.
+     We never ship anyone else's lineup images — the per-map links point you at the sources. */
+  var IMG_MAXW=1100, IMG_Q=0.72, IMG_PER=4;
+  var IMGS={};            // id -> dataURL (mirror of the IndexedDB store)
+  var idbP=null;
+  function idb(){
+    if(idbP)return idbP;
+    idbP=new Promise(function(res){
+      try{
+        if(!window.indexedDB)return res(null);
+        var rq=indexedDB.open("lockin-img",1);
+        rq.onupgradeneeded=function(){try{rq.result.createObjectStore("img");}catch(_){}};
+        rq.onsuccess=function(){res(rq.result);};
+        rq.onerror=function(){res(null);};
+        rq.onblocked=function(){res(null);};
+      }catch(_){res(null);}
+    });
+    return idbP;
+  }
+  // every write is best-effort: losing a picture must never break the app or the lineup text
+  function imgPut(id,data){
+    IMGS[id]=data;
+    return idb().then(function(db){
+      if(!db)return;
+      try{db.transaction("img","readwrite").objectStore("img").put(data,id);}catch(_){}
+    });
+  }
+  function imgDrop(id){
+    delete IMGS[id];
+    return idb().then(function(db){
+      if(!db)return;
+      try{db.transaction("img","readwrite").objectStore("img")["delete"](id);}catch(_){}
+    });
+  }
+  function imgLoadAll(){
+    return idb().then(function(db){
+      if(!db)return;
+      return new Promise(function(res){
+        try{
+          var tx=db.transaction("img","readonly"),s=tx.objectStore("img");
+          var kq=s.getAllKeys(),vq=s.getAll();
+          tx.oncomplete=function(){
+            try{var ks=kq.result||[],vs=vq.result||[];for(var i=0;i<ks.length;i++)IMGS[ks[i]]=vs[i];}catch(_){}
+            res();
+          };
+          tx.onerror=function(){res();};
+        }catch(_){res();}
+      });
+    });
+  }
+  // Downscale + recompress so a 4K screenshot doesn't cost megabytes. Read as a data: URL
+  // rather than a blob: URL because the CSP allows data: for images and blob: deliberately isn't.
+  function shrinkImage(file,cb){
+    if(!file||!/^image\//.test(file.type||""))return cb(null);
+    var fr=new FileReader();
+    fr.onload=function(){
+      var img=new Image();
+      img.onload=function(){
+        try{
+          var sc=Math.min(1,IMG_MAXW/(img.width||1));
+          var c=document.createElement("canvas");
+          c.width=Math.max(1,Math.round(img.width*sc));
+          c.height=Math.max(1,Math.round(img.height*sc));
+          c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+          var out=c.toDataURL("image/webp",IMG_Q);
+          if(out.slice(0,15)!=="data:image/webp")out=c.toDataURL("image/jpeg",IMG_Q);   // Safari
+          cb(out&&out.length>32?out:null);
+        }catch(_){cb(null);}
+      };
+      img.onerror=function(){cb(null);};
+      img.src=fr.result;
+    };
+    fr.onerror=function(){cb(null);};
+    fr.readAsDataURL(file);
+  }
+  function lineupAt(st,mapId,idx){var a=(st.lineups||{})[mapId];return a&&a[idx];}
+  function addLineupPic(mapId,idx,file){
+    shrinkImage(file,function(data){
+      if(!data)return;
+      var st=load(),l=lineupAt(st,mapId,idx);
+      if(!l)return;
+      l.im=l.im||[];
+      if(l.im.length>=IMG_PER)return;                       // a lineup needs a few frames, not an album
+      var id="im_"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+      l.im.push(id);
+      imgPut(id,data);
+      PICTARGET=null;
+      save(st);render();
+    });
+  }
+  function dropLineupPics(l){var im=(l&&l.im)||[];for(var i=0;i<im.length;i++)imgDrop(im[i]);}
+  // Ctrl+V anywhere while a lineup is armed drops the screenshot straight in — the whole point
+  // is that grabbing a throw takes two seconds, not a file-dialog round trip.
+  if(typeof document!=="undefined")document.addEventListener("paste",function(e){
+    if(PICTARGET===null||!e.clipboardData)return;
+    var items=e.clipboardData.items||[];
+    for(var i=0;i<items.length;i++){
+      if(items[i].kind==="file"&&/^image\//.test(items[i].type||"")){
+        var f=items[i].getAsFile();
+        if(f){e.preventDefault();addLineupPic(load().settings.mainMap||MAPS[0].id,PICTARGET,f);return;}
+      }
+    }
+  });
+  function picStrip(l,cls){
+    var im=(l&&l.im)||[];if(!im.length)return "";
+    var out="";
+    for(var i=0;i<im.length;i++){
+      var d=IMGS[im[i]];
+      if(d)out+='<button class="lnthumb" data-pic="'+esc(im[i])+'" aria-label="Enlarge picture '+(i+1)+'"><img src="'+esc(d)+'" alt=""></button>';
+    }
+    return out?'<div class="lnthumbs'+(cls?" "+cls:"")+'">'+out+'</div>':"";
+  }
+  var PICTARGET=null;   // index of the lineup armed to receive the next paste / file pick
+  var LIGHT=null;       // id of the picture open in the lightbox
+  function showLightbox(id){
+    var el=document.getElementById("lightbox");if(!el)return;
+    var d=IMGS[id];if(!d)return;
+    LIGHT=id;
+    el.innerHTML='<img src="'+esc(d)+'" alt="Lineup picture"><div class="ml lbhint">TAP OR PRESS ESC TO CLOSE</div>';
+    el.classList.add("show");
+    el.onclick=hideLightbox;
+    if(!showLightbox._k){showLightbox._k=function(e){if(e.key==="Escape")hideLightbox();};document.addEventListener("keydown",showLightbox._k);}
+  }
+  function hideLightbox(){
+    var el=document.getElementById("lightbox");LIGHT=null;
+    if(el){el.classList.remove("show");el.innerHTML="";}
+    if(showLightbox._k){document.removeEventListener("keydown",showLightbox._k);showLightbox._k=null;}
+  }
+  // state + pictures together, for export and the desktop mirror. Pictures are kept OUT of
+  // localStorage, so a backup has to carry them explicitly or a restore would lose every one.
+  function stateForBackup(st){
+    var out={},k;
+    for(k in st)if(st.hasOwnProperty(k))out[k]=st[k];
+    var used={},any=false,lns=st.lineups||{};
+    for(var m in lns){var arr=lns[m]||[];
+      for(var i=0;i<arr.length;i++){var im=arr[i].im||[];
+        for(var j=0;j<im.length;j++)if(IMGS[im[j]]){used[im[j]]=IMGS[im[j]];any=true;}}}
+    if(any)out._images=used;
+    return out;
+  }
+  // pull pictures out of a restored backup into IndexedDB, and hand back state safe for localStorage
+  function takeBackupImages(o){
+    if(o&&o._images){
+      for(var id in o._images)if(typeof o._images[id]==="string")imgPut(id,o._images[id]);
+      delete o._images;
+    }
+    return o;
+  }
+
   /* ---------- v0.28: lineup spaced review ----------
      A light flashcard pass over the user's own saved lineups. Active recall: the card
      shows only the map + name; you say the throw out loud, THEN reveal and self-grade.
@@ -1909,7 +2081,8 @@
       '<p class="mhow" style="margin:6px 0 10px;">Say the throw out loud before you peek — recalling it is what makes it stick.</p>'+
       '<div class="lnrow" style="border-bottom:0;padding-bottom:0;"><div class="lnb">'+
         '<b>'+esc(cur.map.n).toUpperCase()+g+' — '+esc(cur.l.n)+'</b>'+
-        (revealed?'<span>'+esc(cur.l.t||"")+'</span>':'')+
+        // the picture IS the answer, so it stays hidden until you've had a go at recalling it
+        (revealed?'<span>'+esc(cur.l.t||"")+'</span>'+picStrip(cur.l,"big"):'')+
       '</div></div>'+
       (revealed
         ?'<div style="display:flex;gap:8px;margin-top:10px;"><button class="gbtn" data-lrok="1">GOT IT</button><button class="gbtn" data-lrno="1">SHAKY</button></div>'
@@ -1939,8 +2112,17 @@
       var hasGroups=order.some(function(g){return g;});
       lnList=order.map(function(g){
         var rows=groups[g].map(function(x){
-          return '<div class="lnrow"><div class="lnb"><b>'+esc(x.l.n)+(lineupIsDue(x.l,tk0)?' <span class="chip">DUE</span>':'')+'</b><span>'+esc(x.l.t||"")+'</span></div>'+
-            '<button class="lndel" data-lndel="'+x.i+'" aria-label="Delete this lineup">✕</button></div>';}).join("");
+          var nPic=((x.l.im||[]).length);
+          return '<div class="lnrow"><div class="lnb"><b>'+esc(x.l.n)+(lineupIsDue(x.l,tk0)?' <span class="chip">DUE</span>':'')+'</b><span>'+esc(x.l.t||"")+'</span>'+
+            picStrip(x.l)+
+            (nPic>=IMG_PER?''
+              :PICTARGET===x.i
+                ?'<div class="picarm"><div class="ml" style="color:var(--hero-ink);">PASTE IT NOW · CTRL+V</div>'+
+                   '<p class="help" style="margin:4px 0 8px;">Steam <b style="color:var(--text);">F12</b> or <b style="color:var(--text);">Win+Shift+S</b>, then paste. Or pick a file.</p>'+
+                   '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="gbtn" data-picfile="'+x.i+'">CHOOSE FILE</button>'+
+                   '<button class="gbtn" data-piccancel="1">CANCEL</button></div></div>'
+                :'<div style="margin-top:8px;"><button class="picadd" data-picadd="'+x.i+'">'+CAM+(nPic?'ADD ANOTHER':'ADD A PICTURE')+'</button></div>')+
+            '</div><button class="lndel" data-lndel="'+x.i+'" aria-label="Delete this lineup">✕</button></div>';}).join("");
         return (hasGroups?'<div class="ml" style="margin-top:10px;">'+(g?esc(g.toUpperCase()):'NO GROUP')+'</div>':'')+rows;
       }).join("");
     }else lnList='<p class="mhow" style="margin:0;">Nothing saved for '+esc(M.n)+' yet. Learn one in the Yprac Hub, then write it down here in your own words — writing it is what makes it stick.</p>';
@@ -1951,7 +2133,10 @@
         '<div class="field"><label for="lnG">Group — optional</label><input id="lnG" type="text" data-lngroup maxlength="24" placeholder="A executes"></div>'+
         '<button class="pbtn" data-lnadd="1">ADD</button>'+
       '</div>'+
-      '<p class="help" style="margin-top:8px;">Saved lineups come back for a quick recall check on a spaced schedule — the review card appears up top when one is due.</p></div>';
+      '<p class="help" style="margin-top:8px;">Add a picture to any lineup — paste a screenshot with <b style="color:var(--text);">Ctrl+V</b>, or use the button. Steam’s <b style="color:var(--text);">F12</b> or <b style="color:var(--text);">Win+Shift+S</b> grabs one in a second. Pictures stay on this device.</p>'+
+      '<a class="datarow" style="margin-top:8px;" href="https://csnades.gg/'+esc(sel)+'" target="_blank" rel="noopener noreferrer">'+CAM+'<span>Find '+esc(M.n)+' lineups<small>Opens csnades.gg — screenshot the throw, then paste it here</small></span></a>'+
+      '<p class="help" style="margin-top:8px;">Saved lineups come back for a quick recall check on a spaced schedule — the review card appears up top when one is due.</p>'+
+      '<input type="file" id="picF" accept="image/*" style="display:none;"></div>';
     var caveat='<p class="help" style="margin-top:10px;">These are the utility <em>jobs</em> that decide the map — deliberately not lineups. Exact throws are patch-specific, so learn them in <b style="color:var(--text);">Yprac Hub — utility mode, '+esc(M.n)+'</b> and save your own above.'+
       (M.note?' <b style="color:var(--text);">'+esc(M.note)+'</b>':'')+'</p>';
     // vault FIRST: mid-match you want your own throws one tap away, not under the prep
@@ -2710,7 +2895,24 @@
     var lndl=root.querySelectorAll("[data-lndel]");
     for(var ldi=0;ldi<lndl.length;ldi++)(function(b){b.onclick=function(){
       var s2=load(),m=s2.settings.mainMap||MAPS[0].id,ix=parseInt(b.getAttribute("data-lndel"),10);
-      if(s2.lineups&&s2.lineups[m]){s2.lineups[m].splice(ix,1);save(s2);render();}};})(lndl[ldi]);
+      if(s2.lineups&&s2.lineups[m]){
+        dropLineupPics(s2.lineups[m][ix]);        // no orphaned pictures left in IndexedDB
+        s2.lineups[m].splice(ix,1);save(s2);render();}};})(lndl[ldi]);
+    // pictures: arm a lineup, then paste a screenshot (Ctrl+V) or pick a file
+    var picAdd=root.querySelectorAll("[data-picadd]");
+    for(var pai=0;pai<picAdd.length;pai++)(function(b){b.onclick=function(){
+      PICTARGET=parseInt(b.getAttribute("data-picadd"),10);render();};})(picAdd[pai]);
+    var picCan=root.querySelector("[data-piccancel]");
+    if(picCan)picCan.onclick=function(){PICTARGET=null;render();};
+    var picFile=root.querySelector("[data-picfile]");
+    if(picFile)picFile.onclick=function(){var f=document.getElementById("picF");if(f){f.value="";f.click();}};
+    var picF=document.getElementById("picF");
+    if(picF)picF.onchange=function(e){
+      var f=e.target.files&&e.target.files[0];
+      if(f&&PICTARGET!==null)addLineupPic(load().settings.mainMap||MAPS[0].id,PICTARGET,f);
+    };
+    var pics=root.querySelectorAll("[data-pic]");
+    for(var pi=0;pi<pics.length;pi++)(function(b){b.onclick=function(){showLightbox(b.getAttribute("data-pic"));};})(pics[pi]);
     // lineup review deck: reveal, then self-grade. The answered card leaves the due list,
     // so render() naturally advances to the next one.
     var lrs=root.querySelector("[data-lrshow]");
@@ -2742,7 +2944,7 @@
         if(!confirm(summ)){inf.value="";return;}
         // coerce metrics to numbers — a hostile/old backup could carry strings (delta math + attribute safety)
         if(isObj(d2.metrics)){for(var mk in d2.metrics){var mm=d2.metrics[mk];if(!isObj(mm)){delete d2.metrics[mk];continue;}for(var pp in mm){var num=parseFloat(mm[pp]);if(isFinite(num))mm[pp]=num;else delete mm[pp];}}}
-        d2.settings=d2.settings||{};save(d2);inf.value="";render();
+        d2.settings=d2.settings||{};takeBackupImages(d2);save(d2);inf.value="";render();
       };
       rd.readAsText(f);};
     var rst=root.querySelector('[data-act="reset"]');
@@ -2937,13 +3139,18 @@
     // web: ask the browser to keep our storage persistent (less likely to be evicted).
     // Best-effort — installed PWAs are usually granted it; a plain tab may not be.
     if(!isNative){try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(_){}}
+    // lineup pictures live in IndexedDB (async) — pull them in, then repaint if we're already up
+    imgLoadAll().then(function(){
+      try{var a=document.getElementById("app");if(a&&a.style.display!=="none"&&load().plan)render();}catch(_){}
+    });
     if(st.plan){boot("today");return;}
     // No plan here. On desktop, the auto-backup file is what lets someone pick up where
     // they left off after a wiped cache or a reinstall — try it before showing the quiz.
     if(isNative){
       try{
         TAURI.core.invoke("backup_read").then(function(json){
-          try{if(json){var o=JSON.parse(json);if(o&&o.plan&&validBackup(o)){localStorage.setItem(KEY,json);applyTheme(curTheme(load()));boot("today");return;}}}catch(_){}
+          // strip the pictures back out into IndexedDB — they must never enter localStorage
+          try{if(json){var o=JSON.parse(json);if(o&&o.plan&&validBackup(o)){takeBackupImages(o);localStorage.setItem(KEY,JSON.stringify(o));applyTheme(curTheme(load()));boot("today");return;}}}catch(_){}
           renderOnboard();
         },function(){renderOnboard();});
         return;
@@ -2976,7 +3183,8 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
+    stateForBackup:stateForBackup,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER};
 })();
 </script>
 </body>

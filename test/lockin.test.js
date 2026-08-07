@@ -52,7 +52,8 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag,
         curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements,
         weeklyRecap, recapCard, debriefCard, applyGsiMatch,
-        LSRS, srsAnswer, dueLineups, lineupIsDue, lineupReviewCard } = sandbox.module.exports;
+        LSRS, srsAnswer, dueLineups, lineupIsDue, lineupReviewCard,
+        stateForBackup, takeBackupImages, picStrip, IMGS, IMG_PER } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -846,7 +847,8 @@ ok('desktop mirrors state to a file and restores it when localStorage is empty',
 ok('the backup restore only fires when there is no local plan (localStorage stays authoritative)', (function () {
   // in the init: restore is inside the `if(st.plan){...return}` else-path, gated on isNative
   return /if\(st\.plan\)\{boot\("today"\);return;\}/.test(script) &&
-         /backup_read[\s\S]*?localStorage\.setItem\(KEY,json\)/.test(script);
+         // pictures are pulled back out to IndexedDB before the state hits localStorage
+         /backup_read[\s\S]*?takeBackupImages\(o\);localStorage\.setItem\(KEY,JSON\.stringify\(o\)\)/.test(script);
 })());
 ok('web asks the browser to keep storage persistent', (function () {
   return script.indexOf('navigator.storage') >= 0 && script.indexOf('.persist(') >= 0;
@@ -1385,6 +1387,65 @@ ok('mid-match lookup: your lineups sit at the TOP of the map screen, before the 
 ok('the honest label ships with the deck — spacing science solid, lineups our adaptation', (function () {
   var h = lineupReviewCard({ lineups: (function (o) { o[MAPS[0].id] = [{ n: 'a', t: 'b' }]; return o; })({}) }, true);
   return /our adaptation/i.test(h) && /proven for remembering facts/i.test(h);
+})());
+
+// --- v0.29: lineup pictures ---
+ok('pictures NEVER enter localStorage — they live in IndexedDB, keyed off the lineup', (function () {
+  // the whole point: localStorage is a ~5MB budget shared across the origin
+  return /indexedDB\.open\("lockin-img"/.test(script) &&
+         script.indexOf('localStorage.setItem(KEY,JSON.stringify(stateForBackup') < 0 &&
+         /function save\(st\)\{mem=st;try\{localStorage\.setItem\(KEY,JSON\.stringify\(st\)\)/.test(script);
+})());
+ok('a backup carries the pictures of saved lineups, and only those', (function () {
+  IMGS.im_a = 'data:image/webp;base64,AAA';
+  IMGS.im_orphan = 'data:image/webp;base64,ZZZ';         // not referenced by any lineup
+  var st = { lineups: {}, sessions: {} };
+  st.lineups[MAPS[0].id] = [{ n: 'a', t: 'b', im: ['im_a'] }];
+  var b = stateForBackup(st);
+  var okOne = b._images && b._images.im_a === 'data:image/webp;base64,AAA' && !b._images.im_orphan;
+  delete IMGS.im_a; delete IMGS.im_orphan;
+  return okOne && b.lineups === st.lineups;               // state itself passes through untouched
+})());
+ok('a state with no pictures produces no _images key (backups stay small)', (function () {
+  var st = { lineups: {}, sessions: {} };
+  st.lineups[MAPS[0].id] = [{ n: 'a', t: 'b' }];
+  return stateForBackup(st)._images === undefined;
+})());
+ok('restoring a backup strips _images out of the state before it can reach localStorage', (function () {
+  var o = { plan: null, sessions: {}, _images: { im_x: 'data:image/webp;base64,QQQ' } };
+  var clean = takeBackupImages(o);
+  var stripped = clean._images === undefined && !('_images' in clean);
+  var landed = IMGS.im_x === 'data:image/webp;base64,QQQ';   // and went to the picture store instead
+  delete IMGS.im_x;
+  return stripped && landed;
+})());
+ok('thumbnails render only for pictures we actually hold, and the src is escaped', (function () {
+  IMGS.im_ok = 'data:image/webp;base64,AAA';
+  var h = picStrip({ im: ['im_ok', 'im_missing'] });      // one present, one lost
+  var one = (h.match(/<img /g) || []).length === 1;
+  delete IMGS.im_ok;
+  return one && h.indexOf('data-pic="im_ok"') >= 0 && h.indexOf('im_missing') < 0;
+})());
+ok('no pictures → no thumbnail strip at all', picStrip({}) === '' && picStrip({ im: [] }) === '');
+ok('the recall card keeps pictures hidden until reveal — the picture IS the answer', (function () {
+  IMGS.im_p = 'data:image/webp;base64,AAA';
+  var st = { lineups: {} };
+  st.lineups[MAPS[0].id] = [{ n: 'A smoke', t: 'from spawn', im: ['im_p'] }];
+  var hidden = lineupReviewCard(st, false), shown = lineupReviewCard(st, true);
+  delete IMGS.im_p;
+  return hidden.indexOf('<img') < 0 && shown.indexOf('<img') >= 0 && shown.indexOf('lnthumbs big') >= 0;
+})());
+ok('pictures are capped per lineup and downscaled on the way in', (function () {
+  return IMG_PER === 4 && /IMG_MAXW=1100/.test(script) &&
+         /if\(l\.im\.length>=IMG_PER\)return/.test(script) &&
+         /toDataURL\("image\/webp"/.test(script) && /toDataURL\("image\/jpeg"/.test(script);
+})());
+ok('deleting a lineup deletes its pictures (no orphans left behind)', (function () {
+  return /dropLineupPics\(s2\.lineups\[m\]\[ix\]\)[\s\S]{0,80}splice\(ix,1\)/.test(script);
+})());
+ok('paste only fires into an armed lineup, and the map links point at a real per-map source', (function () {
+  return /addEventListener\("paste"/.test(script) && /if\(PICTARGET===null\|\|!e\.clipboardData\)return/.test(script) &&
+         /https:\/\/csnades\.gg\/'\+esc\(sel\)/.test(script);
 })());
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
