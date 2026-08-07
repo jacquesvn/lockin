@@ -579,7 +579,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.27.0";
+  var VERSION="0.28.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -1807,7 +1807,11 @@
     // welcome-back; otherwise a due plan-review; otherwise the weekly recap.
     var pr=planReview(st,now);
     var recap=(!lapse&&!pr)?weeklyRecap(st,now):null;
-    return hd+hero+lapseCard(lapse)+reviewCard(st,pr)+recapCard(st,recap)+cuebar+body+'<div class="motto">LOCKIN · TEN FOCUSED MINUTES BEATS A SKIPPED HOUR</div>';
+    // only lineup users ever see this — invisible until something is actually due
+    var lnDue=dueLineups(st,now).length;
+    var lnrev=lnDue?'<button class="card ptrcard" data-go="maps" style="margin-bottom:12px;"><div><div class="ml" style="color:var(--hero-ink);">LINEUP REVIEW · '+lnDue+' DUE ▸</div>'+
+      '<p class="mhow" style="margin:4px 0 0;">A quick recall check on your saved throws — on the <b style="color:var(--text);">Maps</b> tab.</p></div><span class="ptrchev">›</span></button>':'';
+    return hd+hero+lapseCard(lapse)+reviewCard(st,pr)+recapCard(st,recap)+cuebar+lnrev+body+'<div class="motto">LOCKIN · TEN FOCUSED MINUTES BEATS A SKIPPED HOUR</div>';
   }
 
   /* ---------- PLAN ---------- */
@@ -1871,7 +1875,48 @@
   }
   function htmlMaps(st){
     var hd='<div class="hd"><div><div class="ml">PRACTICE &amp; DOWNLOADS</div><h1 class="dsp">MAPS</h1></div></div>';
-    return hd+mapPrep(st)+practiceCard();
+    return hd+lineupReviewCard(st,LREV)+mapPrep(st)+practiceCard();
+  }
+  /* ---------- v0.28: lineup spaced review ----------
+     A light flashcard pass over the user's own saved lineups. Active recall: the card
+     shows only the map + name; you say the throw out loud, THEN reveal and self-grade.
+     Fixed ladder (days below) — GOT IT climbs a rung, SHAKY drops back to the start, so
+     each throw comes back right before you'd forget it. Honest labelling: the spacing
+     science is solid for remembering facts; applying it to lineups is our adaptation. */
+  var LSRS=[1,3,7,14,30];
+  // a lineup with no review record is due immediately — it was just learned
+  function lineupIsDue(l,tk){var d=l&&l.srs&&l.srs.due;return !d||d<=tk;}
+  function dueLineups(st,now){
+    var tk=dateKey(now||new Date()),out=[],lns=st.lineups||{};
+    for(var i=0;i<MAPS.length;i++){var arr=lns[MAPS[i].id]||[];
+      for(var j=0;j<arr.length;j++)if(lineupIsDue(arr[j],tk))out.push({map:MAPS[i],idx:j,l:arr[j]});}
+    return out;
+  }
+  // self-grade the current card: climb or reset the ladder and schedule the next review
+  function srsAnswer(l,ok,now){
+    var s=(ok&&l.srs)?Math.min(l.srs.s+1,LSRS.length-1):0;
+    l.srs={s:s,due:dateKey(addDays(now||new Date(),LSRS[s]))};
+    return l;
+  }
+  var LREV=false;   // is the current review card's throw revealed?
+  function lineupReviewCard(st,revealed){
+    var due=dueLineups(st);
+    if(!due.length)return "";
+    var cur=due[0],more=due.length-1;
+    var g=cur.l.g?' · '+esc(String(cur.l.g).toUpperCase()):'';
+    return '<div class="card" style="margin-bottom:10px;">'+
+      '<div class="ml" style="color:var(--hero-ink);">LINEUP REVIEW · '+due.length+' DUE</div>'+
+      '<p class="mhow" style="margin:6px 0 10px;">Say the throw out loud before you peek — recalling it is what makes it stick.</p>'+
+      '<div class="lnrow" style="border-bottom:0;padding-bottom:0;"><div class="lnb">'+
+        '<b>'+esc(cur.map.n).toUpperCase()+g+' — '+esc(cur.l.n)+'</b>'+
+        (revealed?'<span>'+esc(cur.l.t||"")+'</span>':'')+
+      '</div></div>'+
+      (revealed
+        ?'<div style="display:flex;gap:8px;margin-top:10px;"><button class="gbtn" data-lrok="1">GOT IT</button><button class="gbtn" data-lrno="1">SHAKY</button></div>'
+        :'<div style="margin-top:10px;"><button class="pbtn" data-lrshow="1">SHOW THE THROW</button></div>')+
+      (more>0?'<p class="help" style="margin:8px 0 0;">'+more+' more after this one.</p>':'')+
+      '<p class="help" style="margin:8px 0 0;">Got it right? It comes back later (1 → 3 → 7 → 14 → 30 days). Shaky? Tomorrow again. Spacing reviews out is proven for remembering facts — using it for lineups is our adaptation.</p>'+
+    '</div>';
   }
   function mapPrep(st){
     var sel=(st.settings&&st.settings.mainMap)||MAPS[0].id,M=null;
@@ -1885,20 +1930,33 @@
     var ctSide='<div class="card" style="margin-top:10px;"><div class="ml">CT SIDE · WHAT TO DENY</div>'+jobList(M.ct)+'</div>';
     var routes='<div class="card" style="margin-top:10px;"><div class="ml">PREFIRE ROUTES · WHERE THE CROSSHAIR RIDES</div>'+
       M.r.map(function(x){return '<div class="rt"><b>'+esc(x[0])+'</b><span>'+esc(x[1])+'</span></div>';}).join("")+'</div>';
-    var lns=((st.lineups||{})[sel])||[];
-    var lnList=lns.length?lns.map(function(l,i){
-        return '<div class="lnrow"><div class="lnb"><b>'+esc(l.n)+'</b><span>'+esc(l.t||"")+'</span></div>'+
-          '<button class="lndel" data-lndel="'+i+'" aria-label="Delete this lineup">✕</button></div>';}).join("")
-      :'<p class="mhow" style="margin:0;">Nothing saved for '+esc(M.n)+' yet. Learn one in the Yprac Hub, then write it down here in your own words — writing it is what makes it stick.</p>';
+    var lns=((st.lineups||{})[sel])||[],tk0=dateKey(new Date());
+    var lnList;
+    if(lns.length){
+      // cluster by group, first-seen order; headings only once any group exists
+      var groups={},order=[];
+      lns.forEach(function(l,i){var g=(l.g||"").trim();if(!(g in groups)){groups[g]=[];order.push(g);}groups[g].push({l:l,i:i});});
+      var hasGroups=order.some(function(g){return g;});
+      lnList=order.map(function(g){
+        var rows=groups[g].map(function(x){
+          return '<div class="lnrow"><div class="lnb"><b>'+esc(x.l.n)+(lineupIsDue(x.l,tk0)?' <span class="chip">DUE</span>':'')+'</b><span>'+esc(x.l.t||"")+'</span></div>'+
+            '<button class="lndel" data-lndel="'+x.i+'" aria-label="Delete this lineup">✕</button></div>';}).join("");
+        return (hasGroups?'<div class="ml" style="margin-top:10px;">'+(g?esc(g.toUpperCase()):'NO GROUP')+'</div>':'')+rows;
+      }).join("");
+    }else lnList='<p class="mhow" style="margin:0;">Nothing saved for '+esc(M.n)+' yet. Learn one in the Yprac Hub, then write it down here in your own words — writing it is what makes it stick.</p>';
     var vault='<div class="card" style="margin-top:10px;"><div class="ml">YOUR '+esc(M.n).toUpperCase()+' LINEUPS · '+lns.length+'</div>'+lnList+
       '<div class="lnadd">'+
         '<div class="field"><label for="lnN">Name</label><input id="lnN" type="text" data-lnname placeholder="A exec — CT smoke"></div>'+
         '<div class="field"><label for="lnT">How you throw it</label><input id="lnT" type="text" data-lntext placeholder="T spawn, line up on the antenna, jump-throw"></div>'+
+        '<div class="field"><label for="lnG">Group — optional</label><input id="lnG" type="text" data-lngroup maxlength="24" placeholder="A executes"></div>'+
         '<button class="pbtn" data-lnadd="1">ADD</button>'+
-      '</div></div>';
+      '</div>'+
+      '<p class="help" style="margin-top:8px;">Saved lineups come back for a quick recall check on a spaced schedule — the review card appears up top when one is due.</p></div>';
     var caveat='<p class="help" style="margin-top:10px;">These are the utility <em>jobs</em> that decide the map — deliberately not lineups. Exact throws are patch-specific, so learn them in <b style="color:var(--text);">Yprac Hub — utility mode, '+esc(M.n)+'</b> and save your own above.'+
       (M.note?' <b style="color:var(--text);">'+esc(M.note)+'</b>':'')+'</p>';
-    return '<div class="divi"><span class="ml" role="heading" aria-level="2">MAP PREP · ACTIVE DUTY</span></div>'+chips+tSide+ctSide+routes+vault+caveat;
+    // vault FIRST: mid-match you want your own throws one tap away, not under the prep
+    // content — pick the map chip, read the throw. Jobs/routes are pre-game reading.
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">MAP PREP · ACTIVE DUTY</span></div>'+chips+vault+tSide+ctSide+routes+caveat;
   }
   // read-ahead depth for the Plan surfaces (drill library + protocol card):
   // the mindset to hold, a good rep, a bad rep — the same facts as the live drill
@@ -2642,16 +2700,30 @@
       var s2=load();s2.settings.mainMap=b.getAttribute("data-map");save(s2);render();};})(mch[mci]);
     var lnadd=root.querySelector("[data-lnadd]");
     if(lnadd)lnadd.onclick=function(){
-      var nEl=root.querySelector("[data-lnname]"),tEl=root.querySelector("[data-lntext]");
-      var n=((nEl&&nEl.value)||"").trim(),t=((tEl&&tEl.value)||"").trim();
+      var nEl=root.querySelector("[data-lnname]"),tEl=root.querySelector("[data-lntext]"),gEl=root.querySelector("[data-lngroup]");
+      var n=((nEl&&nEl.value)||"").trim(),t=((tEl&&tEl.value)||"").trim(),g=((gEl&&gEl.value)||"").trim().slice(0,24);
       if(!n){if(nEl)nEl.focus();return;}                       // a lineup needs a name to be findable
       var s2=load(),m=s2.settings.mainMap||MAPS[0].id;
       s2.lineups=s2.lineups||{};s2.lineups[m]=s2.lineups[m]||[];
-      s2.lineups[m].push({n:n,t:t});save(s2);render();};
+      // no srs on a fresh lineup = due immediately — the first recall check IS the learning rep
+      s2.lineups[m].push({n:n,t:t,g:g});save(s2);render();};
     var lndl=root.querySelectorAll("[data-lndel]");
     for(var ldi=0;ldi<lndl.length;ldi++)(function(b){b.onclick=function(){
       var s2=load(),m=s2.settings.mainMap||MAPS[0].id,ix=parseInt(b.getAttribute("data-lndel"),10);
       if(s2.lineups&&s2.lineups[m]){s2.lineups[m].splice(ix,1);save(s2);render();}};})(lndl[ldi]);
+    // lineup review deck: reveal, then self-grade. The answered card leaves the due list,
+    // so render() naturally advances to the next one.
+    var lrs=root.querySelector("[data-lrshow]");
+    if(lrs)lrs.onclick=function(){LREV=true;render();};
+    function lrAnswer(ok){
+      var s2=load(),due=dueLineups(s2);if(!due.length)return;
+      var cur=due[0];srsAnswer(s2.lineups[cur.map.id][cur.idx],ok,new Date());
+      save(s2);LREV=false;render();
+    }
+    var lro=root.querySelector("[data-lrok]");
+    if(lro)lro.onclick=function(){lrAnswer(true);};
+    var lrn=root.querySelector("[data-lrno]");
+    if(lrn)lrn.onclick=function(){lrAnswer(false);};
     var dr=root.querySelectorAll("[data-drill]");
     for(var d=0;d<dr.length;d++)(function(b){b.onclick=function(){toggleDrill(parseInt(b.getAttribute("data-drill"),10));};})(dr[d]);
     var fb=root.querySelectorAll("[data-feel]");
@@ -2904,7 +2976,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch};
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard};
 })();
 </script>
 </body>

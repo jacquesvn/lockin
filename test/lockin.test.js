@@ -51,7 +51,8 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
         lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag,
         curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements,
-        weeklyRecap, recapCard, debriefCard, applyGsiMatch } = sandbox.module.exports;
+        weeklyRecap, recapCard, debriefCard, applyGsiMatch,
+        LSRS, srsAnswer, dueLineups, lineupIsDue, lineupReviewCard } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -1321,6 +1322,69 @@ ok('long unbreakable user text wraps instead of forcing horizontal scroll', (fun
 })());
 ok('best streak honors the freeze budget the live streak uses (record can’t go backwards)', (function () {
   return /function bestStreak\(st\)\{[\s\S]*?freezeBudget\(st\)[\s\S]*?computeStreak\(st,parseKey\(keys\[i\]\),fb\)/.test(script);
+})());
+
+// --- v0.28: lineup library groups + spaced review ---
+ok('a fresh lineup is due immediately; got-it climbs the ladder 1→3→7→14→30 and caps', (function () {
+  if (String(LSRS) !== '1,3,7,14,30') return false;
+  var l = { n: 'x', t: 'y' };
+  if (!lineupIsDue(l, '2026-08-07')) return false;
+  srsAnswer(l, true, new Date(2026, 7, 7));   // first success → +1 day
+  if (l.srs.s !== 0 || l.srs.due !== '2026-08-08') return false;
+  srsAnswer(l, true, new Date(2026, 7, 8));   // → +3
+  if (l.srs.s !== 1 || l.srs.due !== '2026-08-11') return false;
+  srsAnswer(l, true, new Date(2026, 7, 11));  // → +7
+  srsAnswer(l, true, new Date(2026, 7, 18));  // → +14
+  if (l.srs.s !== 3 || l.srs.due !== '2026-09-01') return false;
+  srsAnswer(l, true, new Date(2026, 8, 1));   // → +30
+  if (l.srs.s !== 4 || l.srs.due !== '2026-10-01') return false;
+  srsAnswer(l, true, new Date(2026, 9, 1));   // capped at the 30-day rung
+  return l.srs.s === 4 && l.srs.due === '2026-10-31';
+})());
+ok('shaky drops back to the start of the ladder (tomorrow again)', (function () {
+  var l = { n: 'x', srs: { s: 3, due: '2026-08-01' } };
+  srsAnswer(l, false, new Date(2026, 7, 7));
+  return l.srs.s === 0 && l.srs.due === '2026-08-08';
+})());
+ok('the due list spans every map and skips throws not yet due', (function () {
+  var st = { lineups: {} };
+  st.lineups[MAPS[0].id] = [{ n: 'a', t: '' }];                                  // never reviewed → due
+  st.lineups[MAPS[1].id] = [{ n: 'b', t: '', srs: { s: 1, due: '2099-01-01' } },
+                            { n: 'c', t: '', srs: { s: 0, due: '2020-01-01' } }];
+  var due = dueLineups(st, new Date(2026, 7, 7));
+  return due.length === 2 && due[0].l.n === 'a' && due[1].l.n === 'c';
+})());
+ok('the review card is recall-first: throw hidden until revealed, then a self-grade', (function () {
+  var st = { lineups: {} };
+  st.lineups[MAPS[0].id] = [{ n: 'A exec smoke', t: 'stand on the box, aim at antenna', g: 'A executes' }];
+  var hidden = lineupReviewCard(st, false), shown = lineupReviewCard(st, true);
+  return hidden.indexOf('antenna') < 0 && hidden.indexOf('data-lrshow') >= 0 &&
+         shown.indexOf('antenna') >= 0 && shown.indexOf('data-lrok') >= 0 && shown.indexOf('data-lrno') >= 0 &&
+         shown.indexOf('A EXECUTES') >= 0;
+})());
+ok('nothing due → no review card, and Today only points at Maps when something is due', (function () {
+  var st = { lineups: {} };
+  st.lineups[MAPS[0].id] = [{ n: 'a', t: '', srs: { s: 1, due: '2099-01-01' } }];
+  return lineupReviewCard(st, false) === '' &&
+         /var lnDue=dueLineups\(st,now\)\.length/.test(script) &&
+         /lnDue\?'<button class="card ptrcard" data-go="maps"/.test(script);
+})());
+ok('adding a lineup stores its optional group; the vault clusters by group', (function () {
+  return /push\(\{n:n,t:t,g:g\}\)/.test(script) && script.indexOf('data-lngroup') >= 0 && /hasGroups/.test(script);
+})());
+ok('the review card escapes user text — name, group and throw are all inert', (function () {
+  var st = { lineups: {} };
+  st.lineups[MAPS[0].id] = [{ n: '<img src=x onerror=1>', t: '<b>throw</b>', g: '<i>g</i>' }];
+  var shown = lineupReviewCard(st, true);
+  return shown.indexOf('<img') < 0 && shown.indexOf('<b>throw') < 0 && shown.indexOf('<I>') < 0 &&
+         shown.indexOf('&lt;img') >= 0;
+})());
+ok('mid-match lookup: your lineups sit at the TOP of the map screen, before the prep content', (function () {
+  return /chips\+vault\+tSide\+ctSide\+routes\+caveat/.test(script);
+})());
+ok('the honest label ships with the deck — spacing science solid, lineups our adaptation', (function () {
+  var h = lineupReviewCard({ lineups: (function (o) { o[MAPS[0].id] = [{ n: 'a', t: 'b' }]; return o; })({}) }, true);
+  return /our adaptation/i.test(h) && /proven for remembering facts/i.test(h);
 })());
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
