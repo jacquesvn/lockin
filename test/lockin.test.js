@@ -53,7 +53,8 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements,
         weeklyRecap, recapCard, debriefCard, applyGsiMatch,
         LSRS, srsAnswer, dueLineups, lineupIsDue, lineupReviewCard,
-        stateForBackup, takeBackupImages, picStrip, IMGS, IMG_PER } = sandbox.module.exports;
+        stateForBackup, takeBackupImages, picStrip, IMGS, IMG_PER,
+        picSlots, picRole, PICROLE } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
 function ok(n, c) { if (c) { pass++; console.log('  ok  ' + n); } else { fail++; console.log('FAIL  ' + n); } }
@@ -1446,6 +1447,46 @@ ok('deleting a lineup deletes its pictures (no orphans left behind)', (function 
 ok('paste only fires into an armed lineup, and the map links point at a real per-map source', (function () {
   return /addEventListener\("paste"/.test(script) && /if\(PICTARGET===null\|\|!e\.clipboardData\)return/.test(script) &&
          /https:\/\/csnades\.gg\/'\+esc\(sel\)/.test(script);
+})());
+// --- v0.30: two frames (stand / aim) is the baseline for a lineup ---
+ok('both baseline slots always show — an empty lineup displays its own two gaps', (function () {
+  var h = picSlots({}, 0);
+  var empties = (h.match(/class="picslot empty"/g) || []).length;
+  return PICROLE.length === 2 && empties === 2 &&
+         h.indexOf('STAND HERE') >= 0 && h.indexOf('AIM HERE') >= 0 &&
+         h.indexOf('data-picslot="0"') >= 0 && h.indexOf('data-picslot="1"') >= 0;
+})());
+ok('one picture in → the aim slot is still shown as an open gap, not hidden', (function () {
+  IMGS.im_s = 'data:image/webp;base64,AAA';
+  var h = picSlots({ im: ['im_s'] }, 0);
+  delete IMGS.im_s;
+  return (h.match(/<img /g) || []).length === 1 &&
+         (h.match(/class="picslot empty"/g) || []).length === 1 && h.indexOf('AIM HERE') >= 0;
+})());
+ok('the pair is labelled stand/aim; extras beyond two are just EXTRA', (function () {
+  return picRole(0) === 'STAND HERE' && picRole(1) === 'AIM HERE' &&
+         picRole(2) === 'EXTRA' && picRole(3) === 'EXTRA';
+})());
+ok('a full pair shows no empty slots and offers ADD ANOTHER only past the baseline', (function () {
+  IMGS.im_a = 'data:image/webp;base64,AAA'; IMGS.im_b = 'data:image/webp;base64,BBB';
+  var h = picSlots({ im: ['im_a', 'im_b'] }, 0);
+  delete IMGS.im_a; delete IMGS.im_b;
+  return h.indexOf('picslot empty') < 0 && (h.match(/<img /g) || []).length === 2 &&
+         /nPic>=PICROLE\.length&&nPic<IMG_PER[\s\S]{0,220}ADD ANOTHER/.test(script);
+})());
+ok('a single frame can be removed without losing the lineup or its other frame', (function () {
+  IMGS.im_a = 'data:image/webp;base64,AAA';
+  var h = picSlots({ im: ['im_a'] }, 3);
+  delete IMGS.im_a;
+  return h.indexOf('data-picdel="3:0"') >= 0 &&
+         /imgDrop\(l\.im\[ii\]\);l\.im\.splice\(ii,1\)/.test(script);   // drops the picture too, no orphan
+})());
+ok('after the first shot it arms the second — the pair completes without hunting for a button', (function () {
+  return /var next=l\.im\.length;[\s\S]{0,160}PICTARGET=\(next<PICROLE\.length\)\?idx:null/.test(script) &&
+         /PICSLOT=\(next<PICROLE\.length\)\?next:null/.test(script);
+})());
+ok('the arm prompt names the frame it is asking for', (function () {
+  return /PASTE THE “'\+role\+'” SHOT/.test(script) && /var role=picRole\(Math\.min\(/.test(script);
 })());
 ok('the find-lineups action is a hero-yellow button sitting right under the list, not a grey row', (function () {
   return /\.findbtn\{[^}]*background:var\(--hero\)/.test(html) &&

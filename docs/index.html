@@ -478,7 +478,23 @@
   .lnrow .lnb b{display:block;font-size:13px;font-weight:600;overflow-wrap:anywhere;}
   .lnrow .lnb span{display:block;font-size:12px;color:var(--muted);margin-top:2px;white-space:pre-wrap;word-break:break-word;}
   /* lineup pictures: thumbnails big enough to recognise a spot at a glance, tap to enlarge */
-  .lnthumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .lnthumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+  /* the stand/aim pair reads as one unit: two equal columns, both always present in the vault */
+  .picslots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px;}
+  .picslot{min-width:0;}
+  .picslot .lnthumb{width:100%;}
+  .picslot .lnthumb img{width:100%;height:104px;}
+  .picslot.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:104px;
+    border:1px dashed var(--line);border-radius:8px;background:transparent;color:var(--faint);cursor:pointer;
+    font-family:var(--fm);font-size:9.5px;letter-spacing:0.1em;}
+  .picslot.empty:hover{border-color:var(--hero);color:var(--text);}
+  .picslot.empty svg{width:16px;height:16px;}
+  .pslab{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:4px;
+    font-family:var(--fm);font-size:9.5px;letter-spacing:0.1em;color:var(--faint);}
+  .psdel{background:none;border:0;color:var(--faint);cursor:pointer;font-size:12px;line-height:1;padding:2px 4px;}
+  .psdel:hover{color:var(--bad);}
+  .lnthumbs.big .picslot .lnthumb img{width:100%;height:150px;}
+  .lnthumbs.big{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
   .lnthumb{padding:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface);cursor:pointer;line-height:0;}
   .lnthumb:hover{border-color:var(--hero);}
   .lnthumb img{width:118px;height:70px;object-fit:cover;display:block;}
@@ -605,7 +621,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.29.1";
+  var VERSION="0.30.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -1996,7 +2012,10 @@
       var id="im_"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
       l.im.push(id);
       imgPut(id,data);
-      PICTARGET=null;
+      // straight on to the aim frame if the pair isn't complete — two is the baseline
+      var next=l.im.length;
+      PICTARGET=(next<PICROLE.length)?idx:null;
+      PICSLOT=(next<PICROLE.length)?next:null;
       save(st);render();
     });
   }
@@ -2013,16 +2032,39 @@
       }
     }
   });
+  // Two frames is the baseline for a lineup: where you stand, and where you aim. Anything
+  // past that is a bonus (the landing, a mid-air marker), so only the first two get a role.
+  var PICROLE=["STAND HERE","AIM HERE"];
+  function picRole(i){return PICROLE[i]||"EXTRA";}
+  // read-only strip (the recall reveal) — labelled so the pair reads as stand/aim, not two photos
   function picStrip(l,cls){
     var im=(l&&l.im)||[];if(!im.length)return "";
     var out="";
     for(var i=0;i<im.length;i++){
       var d=IMGS[im[i]];
-      if(d)out+='<button class="lnthumb" data-pic="'+esc(im[i])+'" aria-label="Enlarge picture '+(i+1)+'"><img src="'+esc(d)+'" alt=""></button>';
+      if(d)out+='<div class="picslot"><button class="lnthumb" data-pic="'+esc(im[i])+'" aria-label="Enlarge: '+picRole(i)+'"><img src="'+esc(d)+'" alt=""></button>'+
+        '<div class="pslab">'+picRole(i)+'</div></div>';
     }
     return out?'<div class="lnthumbs'+(cls?" "+cls:"")+'">'+out+'</div>':"";
   }
+  // editable slots in the vault: both baseline slots are ALWAYS shown, so a lineup missing its
+  // aim frame displays its own gap instead of looking finished.
+  function picSlots(l,li){
+    var im=(l&&l.im)||[],out="",n=Math.min(IMG_PER,Math.max(PICROLE.length,im.length));
+    for(var i=0;i<n;i++){
+      var id=im[i],d=id&&IMGS[id];
+      if(d){
+        out+='<div class="picslot"><button class="lnthumb" data-pic="'+esc(id)+'" aria-label="Enlarge: '+picRole(i)+'"><img src="'+esc(d)+'" alt=""></button>'+
+          '<div class="pslab"><span>'+picRole(i)+'</span>'+
+          '<button class="psdel" data-picdel="'+li+':'+i+'" aria-label="Remove the '+picRole(i)+' picture">✕</button></div></div>';
+      }else{
+        out+='<button class="picslot empty" data-picadd="'+li+'" data-picslot="'+i+'">'+CAM+'<span>'+picRole(i)+'</span></button>';
+      }
+    }
+    return '<div class="picslots">'+out+'</div>';
+  }
   var PICTARGET=null;   // index of the lineup armed to receive the next paste / file pick
+  var PICSLOT=null;     // which frame that paste is meant to fill (stand / aim / extra)
   var LIGHT=null;       // id of the picture open in the lightbox
   function showLightbox(id){
     var el=document.getElementById("lightbox");if(!el)return;
@@ -2123,15 +2165,18 @@
       lnList=order.map(function(g){
         var rows=groups[g].map(function(x){
           var nPic=((x.l.im||[]).length);
+          // the slot you armed can't be past the end of the list, so name the frame you'll actually fill
+          var role=picRole(Math.min(PICSLOT===null?nPic:PICSLOT,nPic));
           return '<div class="lnrow"><div class="lnb"><b>'+esc(x.l.n)+(lineupIsDue(x.l,tk0)?' <span class="chip">DUE</span>':'')+'</b><span>'+esc(x.l.t||"")+'</span>'+
-            picStrip(x.l)+
-            (nPic>=IMG_PER?''
-              :PICTARGET===x.i
-                ?'<div class="picarm"><div class="ml" style="color:var(--hero-ink);">PASTE IT NOW · CTRL+V</div>'+
-                   '<p class="help" style="margin:4px 0 8px;">Steam <b style="color:var(--text);">F12</b> or <b style="color:var(--text);">Win+Shift+S</b>, then paste. Or pick a file.</p>'+
-                   '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="gbtn" data-picfile="'+x.i+'">CHOOSE FILE</button>'+
-                   '<button class="gbtn" data-piccancel="1">CANCEL</button></div></div>'
-                :'<div style="margin-top:8px;"><button class="picadd" data-picadd="'+x.i+'">'+CAM+(nPic?'ADD ANOTHER':'ADD A PICTURE')+'</button></div>')+
+            picSlots(x.l,x.i)+
+            (PICTARGET===x.i
+              ?'<div class="picarm"><div class="ml" style="color:var(--hero-ink);">PASTE THE “'+role+'” SHOT · CTRL+V</div>'+
+                 '<p class="help" style="margin:4px 0 8px;">Steam <b style="color:var(--text);">F12</b> or <b style="color:var(--text);">Win+Shift+S</b>, then paste. Or pick a file.</p>'+
+                 '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="gbtn" data-picfile="'+x.i+'">CHOOSE FILE</button>'+
+                 '<button class="gbtn" data-piccancel="1">CANCEL</button></div></div>'
+              :(nPic>=PICROLE.length&&nPic<IMG_PER
+                  ?'<div style="margin-top:8px;"><button class="picadd" data-picadd="'+x.i+'" data-picslot="'+nPic+'">'+CAM+'ADD ANOTHER</button></div>'
+                  :''))+
             '</div><button class="lndel" data-lndel="'+x.i+'" aria-label="Delete this lineup">✕</button></div>';}).join("");
         return (hasGroups?'<div class="ml" style="margin-top:10px;">'+(g?esc(g.toUpperCase()):'NO GROUP')+'</div>':'')+rows;
       }).join("");
@@ -2148,7 +2193,7 @@
         '<div class="field"><label for="lnG">Group — optional</label><input id="lnG" type="text" data-lngroup maxlength="24" placeholder="A executes"></div>'+
         '<button class="pbtn" data-lnadd="1">ADD</button>'+
       '</div>'+
-      '<p class="help" style="margin-top:8px;">Add a picture to any lineup — paste a screenshot with <b style="color:var(--text);">Ctrl+V</b>, or use the button. Steam’s <b style="color:var(--text);">F12</b> or <b style="color:var(--text);">Win+Shift+S</b> grabs one in a second. Pictures stay on this device.</p>'+
+      '<p class="help" style="margin-top:8px;">Two shots is what a lineup needs: <b style="color:var(--text);">where you stand</b> and <b style="color:var(--text);">where you aim</b>. Tap a slot, then paste with <b style="color:var(--text);">Ctrl+V</b> — Steam’s <b style="color:var(--text);">F12</b> or <b style="color:var(--text);">Win+Shift+S</b> grabs one in a second. Pictures stay on this device.</p>'+
       '<p class="help" style="margin-top:8px;">Saved lineups come back for a quick recall check on a spaced schedule — the review card appears up top when one is due.</p>'+
       '<input type="file" id="picF" accept="image/*" style="display:none;"></div>';
     var caveat='<p class="help" style="margin-top:10px;">These are the utility <em>jobs</em> that decide the map — deliberately not lineups. Exact throws are patch-specific, so learn them in <b style="color:var(--text);">Yprac Hub — utility mode, '+esc(M.n)+'</b> and save your own above.'+
@@ -2915,9 +2960,19 @@
     // pictures: arm a lineup, then paste a screenshot (Ctrl+V) or pick a file
     var picAdd=root.querySelectorAll("[data-picadd]");
     for(var pai=0;pai<picAdd.length;pai++)(function(b){b.onclick=function(){
-      PICTARGET=parseInt(b.getAttribute("data-picadd"),10);render();};})(picAdd[pai]);
+      PICTARGET=parseInt(b.getAttribute("data-picadd"),10);
+      var sl=b.getAttribute("data-picslot");PICSLOT=sl===null?null:parseInt(sl,10);
+      render();};})(picAdd[pai]);
     var picCan=root.querySelector("[data-piccancel]");
-    if(picCan)picCan.onclick=function(){PICTARGET=null;render();};
+    if(picCan)picCan.onclick=function(){PICTARGET=null;PICSLOT=null;render();};
+    // drop a single frame (a mis-paste) without losing the lineup or its other picture
+    var picDel=root.querySelectorAll("[data-picdel]");
+    for(var pdi=0;pdi<picDel.length;pdi++)(function(b){b.onclick=function(){
+      var p=(b.getAttribute("data-picdel")||"").split(":"),li=parseInt(p[0],10),ii=parseInt(p[1],10);
+      var s2=load(),m=s2.settings.mainMap||MAPS[0].id,l=lineupAt(s2,m,li);
+      if(!l||!l.im||!l.im[ii])return;
+      imgDrop(l.im[ii]);l.im.splice(ii,1);
+      save(s2);render();};})(picDel[pdi]);
     var picFile=root.querySelector("[data-picfile]");
     if(picFile)picFile.onclick=function(){var f=document.getElementById("picF");if(f){f.value="";f.click();}};
     var picF=document.getElementById("picF");
@@ -3198,7 +3253,8 @@
     });
   }
   if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
-    stateForBackup:stateForBackup,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER};
+    stateForBackup:stateForBackup,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER,
+    picSlots:picSlots,picRole:picRole,PICROLE:PICROLE};
 })();
 </script>
 </body>
