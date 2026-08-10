@@ -46,20 +46,33 @@ logged too little to conclude anything, it says so instead of inventing a verdic
 - **"I've got 5 minutes"** — one core drill, five minutes, and the day still counts
 - **Daily cue** — *"after ___, I do the ten"*, because a plan with a *when* happens
 - **Streak + never-miss-twice**, with weekends and your own rest days forgiven
+- **Streak freezes** — one earned per seven training days, up to three. A missed day gets
+  bridged instead of wiping a month's work. You keep the streak you actually earned.
+- **Milestones** — twelve of them, from your first rep to finishing the twelve weeks
 - **Log yesterday** for the night you trained and forgot to tick it
 - **Come back after a lapse** and you get *welcome back*, not a telling-off — the week
   you're in, your best streak, your total, and one five-minute session to be back on. The
   plan never restarts.
+- **A guided tour on first run** — a spotlight walk through all seven sections, so nothing
+  useful stays hidden. Replayable any time from the sidebar.
 
 **A coach-built session, as written.** The Oblivion Protocol — 33 minutes of aim
 foundations then angle discipline, with the exact map settings and per-block cues, runnable
-straight from Plan. Written by a coach for a real player and kept as it was.
+straight from the Drills tab. Written by a coach for a real player and kept as it was.
 
 **Match nights get their own screen.** First the nerves — a short reappraisal script, the
 one pressure intervention that has actually been tested on Counter-Strike players, with its
 result and its limits printed on the card. Then The Gate: warmed up, not tilted, one
 process goal — and a loss counter that calls a stop-loss at two, before the third one costs
-you more.
+you more. Afterwards, a thirty-second debrief: what actually cost you rounds, and how it
+felt.
+
+**Tracks your matches by itself.** *(desktop)* One click writes CS2's Game State
+Integration config, and from then on finished matches log themselves — a loss counts toward
+tonight's stop-loss with nothing to press. It reads the scoreboard only, over a
+loopback-only connection that ignores anything without its own token, and nothing leaves
+your PC. The manual +1 LOSS button keeps working exactly as before for anyone who doesn't
+set it up.
 
 **Shows whether it's working.**
 - Streak, best streak, days trained, average hand feel
@@ -70,23 +83,37 @@ you more.
   — entirely optional, and the averages say when they are Premier-derived rather than
   native to your platform
 - **Death audit** — tag each death by cause and Lockin names your biggest leak
+- **A weekly recap** every Monday — days trained against days planned, how it felt, and the
+  leak that showed up most. Once a week, and never on a week you didn't play.
 
 **Preps your maps.** For all seven Active Duty maps: what your utility is actually *for*,
-what to deny on CT side, and where the crosshair rides on each entry route — plus a vault
-for the lineups you learn, in your own words.
+what to deny on CT side, and where the crosshair rides on each entry route.
 
-**Gets you the training maps in one click.** A *Get the maps* panel on Plan links straight
-to each Workshop item — titles and IDs checked against the live pages, grouped by purpose,
-with a *start here* trio marked. On desktop the links open in your real browser, not a
-trapped in-app window.
+**Your lineups, with pictures.** Save the throws you actually use, in your own words, in
+groups you name. Each one takes two screenshots — **where you stand** and **where you
+aim** — pasted straight in with Ctrl+V from Steam's F12 or Win+Shift+S. Tap either for a
+full-screen look mid-match. A gold button on each map opens that map's page on a lineup
+database, so finding one to screenshot is a single tap.
+
+Saved lineups then come back for a quick recall check on a spaced schedule
+(1 → 3 → 7 → 14 → 30 days): the card shows the name only, you say the throw out loud, then
+reveal and mark it *got it* or *shaky*. Spacing reviews out is well established for
+remembering facts; using it for lineups is our own adaptation, and the card says so.
+
+**Gets you the training maps in one click.** A *Get the maps* panel on the Maps tab links
+straight to each Workshop item — titles and IDs checked against the live pages, grouped by
+purpose, with a *start here* trio marked. On desktop it also shows which ones you already
+have, and the links open in your real browser rather than a trapped in-app window.
 
 **Remembers your setup.** Sens, DPI (with eDPI), crosshair code, launch options — so a
-reinstall never costs you your muscle memory.
+reinstall never costs you your muscle memory. On desktop it can read your sensitivity and
+launch options straight out of CS2's own config files.
 
-Also: light/dark, a shareable progress card, full export/restore, a feedback link that
-prefills your version, and a desktop build with a tray icon, a daily "go train" nudge, and
-a yellow banner at the top when a new version is ready — dismissible, and it never
-interrupts a session.
+Also: light/dark, an optional gamertag so it greets you by name, a shareable progress card,
+full export/restore, a feedback link that prefills your version, and a desktop build with a
+tray icon, a daily "go train" nudge, automatic local backup so a cleared cache can't cost
+you your streak, and a yellow banner at the top when a new version is ready — dismissible,
+and it never interrupts a session.
 
 ---
 
@@ -127,8 +154,15 @@ practice, "aim at the target, not your hands" cues, quiet-eye drills — were ch
 to have no supporting FPS evidence, and deliberately **not** built.
 
 Map prep gives you the utility *jobs* and prefire routes, not step-by-step lineups —
-exact throws are patch-specific, and a lineup that's quietly wrong is worse than none.
-Learn those in Yprac and save them in the vault.
+exact throws are patch-specific, and a lineup that's quietly wrong is worse than none. The
+same reasoning is why Lockin ships no lineup images of its own: the good ones belong to the
+people who made them. So it links you to them and gives you a place to keep your own
+screenshots, which stay on your device.
+
+Aim trainers get the same treatment. The one peer-reviewed study on KovaaK's found it a
+*reliable measuring instrument* and explicitly cautioned against reading its scores as
+in-game performance — no study has shown transfer to real matches in either direction. So
+Lockin will never tell you that grinding a trainer improves your Counter-Strike.
 
 ---
 
@@ -145,10 +179,18 @@ npm test         # unit tests only
 ```
 
 The tests extract the actual `<script>` from `docs/index.html` and run it in a sandboxed
-DOM, so they exercise the shipped code rather than a copy of it — 193 of them, including a
+DOM, so they exercise the shipped code rather than a copy of it — 282 of them, including a
 second sandbox with `window.__TAURI__` mocked so the desktop-only paths are covered too.
 Several are content guards rather than logic tests: they fail the build if the copy starts
-claiming a rifle needs a dead stop, or that anything makes you *faster*.
+claiming a rifle needs a dead stop, or that anything makes you *faster*. The Rust side has
+its own `cargo test` run in CI, covering the win/loss derivation behind auto-tracking and
+the shape of the CS2 config it writes.
+
+Lineup pictures are the one thing **not** in `localStorage` — they live in IndexedDB.
+`localStorage` is a ~5MB budget shared across the whole origin, and filling it with
+screenshots would cost someone their plan and streak; the picture layer keeps only an id in
+the main state. Backups carry the images explicitly and strip them back out to IndexedDB on
+restore, so they can never leak into `localStorage` by the back door.
 
 Drills are built by `D(...)`, a positional constructor shared by 49 call sites. **Add new
 fields at the end, never in the middle** — inserting one silently shifts every argument
