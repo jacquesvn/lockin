@@ -1448,6 +1448,50 @@ ok('paste only fires into an armed lineup, and the map links point at a real per
   return /addEventListener\("paste"/.test(script) && /if\(PICTARGET===null\|\|!e\.clipboardData\)return/.test(script) &&
          /https:\/\/csnades\.gg\/'\+esc\(sel\)/.test(script);
 })());
+// --- v0.31: verified movement + damage mechanics ---
+// Sourced from a coaching video, then checked: the peek-velocity and tagging/aim-punch claims
+// hold up; the "spam A and D to charge velocity" trick and the radar view-cone claim did not.
+ok('the peek drill teaches runway before the swing, with the verified weapon speed cap', (function () {
+  var d = FOCI.movement.drills.filter(function (x) { return /full speed/i.test(x.t); })[0];
+  if (!d) return false;
+  var all = [d.sub, d.m, d.why, d.goal, d.cue, d.rule].join(' ');
+  return /215/.test(all) && /cl_showpos/.test(d.where || '') && /accelerat/i.test(d.why || '');
+})());
+ok('no drill claims you can charge velocity by spamming A and D (that one did not verify)', (function () {
+  var bad = [];
+  Object.keys(FOCI).forEach(function (k) {
+    (FOCI[k].drills || []).forEach(function (d) {
+      var all = [d.sub, d.m, d.why, d.goal, d.cue, d.rule].join(' ');
+      if (/spam\w*\s+a\s*(and|\+|\/|,)?\s*d\b/i.test(all)) bad.push(k + '/' + d.t);
+    });
+  });
+  if (bad.length) console.log('      unverified velocity-charge wording: ' + bad.join(', '));
+  return bad.length === 0;
+})());
+ok('the torso drill grounds body damage in tagging + aim punch, and keeps the slow weapon-dependent', (function () {
+  var d = FOCI.spray.drills.filter(function (x) { return /torso/i.test(x.t); })[0];
+  if (!d) return false;
+  var w = d.why || '';
+  // tagging magnitude depends on the weapon the VICTIM holds — don't let a fixed % creep in
+  return /tag/i.test(w) && /aim-?punch/i.test(w) && /depends on/i.test(w) && !/\d+%/.test(w);
+})());
+ok('the app never claims the radar shows what teammates are looking at (refuted — positions only)', (function () {
+  return !/radar[^.]{0,120}(view cone|looking at|watching)/i.test(html);
+})());
+ok('the bomb clock carries the verified timings, all four of them', (function () {
+  var d = FOCI.clutch.drills.filter(function (x) { return /clock craft/i.test(x.t); })[0];
+  var w = (d && d.why) || '';
+  return /\b40 seconds\b/.test(w) && /\b10 seconds\b/.test(w) && /\b5\b/.test(w) && /3\.5\b/.test(w);
+})());
+ok('the HE-on-smoke drill is CS2-accurate: a temporary gap, never a full clear', (function () {
+  var d = FOCI.utility.drills.filter(function (x) { return /open a smoke/i.test(x.t); })[0];
+  if (!d) return false;
+  var w = d.why || '';
+  return /two to three seconds|2-3 seconds/i.test(w) &&
+         /never clears|won'?t clear|not.{0,20}clear the whole/i.test(w + ' ' + (d.rule || '')) &&
+         /calibre|caliber/i.test(w);          // bullets open smaller windows, bigger guns wider
+})());
+
 // --- v0.30: two frames (stand / aim) is the baseline for a lineup ---
 ok('both baseline slots always show — an empty lineup displays its own two gaps', (function () {
   var h = picSlots({}, 0);
