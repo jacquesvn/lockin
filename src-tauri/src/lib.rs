@@ -385,6 +385,7 @@ struct RoundTracker {
     death_ms: Option<u64>,
     death_money: i64,
     death_kills: i64,
+    team: String,
     emitted: bool,
 }
 
@@ -454,13 +455,26 @@ fn gsi_loop(app: tauri::AppHandle, port: u16, token: String) {
    Deliberately records WHAT HAPPENED and nothing else — no verdicts, no "you died too early".
    Whether 14 seconds is early is a coaching claim, and it does not get to be made until there
    is real data from real matches to make it against. */
-fn track_round(tr: &mut RoundTracker, v: &serde_json::Value) -> Option<serde_json::Value> {
+fn track_round(tr: &mut RoundTracker, v: &serde_json::Value, is_self: bool) -> Option<serde_json::Value> {
+    // Round phase and round number are MATCH-GLOBAL: true whoever the player block describes.
+    // Only the player-derived reads below are person-specific. Gating the whole machine on
+    // is_self was the original bug — the moment you die you spectate a team-mate, the machine
+    // stopped seeing phase changes, and the "over" edge that emits the record never arrived.
+    // So every round you died in was silently dropped and the card reported zero deaths.
     let rphase = v.pointer("/round/phase").and_then(|p| p.as_str()).unwrap_or("").to_string();
-    let health = v.pointer("/player/state/health").and_then(|h| h.as_i64()).unwrap_or(-1);
-    let money = v.pointer("/player/state/money").and_then(|m| m.as_i64()).unwrap_or(0);
-    let equip = v.pointer("/player/state/equip_value").and_then(|m| m.as_i64()).unwrap_or(0);
-    let kills = v.pointer("/player/state/round_kills").and_then(|m| m.as_i64()).unwrap_or(0);
     let round_no = v.pointer("/map/round").and_then(|r| r.as_i64()).unwrap_or(-1);
+    // -1 means "no reading", which is not the same as 0 health.
+    let health = if is_self { v.pointer("/player/state/health").and_then(|h| h.as_i64()).unwrap_or(-1) } else { -1 };
+    let money = if is_self { v.pointer("/player/state/money").and_then(|m| m.as_i64()).unwrap_or(0) } else { 0 };
+    let equip = if is_self { v.pointer("/player/state/equip_value").and_then(|m| m.as_i64()).unwrap_or(0) } else { 0 };
+    let kills = if is_self { v.pointer("/player/state/round_kills").and_then(|m| m.as_i64()).unwrap_or(0) } else { 0 };
+    // Remember my own team from the last payload that was actually me — by the time the round
+    // ends I may be spectating, and the spectated block's team is not guaranteed to be mine.
+    if is_self {
+        if let Some(t) = v.pointer("/player/team").and_then(|s| s.as_str()) {
+            if !t.is_empty() { tr.team = t.to_string(); }
+        }
+    }
 
     // A new round number always resets, even if we somehow missed the phase edges.
     if round_no != tr.round_no {
@@ -472,6 +486,7 @@ fn track_round(tr: &mut RoundTracker, v: &serde_json::Value) -> Option<serde_jso
         tr.buy_equip = 0;
         tr.death_money = 0;
         tr.death_kills = 0;
+        tr.team.clear();
     }
 
     let was = std::mem::replace(&mut tr.round_phase, rphase.clone());
@@ -485,9 +500,13 @@ fn track_round(tr: &mut RoundTracker, v: &serde_json::Value) -> Option<serde_jso
         tr.death_ms = None;
     }
 
-    // First transition to zero health while live is the death; later payloads must not overwrite
-    // it (you stay at 0 until the next freezetime, and we would keep pushing the time later).
-    if rphase == "live" && health == 0 && tr.death_ms.is_none() {
+    // First transition to zero health is the death; later payloads must not overwrite it (you
+    // stay at 0 until the next freezetime and we would keep pushing the time later).
+    // NOT gated on phase=="live": when your death IS the round-ending event, CS2 coalesces
+    // health->0 and phase->over into ONE payload (our own cfg sets buffer 0.1 / throttle 0.5),
+    // so a "live" gate drops exactly the last-alive deaths — the most informative ones.
+    // live_at.is_some() is the real precondition: it means this round genuinely started.
+    if health == 0 && tr.live_at.is_some() && tr.death_ms.is_none() {
         if let Some(started) = tr.live_at {
             tr.death_ms = Some(started.elapsed().as_millis() as u64);
             tr.death_money = money;
@@ -498,7 +517,8 @@ fn track_round(tr: &mut RoundTracker, v: &serde_json::Value) -> Option<serde_jso
     // Emit once, on the edge into "over", and only for a round we actually saw go live.
     if rphase == "over" && was != "over" && !tr.emitted && tr.live_at.is_some() {
         tr.emitted = true;
-        let team = v.pointer("/player/team").and_then(|s| s.as_str()).unwrap_or("");
+        // my team as last seen on a payload that was actually me, not the spectated one
+        let team = tr.team.clone();
         let winner = v.pointer("/round/win_team").and_then(|s| s.as_str()).unwrap_or("");
         let won = if team.is_empty() || winner.is_empty() { serde_json::Value::Null }
                   else { serde_json::Value::Bool(team == winner) };
@@ -549,7 +569,8 @@ fn handle_gsi_request(
         let mut tr = prev_phase.lock().unwrap_or_else(|p| p.into_inner());
         let was = std::mem::replace(&mut tr.map_phase, phase.clone());
         let edge = phase == "gameover" && was != "gameover";
-        let rec = if gsi_is_self(&v) { track_round(&mut tr, &v) } else { None };
+        // EVERY payload drives the phase machine; only the player reads are gated on is_self
+        let rec = track_round(&mut tr, &v, gsi_is_self(&v));
         (edge, rec)
     };
     if let Some(rec) = round_record {
@@ -622,13 +643,13 @@ mod tests {
     #[test]
     fn a_round_produces_exactly_one_record_on_the_over_edge() {
         let mut tr = RoundTracker::default();
-        assert!(track_round(&mut tr, &payload("freezetime", 3, 100, 4200, 200, 0)).is_none());
-        assert!(track_round(&mut tr, &payload("live", 3, 100, 800, 3600, 0)).is_none());
-        assert!(track_round(&mut tr, &payload("live", 3, 42, 800, 3600, 0)).is_none());
-        let rec = track_round(&mut tr, &payload("over", 3, 0, 800, 3600, 1));
+        assert!(track_round(&mut tr, &payload("freezetime", 3, 100, 4200, 200, 0), true).is_none());
+        assert!(track_round(&mut tr, &payload("live", 3, 100, 800, 3600, 0), true).is_none());
+        assert!(track_round(&mut tr, &payload("live", 3, 42, 800, 3600, 0), true).is_none());
+        let rec = track_round(&mut tr, &payload("over", 3, 0, 800, 3600, 1), true);
         assert!(rec.is_some(), "the over edge must produce a record");
         // "over" persists for several posts — it must not emit again
-        assert!(track_round(&mut tr, &payload("over", 3, 0, 800, 3600, 1)).is_none());
+        assert!(track_round(&mut tr, &payload("over", 3, 0, 800, 3600, 1), true).is_none());
     }
 
     #[test]
@@ -636,11 +657,11 @@ mod tests {
         // you stay at 0 until the next freezetime, so later payloads would keep pushing the
         // recorded time later and every death would look like it happened at round end.
         let mut tr = RoundTracker::default();
-        track_round(&mut tr, &payload("live", 5, 100, 800, 3600, 0));
-        track_round(&mut tr, &payload("live", 5, 0, 650, 3600, 1));
+        track_round(&mut tr, &payload("live", 5, 100, 800, 3600, 0), true);
+        track_round(&mut tr, &payload("live", 5, 0, 650, 3600, 1), true);
         std::thread::sleep(std::time::Duration::from_millis(30));
-        track_round(&mut tr, &payload("live", 5, 0, 650, 3600, 1));
-        let rec = track_round(&mut tr, &payload("over", 5, 0, 650, 3600, 1)).unwrap();
+        track_round(&mut tr, &payload("live", 5, 0, 650, 3600, 1), true);
+        let rec = track_round(&mut tr, &payload("over", 5, 0, 650, 3600, 1), true).unwrap();
         assert_eq!(rec["died"], serde_json::json!(true));
         assert_eq!(rec["roundKills"], serde_json::json!(1));
         assert!(rec["deathMs"].as_u64().unwrap() < 30, "must be the first zero, not the last");
@@ -649,8 +670,8 @@ mod tests {
     #[test]
     fn surviving_the_round_records_no_death() {
         let mut tr = RoundTracker::default();
-        track_round(&mut tr, &payload("live", 7, 100, 800, 3600, 0));
-        let rec = track_round(&mut tr, &payload("over", 7, 63, 800, 3600, 2)).unwrap();
+        track_round(&mut tr, &payload("live", 7, 100, 800, 3600, 0), true);
+        let rec = track_round(&mut tr, &payload("over", 7, 63, 800, 3600, 2), true).unwrap();
         assert_eq!(rec["died"], serde_json::json!(false));
         assert_eq!(rec["deathMs"], serde_json::Value::Null);
     }
@@ -660,9 +681,9 @@ mod tests {
         // during freezetime money is still moving as you buy; the number that means anything is
         // what you walked out of spawn holding.
         let mut tr = RoundTracker::default();
-        track_round(&mut tr, &payload("freezetime", 9, 100, 5000, 0, 0));
-        track_round(&mut tr, &payload("live", 9, 100, 1150, 4200, 0));
-        let rec = track_round(&mut tr, &payload("over", 9, 100, 1150, 4200, 0)).unwrap();
+        track_round(&mut tr, &payload("freezetime", 9, 100, 5000, 0, 0), true);
+        track_round(&mut tr, &payload("live", 9, 100, 1150, 4200, 0), true);
+        let rec = track_round(&mut tr, &payload("over", 9, 100, 1150, 4200, 0), true).unwrap();
         assert_eq!(rec["buyMoney"], serde_json::json!(1150));
         assert_eq!(rec["buyEquip"], serde_json::json!(4200));
     }
@@ -671,7 +692,44 @@ mod tests {
     fn a_round_never_seen_live_emits_nothing() {
         // joining mid-round, or a warmup "over", must not invent a record with a null clock
         let mut tr = RoundTracker::default();
-        assert!(track_round(&mut tr, &payload("over", 11, 100, 800, 3600, 0)).is_none());
+        assert!(track_round(&mut tr, &payload("over", 11, 100, 800, 3600, 0), true).is_none());
+    }
+
+    // The audit's exact scenario, and the one the original design could never pass: you die
+    // mid-round, CS2 switches your player block to the team-mate you are now spectating, and
+    // the round ENDS while you are still dead. Gating the whole state machine on is_self meant
+    // the "over" edge arrived on a spectated payload, was never seen, and the round vanished —
+    // so the feature recorded zero deaths, forever, while every test stayed green.
+    #[test]
+    fn dying_and_then_spectating_still_records_the_round() {
+        let mut tr = RoundTracker::default();
+        track_round(&mut tr, &payload("freezetime", 5, 100, 5000, 0, 0), true);
+        track_round(&mut tr, &payload("live", 5, 100, 800, 3600, 0), true);
+        track_round(&mut tr, &payload("live", 5, 0, 650, 3600, 1), true); // I die
+        // from here CS2 describes the team-mate I am spectating, not me
+        let mut spec = payload("live", 5, 87, 2400, 4100, 3);
+        spec["player"]["steamid"] = serde_json::json!("76561198000000999");
+        track_round(&mut tr, &spec, false);
+        let mut spec_over = payload("over", 5, 87, 2400, 4100, 3);
+        spec_over["player"]["steamid"] = serde_json::json!("76561198000000999");
+        let rec = track_round(&mut tr, &spec_over, false)
+            .expect("the round must still be recorded when it ends while I am spectating");
+        assert_eq!(rec["died"], serde_json::json!(true), "I died in this round");
+        assert_eq!(rec["roundKills"], serde_json::json!(1), "my kills, not the spectated player's 3");
+        assert_eq!(rec["leftOver"], serde_json::json!(650), "my money, not the spectated player's 2400");
+        assert_eq!(rec["won"], serde_json::json!(false), "my team CT vs win_team T");
+    }
+
+    // When your death IS the round-ending event, CS2 coalesces health->0 and phase->over into
+    // one payload. A phase=="live" gate on the death check dropped exactly those — the
+    // last-alive deaths, which are the most informative ones the audit is looking for.
+    #[test]
+    fn a_death_that_ends_the_round_is_still_a_death() {
+        let mut tr = RoundTracker::default();
+        track_round(&mut tr, &payload("live", 8, 100, 800, 3600, 0), true);
+        let rec = track_round(&mut tr, &payload("over", 8, 0, 300, 3600, 2), true).unwrap();
+        assert_eq!(rec["died"], serde_json::json!(true), "health 0 on the over edge is a death");
+        assert!(rec["deathMs"].as_u64().is_some(), "and it must carry a time");
     }
 
     #[test]
@@ -687,10 +745,10 @@ mod tests {
         let mut tr = RoundTracker::default();
         let mut live = payload("live", 2, 100, 800, 3600, 0);
         live["player"]["team"] = serde_json::json!("");
-        track_round(&mut tr, &live);
+        track_round(&mut tr, &live, true);
         let mut over = payload("over", 2, 100, 800, 3600, 0);
         over["player"]["team"] = serde_json::json!("");
-        let rec = track_round(&mut tr, &over).unwrap();
+        let rec = track_round(&mut tr, &over, true).unwrap();
         assert_eq!(rec["won"], serde_json::Value::Null, "unknown must never read as a loss");
     }
 

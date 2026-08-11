@@ -2102,7 +2102,11 @@
       '<p class="mhow" style="margin:7px 0 0;">'+n+' sessions and a 12-week plan live in this browser and nowhere else — that is what no account buys you, and what it costs. '+
       'Clearing site data would take all of it. One file, kept wherever you keep things.</p>'+
       '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">'+
-        '<button class="pbtn facet" data-rec="export">EXPORT MY DATA</button>'+
+        // NOT data-rec="export" — that attribute is wired only inside the RECOVER screen's own
+        // renderer, which replaces #main wholesale and never runs in normal use. Reusing it
+        // here produced a button with no handler at all: the web build's only data-loss
+        // safeguard was dead on arrival. Its own attribute, wired in wire(), where it is used.
+        '<button class="pbtn facet" data-bkexport="1">EXPORT MY DATA</button>'+
         '<button class="gbtn" data-bkdismiss="1">NOT NOW</button></div></div>';
   }
   function exportData(){var _s=load();_s.settings=_s.settings||{};_s.settings.lastExport=dateKey(new Date());save(_s);
@@ -4904,6 +4908,8 @@
       var s2=load();applyCoachAnswer(s2,b.getAttribute("data-coach"),new Date());save(s2);render();};})(ca[cai]);
     var wns=root.querySelector("[data-wnseen]");
     if(wns)wns.onclick=function(){var s2=load();s2.settings=s2.settings||{};s2.settings.seenVersion=VERSION;save(s2);render();};
+    var bke=root.querySelector("[data-bkexport]");
+    if(bke)bke.onclick=function(){exportData();render();};   // render so the nudge clears
     var bkd=root.querySelector("[data-bkdismiss]");
     if(bkd)bkd.onclick=function(){var s2=load();s2.settings=s2.settings||{};s2.settings.bkSnooze=dateKey(new Date());save(s2);render();};
     var sf=root.querySelectorAll("[data-setfocus]");

@@ -1746,7 +1746,14 @@ ok('the backup nudge fires only where data can actually be lost, and only once i
   var card = backupCard(withSessions(20), now);
   var namesTheStake = /live in this browser and nowhere else/.test(card) &&
                       /Clearing site data would take all of it/.test(card) && /20 sessions/.test(card);
-  return quietEarly && firesLater && silencedByExport && returnsWhenStale && snoozeWorks && namesTheStake &&
+  // BOTH buttons must be reachable from wire(), which is what actually runs on every render.
+  // The export button originally reused data-rec="export" — an attribute wired ONLY inside the
+  // RECOVER screen's own renderer — so the one safeguard against losing everything was a dead
+  // control. Assert the attribute this card uses is handled in wire(), not merely present.
+  var wired = /\[data-bkexport\]/.test(script) && /\[data-bkdismiss\]/.test(script) &&
+              /bke\.onclick=function\(\)\{exportData\(\);/.test(script) &&
+              card.indexOf('data-rec=') < 0;
+  return quietEarly && firesLater && silencedByExport && returnsWhenStale && snoozeWorks && namesTheStake && wired &&
          /if\(isNative\)return false;/.test(script.slice(script.indexOf('function needsBackup(')));
 })());
 ok('what-changed never greets a brand-new user, and a silent patch stays silent', (function () {
