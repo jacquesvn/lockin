@@ -51,7 +51,7 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
         lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag,
         curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements,
-        weeklyRecap, recapCard, debriefCard, applyGsiMatch,
+        weeklyRecap, recapCard, debriefCard, applyGsiMatch, DESTS, destOf, subTabs,
         LSRS, srsAnswer, dueLineups, lineupIsDue, lineupReviewCard,
         stateForBackup, takeBackupImages, picStrip, IMGS, IMG_PER,
         picSlots, picRole, PICROLE } = sandbox.module.exports;
@@ -812,12 +812,40 @@ ok('every tour anchor points at a real element, not just the step list', (functi
     return (html.split(r).length - 1) >= 2;   // once in the TOUR sel + at least once on an element
   });
 })());
-ok('every section is a routed screen, in the nav (sidebar + tabs), and reachable', (function () {
-  return ['maps','drills','gear'].every(function (s) {
+ok('every screen still routes and renders after the 7->5 nav change', (function () {
+  return ['maps','drills','gear','plan','progress'].every(function (s) {
     return html.indexOf('screen==="' + s + '"') >= 0 &&
-           html.indexOf('function html' + s.charAt(0).toUpperCase() + s.slice(1)) >= 0 &&
-           html.indexOf('nb("' + s + '"') >= 0 && html.indexOf('t("' + s + '"') >= 0;
+           html.indexOf('function html' + s.charAt(0).toUpperCase() + s.slice(1)) >= 0;
   });
+})());
+ok('the nav is FIVE destinations and every screen belongs to exactly one', (function () {
+  var SCREENS = ['today','plan','drills','maps','progress','gear','setup'];
+  if (!Array.isArray(DESTS) || DESTS.length !== 5) return false;
+  var seen = {};
+  DESTS.forEach(function (d) { d.screens.forEach(function (s) { seen[s] = (seen[s] || 0) + 1; }); });
+  var everyScreenOnce = SCREENS.every(function (s) { return seen[s] === 1; });
+  var noExtras = Object.keys(seen).length === SCREENS.length;
+  var routesBack = SCREENS.every(function (s) { return destOf(s).screens.indexOf(s) >= 0; });
+  return everyScreenOnce && noExtras && routesBack;
+})());
+ok('"Practice", never "Train" — a TRAIN tab beside a MAPS tab collides with the map Train', (function () {
+  var grouped = DESTS.filter(function (d) { return d.screens.length > 1; });
+  return grouped.length === 2 &&
+         DESTS.some(function (d) { return d.k === 'practice' && d.l === 'PRACTICE'; }) &&
+         !DESTS.some(function (d) { return /TRAIN/i.test(d.l); });
+})());
+ok('the dock shows labels permanently — hiding them to fit seven icons was the old bug', (function () {
+  // the old rule literally hid them; it must be gone, and the tab label must be display:block
+  return html.indexOf('#tabbar .tab span{display:none;}') < 0 &&
+         /#tabbar \.tab span\{display:block/.test(html) &&
+         /#tabbar \.tab\{min-width:71px;min-height:56px/.test(html);
+})());
+ok('the Practice sub-tab selection is unambiguous (accent fill + facet + caption), not a 1px outline', (function () {
+  var plan = subTabs('plan'), drills = subTabs('drills');
+  return /class="subtab on facet"/.test(plan) && /aria-selected="true"/.test(plan) &&
+         /role="tablist"/.test(plan) && /VIEWING PLAN/.test(plan) && /VIEWING DRILLS/.test(drills) &&
+         /\.subtab\.on\{background:var\(--acc\)/.test(html) &&
+         subTabs('today') === '' && subTabs('maps') === '';   // only Practice has sub-tabs
 })());
 ok('Plan is now just strategy — drills, protocol and maps moved off it', (function () {
   var planRet = html.match(/function htmlPlan[\s\S]*?\n {4}return ([^\n]*)/);

@@ -120,12 +120,23 @@
   .tab svg{width:19px;height:19px;}
   .tab span{font-family:var(--fm);font-size:9px;letter-spacing:0.04em;font-weight:700;white-space:nowrap;}
   .tab.on{color:var(--hero-ink);background:color-mix(in oklab,var(--hero) 10%, transparent);--knock:color-mix(in oklab,var(--acc) 10%,var(--surface));}
-  /* seven sections fit the bottom bar as icons (labels live in the desktop sidebar) */
-  #tabbar .tab span{display:none;} #tabbar .tab{padding:11px 2px;} #tabbar .tab svg{width:22px;height:22px;}
+  /* v3 dock: FIVE destinations, labels ALWAYS visible. 71x56 targets, translucent dock
+     over a blur. The old build hid labels to fit seven icons — that was the bug. */
+  #tabbar{background:var(--dock);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);gap:2px;padding:4px 6px calc(4px + env(safe-area-inset-bottom));}
+  #tabbar .tab{min-width:71px;min-height:56px;padding:8px 4px;gap:4px;position:relative;}
+  #tabbar .tab svg{width:20px;height:20px;}
+  #tabbar .tab span{display:block;font-size:8.5px;letter-spacing:0.08em;}
+  #tabbar .tab.on{background:var(--acc);color:var(--onAcc);--knock:var(--acc);clip-path:var(--facet);}
+  .tabdue{position:absolute;top:4px;right:12px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;
+    background:var(--acc);color:var(--onAcc);font-family:var(--fm);font-size:8.5px;font-weight:700;
+    display:grid;place-items:center;line-height:1;}
+  #tabbar .tab.on .tabdue{background:var(--onAcc);color:var(--acc);}
+  /* the dock floats over content, so the scroll container has to clear it */
+  @media (max-width:719px){ .wrap{padding-bottom:104px;} }
   .scr{display:none;} .scr.show{display:block;animation:lk-rise .22s ease;}
 
   @media (min-width:720px){
-    #app{display:grid;grid-template-columns:236px 1fr;}
+    #app{display:grid;grid-template-columns:216px 1fr;}   /* 216px leaves 824px of content at a 1040px window */
     #tabbar{display:none;}
     #side{display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh;border-right:1px solid var(--line);padding:22px 16px;background:var(--surface);}
     .wrap{max-width:880px;padding:26px 30px 48px;}
@@ -133,9 +144,44 @@
     .plan-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
   }
   .snav{display:flex;flex-direction:column;gap:4px;}
-  .snav button{display:flex;align-items:center;gap:10px;background:transparent;border:none;border-radius:10px;padding:10px 12px;cursor:pointer;color:var(--muted);font-family:var(--fm);font-size:12px;font-weight:700;letter-spacing:0.1em;text-align:left;}
-  .snav button.on{background:var(--hero);color:var(--onhero);--knock:var(--acc);}
+  .snav button{display:flex;align-items:center;gap:10px;background:transparent;border:none;border-radius:10px;padding:10px 12px;cursor:pointer;color:var(--muted);font-family:var(--fm);font-size:12px;font-weight:700;letter-spacing:0.1em;text-align:left;position:relative;}
+  /* desktop active state is a tracer rail + glass, NOT the mobile fill — the sidebar is
+     pointer-only chrome and a solid accent slab down the side is too loud at this size */
+  .snav button.on{background:var(--glass);color:var(--text);}
+  .snav button.on::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:2px;background:var(--acc);border-radius:2px;}
   .snav button svg{width:16px;height:16px;}
+  .navdia{width:5px;height:5px;flex:0 0 auto;transform:rotate(45deg);border:1px solid var(--edge);}
+  .snav button.on .navdia{background:var(--acc);border-color:var(--acc);}
+  .navdue{margin-left:auto;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--acc);color:var(--onAcc);
+    font-family:var(--fm);font-size:9px;font-weight:700;display:grid;place-items:center;line-height:1;}
+  /* Practice expands in place rather than hiding its two screens behind a click */
+  .snsubs{display:flex;flex-direction:column;gap:2px;margin:2px 0 2px 30px;}
+  .snav .snsub{padding:7px 10px;font-family:var(--fb);font-size:12px;letter-spacing:0;font-weight:600;text-transform:none;color:var(--faint);}
+  .snav .snsub.on{background:transparent;color:var(--accInk);}
+  .snav .snsub.on::before{display:none;}
+  .snrule{display:flex;align-items:center;gap:8px;margin:14px 0 4px;}
+  .snrule span{font-family:var(--fm);font-size:8px;letter-spacing:0.18em;color:var(--faint);}
+  .snrule::after{content:"";flex:1;height:1px;background:var(--line);}
+  /* Practice sub-tabs inside the screen. The selected one is a solid accent fill with the
+     facet — a 1px outline was too subtle to read and shipped as a bug. */
+  .substrip{display:flex;gap:6px;margin-bottom:6px;}
+  .subtab{min-height:44px;padding:0 16px;background:transparent;border:1px solid var(--line2);border-radius:10px;
+    color:var(--muted);font-family:var(--fm);font-size:11px;font-weight:700;letter-spacing:0.1em;cursor:pointer;}
+  .subtab.on{background:var(--acc);border-color:var(--acc);color:var(--onAcc);border-radius:0;}
+  .subcap{font-family:var(--fm);font-size:8.5px;letter-spacing:0.18em;color:var(--faint);margin-bottom:14px;}
+  @media (min-width:720px){ .subtab{min-height:36px;} }
+  /* MORE sheet — mobile only; desktop lists Gear/Setup in the sidebar instead */
+  #sheet{position:fixed;inset:0;z-index:60;display:none;}
+  #sheet.show{display:block;}
+  .shscrim{position:absolute;inset:0;background:var(--scrim);}
+  .shbody{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);
+    border-radius:16px 16px 0 0;padding:10px 16px calc(18px + env(safe-area-inset-bottom));animation:v3-slide .26s cubic-bezier(.2,.9,.2,1);}
+  .shgrab{width:36px;height:4px;border-radius:2px;background:var(--line2);margin:0 auto 12px;}
+  .shrow{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;background:transparent;border:none;
+    border-bottom:1px solid var(--line);color:var(--text);font-size:15px;text-align:left;cursor:pointer;padding:8px 2px;}
+  .shrow:last-of-type{border-bottom:0;}
+  .shrow svg{width:19px;height:19px;color:var(--accInk);flex:0 0 auto;}
+  .shrow small{display:block;color:var(--faint);font-size:12px;margin-top:2px;}
   .smini{margin-top:auto;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:14px;}
 
   /* ---------- brand ---------- */
@@ -654,6 +700,7 @@
 <div id="tour" style="display:none;"></div>
 <div id="cele" aria-live="polite"></div>
 <div id="lightbox" role="dialog" aria-modal="true" aria-label="Lineup picture"></div>
+<div id="sheet"></div>
 <!-- persistent off-screen live region: the CS2 connection status lives in #main, which is rebuilt on
      every render (so aria-live there never fires), so status changes are announced through here. -->
 <div id="gsiann" role="status" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;"></div>
@@ -662,7 +709,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.33.0";
+  var VERSION="0.34.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -1623,7 +1670,83 @@
     // unlock (e.g. reaching week 6) gets its moment on launch.
     try{var _a=checkAchievements(load());if(_a)celebrate(0,esc(_a.t.toUpperCase()),"MILESTONE UNLOCKED");}catch(_){}
   }
-  function go(s){screen=s;render();}
+  /* ---------- v3 navigation: five destinations, not seven ----------
+     Seven icon-only tabs at 375px was the core failure. Five destinations with permanently
+     visible labels replace it; two of them group a pair of screens behind sub-tabs. The
+     screen model underneath is unchanged, so every existing data-go="plan" pointer, the
+     tour anchors and the deep links all keep working. */
+  var DESTS=[
+    {k:"today",   l:"TODAY",    ic:RET,     screens:["today"]},
+    // "Practice", never "Train" — a TRAIN tab beside a MAPS tab collides with the map Train
+    {k:"practice",l:"PRACTICE", ic:TARGET,  screens:["plan","drills"]},
+    {k:"maps",    l:"MAPS",     ic:MAPICON, screens:["maps"]},
+    {k:"progress",l:"PROGRESS", ic:CAL,     screens:["progress"]},
+    {k:"more",    l:"MORE",     ic:GEAR,    screens:["gear","setup"]}
+  ];
+  function destOf(scr){
+    for(var i=0;i<DESTS.length;i++)if(DESTS[i].screens.indexOf(scr)>=0)return DESTS[i];
+    return DESTS[0];
+  }
+  // remember which screen you were last on inside a grouped destination, so tapping
+  // PRACTICE returns you to Drills if that's where you were, not always to Plan
+  var lastSub={practice:"plan",more:"gear"};
+  function go(s){
+    screen=s;
+    var d=destOf(s);
+    if(d.screens.length>1)lastSub[d.k]=s;
+    render();
+  }
+  function goDest(k){
+    for(var i=0;i<DESTS.length;i++){
+      if(DESTS[i].k!==k)continue;
+      var d=DESTS[i];
+      // MORE is a sheet on mobile (where the dock has no room for two more tabs); on
+      // desktop the sidebar lists Gear and Setup directly, so there's nothing to open.
+      if(d.k==="more"&&window.matchMedia&&!window.matchMedia("(min-width:720px)").matches){openMore();return;}
+      go(d.screens.length>1?(lastSub[d.k]||d.screens[0]):d.screens[0]);
+      return;
+    }
+  }
+  var moreKey=null;
+  function openMore(){
+    var el=document.getElementById("sheet");if(!el)return;
+    el.innerHTML='<div class="shscrim" data-sheet-close="1"></div>'+
+      '<div class="shbody" role="dialog" aria-modal="true" aria-label="More">'+
+        '<div class="shgrab" aria-hidden="true"></div>'+
+        '<div class="ml" style="color:var(--accInk);margin-bottom:10px;">MORE</div>'+
+        '<button class="shrow" data-go="gear">'+MOUSE+'<span>Gear<small>Sens, crosshair, launch options</small></span></button>'+
+        '<button class="shrow" data-go="setup">'+GEAR+'<span>Setup<small>Profile, reminders, backup, data</small></span></button>'+
+        '<button class="gbtn" data-sheet-close="1" style="width:100%;margin-top:12px;">CLOSE</button>'+
+      '</div>';
+    el.classList.add("show");
+    var app=document.getElementById("app");if(app)app.setAttribute("inert","");
+    var tb=document.getElementById("tabbar");if(tb)tb.setAttribute("inert","");
+    var first=el.querySelector(".shrow");if(first&&first.focus)try{first.focus();}catch(_){}
+    if(!moreKey){moreKey=function(e){if(e.key==="Escape")closeMore();};document.addEventListener("keydown",moreKey);}
+    var cl=el.querySelectorAll("[data-sheet-close]");
+    for(var i=0;i<cl.length;i++)cl[i].onclick=closeMore;
+    var gs=el.querySelectorAll("[data-go]");
+    for(var j=0;j<gs.length;j++)(function(b){b.onclick=function(){closeMore();go(b.getAttribute("data-go"));};})(gs[j]);
+  }
+  function closeMore(){
+    var el=document.getElementById("sheet");
+    if(el){el.classList.remove("show");el.innerHTML="";}
+    var app=document.getElementById("app");if(app)app.removeAttribute("inert");
+    var tb=document.getElementById("tabbar");if(tb)tb.removeAttribute("inert");
+    if(moreKey){document.removeEventListener("keydown",moreKey);moreKey=null;}
+  }
+  // Sub-tabs inside Practice. The selected one must be UNAMBIGUOUS — a 1px outline was too
+  // subtle to read at a glance — so it takes a solid accent fill with the facet, and the
+  // strip is captioned with what you're actually looking at.
+  function subTabs(scr){
+    if(["plan","drills"].indexOf(scr)<0)return "";
+    function t(k,l){
+      var on=scr===k;
+      return '<button class="subtab'+(on?" on facet":"")+'" role="tab" aria-selected="'+(on?"true":"false")+'" data-go="'+k+'">'+l+'</button>';
+    }
+    return '<div class="substrip" role="tablist" aria-label="Practice sections">'+t("plan","PLAN")+t("drills","DRILLS")+'</div>'+
+      '<div class="subcap">— VIEWING '+(scr==="drills"?"DRILLS":"PLAN")+'</div>';
+  }
 
   /* ---------- first-run guided tour (spotlight coach-marks) ----------
      A dark overlay with a lit cut-out around one element at a time, walking a new user
@@ -1632,7 +1755,7 @@
      #main, so navigating between screens mid-tour never disturbs it. */
   var TOUR=[
     {title:"Welcome to Lockin",body:"A quick tour of where everything lives, so nothing gets missed. Skip whenever you like."},
-    {screen:"today",sel:".snav, #tabbar",k:"GETTING AROUND",title:"Move around here",body:"Seven sections down the side — that's the whole app. On mobile they're the icons along the bottom."},
+    {screen:"today",sel:".snav, #tabbar",k:"GETTING AROUND",title:"Move around here",body:"Five places, that's the whole app: Today, Practice, Maps, Progress and More. Practice holds your plan and your drills; More holds your gear and settings. On mobile they're along the bottom."},
     {screen:"today",sel:'[data-tour="today"]',k:"TODAY",title:"Your day, in one place",body:"Your streak and this week up top; the day's drills to tick off are just below, with a hand-feel log. Ten focused minutes counts as a day."},
     {screen:"plan",sel:'[data-tour="plan"]',k:"PLAN",title:"Your 12-week plan",body:"Your diagnosis, the phase-by-phase arc, and a weekly rotation you can rearrange to match when you actually play."},
     {screen:"drills",sel:'[data-tour="drills"]',k:"DRILLS",title:"What to train",body:"Every drill for your focus with a read-ahead why, how to measure each one, and the coach-built protocol you can run start to finish."},
@@ -1742,12 +1865,12 @@
     var st=load();if(!st.plan){renderOnboard();return;}
     var _f=focusSig(document.activeElement);
     try{
-      renderSide(st);renderTabs();
+      renderSide(st);renderTabs(st);
       var ub=document.getElementById("updbar");if(ub)ub.innerHTML=updateBanner();
       var main=document.getElementById("main");
       if(screen==="today")main.innerHTML=htmlToday(st);
-      else if(screen==="plan")main.innerHTML=htmlPlan(st);
-      else if(screen==="drills")main.innerHTML=htmlDrills(st);
+      else if(screen==="plan")main.innerHTML=subTabs("plan")+htmlPlan(st);
+      else if(screen==="drills")main.innerHTML=subTabs("drills")+htmlDrills(st);
       else if(screen==="maps")main.innerHTML=htmlMaps(st);
       else if(screen==="progress")main.innerHTML=htmlProgress(st);
       else if(screen==="gear")main.innerHTML=htmlGear(st);
@@ -1779,19 +1902,48 @@
 
   function renderSide(st){
     var side=document.getElementById("side");
-    var streak=curStreak(st);
-    function nb(k,l,ic){return '<button data-go="'+k+'" class="'+(screen===k?"on":"")+'"'+(screen===k?' aria-current="page"':'')+'>'+ic+'<span>'+l+'</span></button>';}
-    side.innerHTML='<div class="brand">'+ '<span style="width:22px;height:22px;color:var(--hero-ink);display:inline-block;">'+RET+'</span><span class="wordmark">LOCK<b>IN</b></span></div>'+
-      '<nav class="snav" aria-label="Primary">'+nb("today","TODAY",RET)+nb("plan","PLAN",LIST)+nb("drills","DRILLS",TARGET)+nb("maps","MAPS",MAPICON)+nb("progress","PROGRESS",CAL)+nb("gear","GEAR",MOUSE)+nb("setup","SETUP",GEAR)+'</nav>'+
-      '<div class="smini"><div><div class="ml">STREAK</div><div class="dsp" style="font-size:30px;color:var(--hero-ink);">'+streak+'</div></div>'+
+    var streak=curStreak(st),dueN=dueLineups(st).length;
+    // desktop mirrors the same tree as the dock, so muscle memory transfers: Practice
+    // expands IN PLACE to its two screens, and Gear/Setup sit below a REFERENCE rule
+    // rather than behind a "More" indirection that only mobile needs.
+    function badge(n){return n?'<span class="navdue" aria-label="'+n+' due">'+n+'</span>':'';}
+    function nb(k,l,ic,extra){
+      var on=destOf(screen).k===k;
+      return '<button data-dest="'+k+'" class="'+(on?"on":"")+'"'+(on?' aria-current="page"':'')+'>'+
+        '<span class="navdia" aria-hidden="true"></span>'+ic+'<span>'+l+'</span>'+(extra||'')+'</button>';
+    }
+    function sub(k,l){
+      var on=screen===k;
+      return '<button data-go="'+k+'" class="snsub'+(on?" on":"")+'"'+(on?' aria-current="page"':'')+'><span>'+l+'</span></button>';
+    }
+    var practiceOpen=destOf(screen).k==="practice";
+    side.innerHTML='<div class="brand">'+ '<span style="width:22px;height:22px;color:var(--accInk);display:inline-block;">'+RET+'</span><span class="wordmark">LOCK<b>IN</b></span></div>'+
+      '<nav class="snav" aria-label="Primary">'+
+        nb("today","TODAY",RET)+
+        nb("practice","PRACTICE",TARGET)+
+        (practiceOpen?'<div class="snsubs">'+sub("plan","Plan")+sub("drills","Drills")+'</div>':'')+
+        nb("maps","MAPS",MAPICON,badge(dueN))+
+        nb("progress","PROGRESS",CAL)+
+        '<div class="snrule"><span>REFERENCE</span></div>'+
+        '<button data-go="gear" class="'+(screen==="gear"?"on":"")+'"'+(screen==="gear"?' aria-current="page"':'')+'><span class="navdia" aria-hidden="true"></span>'+MOUSE+'<span>GEAR</span></button>'+
+        '<button data-go="setup" class="'+(screen==="setup"?"on":"")+'"'+(screen==="setup"?' aria-current="page"':'')+'><span class="navdia" aria-hidden="true"></span>'+GEAR+'<span>SETUP</span></button>'+
+      '</nav>'+
+      '<div class="smini"><div><div class="ml">STREAK</div><div class="dsp" style="font-size:30px;color:var(--accInk);">'+streak+'</div></div>'+
       '<button class="gbtn tourbtn" data-act="tour" style="width:100%;"><span class="tourico">'+COMPASS+'</span>TAKE A TOUR</button>'+
       '<button class="gbtn" data-act="retake" style="width:100%;">RETAKE QUIZ</button>'+
       '<div class="segctl" role="group" aria-label="Theme"><button data-theme-set="dark" aria-pressed="'+(curTheme(st)==="dark"?"true":"false")+'" class="'+(curTheme(st)==="dark"?"on":"")+'">DARK</button><button data-theme-set="light" aria-pressed="'+(curTheme(st)==="light"?"true":"false")+'" class="'+(curTheme(st)==="light"?"on":"")+'">LIGHT</button></div></div>';
   }
-  function renderTabs(){
+  // The mobile dock: FIVE destinations with permanently visible labels. Seven icon-only
+  // targets at 375px was the core failure — the icons were never the problem, the count
+  // and the missing labels were.
+  function renderTabs(st){
     var tb=document.getElementById("tabbar");
-    function t(k,l,ic){return '<button class="tab'+(screen===k?" on":"")+'" data-go="'+k+'" aria-label="'+l+'"'+(screen===k?' aria-current="page"':'')+'>'+ic+'<span>'+l+'</span></button>';}
-    tb.innerHTML=t("today","TODAY",RET)+t("plan","PLAN",LIST)+t("drills","DRILLS",TARGET)+t("maps","MAPS",MAPICON)+t("progress","PROGRESS",CAL)+t("gear","GEAR",MOUSE)+t("setup","SETUP",GEAR);
+    var dueN=dueLineups(st||load()).length;
+    tb.innerHTML=DESTS.map(function(d){
+      var on=destOf(screen).k===d.k;
+      return '<button class="tab'+(on?" on":"")+'" data-dest="'+d.k+'" aria-label="'+d.l+'"'+(on?' aria-current="page"':'')+'>'+
+        d.ic+'<span>'+d.l+'</span>'+(d.k==="maps"&&dueN?'<span class="tabdue" aria-label="'+dueN+' due">'+dueN+'</span>':'')+'</button>';
+    }).join("");
   }
 
   /* ---------- TODAY ---------- */
@@ -2875,6 +3027,8 @@
     var root=document.body;
     var gos=root.querySelectorAll("[data-go]");
     for(var i=0;i<gos.length;i++)(function(b){b.onclick=function(){go(b.getAttribute("data-go"));};})(gos[i]);
+    var dst=root.querySelectorAll("[data-dest]");
+    for(var di=0;di<dst.length;di++)(function(b){b.onclick=function(){goDest(b.getAttribute("data-dest"));};})(dst[di]);
     var th=root.querySelectorAll("[data-theme-set]");
     for(var t=0;t<th.length;t++)(function(b){b.onclick=function(){setTheme(b.getAttribute("data-theme-set"));};})(th[t]);
     var rk=root.querySelectorAll('[data-act="retake"]');
@@ -3315,7 +3469,7 @@
   }
   if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
     stateForBackup:stateForBackup,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER,
-    picSlots:picSlots,picRole:picRole,PICROLE:PICROLE};
+    picSlots:picSlots,picRole:picRole,PICROLE:PICROLE,DESTS:DESTS,destOf:destOf,subTabs:subTabs};
 })();
 </script>
 </body>
