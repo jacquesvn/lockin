@@ -52,6 +52,7 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         leakFocus, applyLeakFocus, focusIsSet, LEAK_DRILL, settingsAudit, XHAIR_DYNAMIC,
         offPlanRecent, offPlanHistory, gearTiles, planShot,
         needsBackup, backupCard, backupAge, whatsNew, newSince, vcmp, VERSION, markVersionSeen, WHATSNEW, BACKUP_MIN_SESSIONS,
+        applyGsiRound, roundStats, autoAuditCard, ROUND_CAP, EARLY_MS, AUDIT_MIN_ROUNDS,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
         lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag,
         curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements,
@@ -1671,6 +1672,52 @@ ok('Progress card order: milestones open, achievements close, and the leak follo
          insights < badges && leak < badges &&   // trophies close, they do not interrupt
          share < badges &&                       // share card, then the badges, as in the art
          /Derived from the audit above/.test(script);
+})());
+ok('a round is recorded once, and a re-post of the same round is not a second round', (function () {
+  // CS2 can re-post an edge, and round numbers repeat every match — so neither the round
+  // number nor the map alone is a key. Same map+round inside two minutes is one round.
+  var st = {}, dk = dateKey(new Date()), now = Date.now();
+  var r = { round: 5, map: 'de_mirage', died: true, deathMs: 14200, buyMoney: 800, buyEquip: 3600, leftOver: 650, roundKills: 1, won: false };
+  applyGsiRound(st, r, dk, now);
+  applyGsiRound(st, r, dk, now + 1000);            // duplicate post
+  var once = st.rounds.length === 1;
+  applyGsiRound(st, r, dk, now + 200000);          // same round number, a later match
+  var laterMatchCounts = st.rounds.length === 2;
+  // a different round in the same match is always its own record
+  applyGsiRound(st, { round: 6, map: 'de_mirage', died: false, buyMoney: 4200, buyEquip: 200, roundKills: 0, won: true }, dk, now + 210000);
+  return once && laterMatchCounts && st.rounds.length === 3;
+})());
+ok('the audit stores facts and never a verdict, and stays bounded', (function () {
+  var st = {}, dk = dateKey(new Date()), now = Date.now();
+  applyGsiRound(st, { round: 1, map: 'de_dust2', died: true, deathMs: 9000, buyMoney: 1150, buyEquip: 4200, leftOver: 2300, roundKills: 0, won: false }, dk, now);
+  var rec = st.rounds[0];
+  // every field is something that happened; nothing here is an opinion about it
+  var factsOnly = Object.keys(rec).every(function (k) { return ['s', 'd', 'at', 'x', 'ms', 'bm', 'be', 'lo', 'k', 'w'].indexOf(k) >= 0; });
+  // unknown outcome must be null, never false — false would read as a lost round
+  applyGsiRound(st, { round: 2, map: 'de_dust2', died: false, buyMoney: 800, buyEquip: 0, roundKills: 0, won: null }, dk, now + 1);
+  var unknownIsNull = st.rounds[1].w === null;
+  // and it cannot grow without bound in a 5MB localStorage budget
+  for (var i = 0; i < ROUND_CAP + 40; i++) {
+    applyGsiRound(st, { round: i, map: 'de_x' + i, died: false, buyMoney: 0, buyEquip: 0, roundKills: 0, won: true }, dk, now + 1000 + i);
+  }
+  return factsOnly && unknownIsNull && st.rounds.length === ROUND_CAP;
+})());
+ok('the audit stays silent until it has seen enough, and reports counts not conclusions', (function () {
+  var st = { rounds: [] }, dk = dateKey(new Date()), now = Date.now();
+  function add(n, died, ms, kills, left) {
+    for (var i = 0; i < n; i++) st.rounds.push({ s: 'm#' + (st.rounds.length), d: dk, at: now + i,
+      x: died ? 1 : 0, ms: died ? ms : null, bm: 800, be: 3600, lo: left || 0, k: kills || 0, w: 0 });
+  }
+  add(5, true, 9000, 0, 0);
+  var quietEarly = autoAuditCard(st) === '';        // 5 rounds proves nothing
+  add(25, true, 9000, 0, 2400);
+  var h = autoAuditCard(st);
+  var s = roundStats(st, 60);
+  var speaksLater = h.length > 0 && s.rounds === 30 && s.early === 30 && s.deaths === 30;
+  // it must frame itself as observation — the coaching claim is not earned yet
+  var honest = /observations, not advice/.test(h) && /you did not log any of it/.test(h) &&
+               !/you are|too early|should have|stop /i.test(h);
+  return quietEarly && speaksLater && honest && AUDIT_MIN_ROUNDS >= 20;
 })());
 ok('the backup nudge fires only where data can actually be lost, and only once it matters', (function () {
   // "No account" is a promise; this is its cost. Desktop mirrors state to a file on every

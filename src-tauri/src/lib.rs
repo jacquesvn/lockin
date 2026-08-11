@@ -363,6 +363,45 @@ fn start_gsi(app: tauri::AppHandle, port: u16, token: String) -> Result<(), Stri
     Ok(())
 }
 
+/* ---------- per-round capture ----------
+   CS2 has been streaming us health, money, equipment and round phase twice a second all along
+   and we used exactly one field of it. This turns that stream into a record per round so the
+   death audit stops being something the player types in after the fact.
+
+   Everything here is derived from OUR OWN player block, which is all GSI gives you in your own
+   match — no teammate data, nothing about opponents, no memory reading. The round clock is
+   local: CS2 does not hand you "seconds into the round", so we start a timer when the phase
+   goes live and read it when health hits zero. That is accurate to the 0.5s throttle in the
+   cfg, which is fine for "died in the first twenty seconds" and NOT fine for anything finer.
+   We record the number, never a claim about it. */
+#[derive(Default)]
+struct RoundTracker {
+    map_phase: String,
+    round_phase: String,
+    round_no: i64,
+    live_at: Option<std::time::Instant>,
+    buy_money: i64,
+    buy_equip: i64,
+    death_ms: Option<u64>,
+    death_money: i64,
+    death_kills: i64,
+    emitted: bool,
+}
+
+// Am I the player this payload describes? While dead you spectate a team-mate and CS2 keeps
+// sending player blocks — for THEM. Without this the record would quietly become a mix of two
+// people's rounds, which is worse than having no record at all.
+fn gsi_is_self(v: &serde_json::Value) -> bool {
+    let me = v.pointer("/provider/steamid").and_then(|s| s.as_str());
+    let who = v.pointer("/player/steamid").and_then(|s| s.as_str());
+    match (me, who) {
+        (Some(a), Some(b)) => a == b,
+        // no provider block (older payload shapes) — fall back to trusting the player block
+        (None, Some(_)) => true,
+        _ => false,
+    }
+}
+
 // Pure win/loss derivation, split out so it can be unit-tested (the emit path can't be). player.team
 // absent (spectating/HLTV) => "unknown": the frontend logs the match but never counts it as a loss.
 fn gsi_result(ct: i64, t: i64, team: &str) -> &'static str {
@@ -386,8 +425,9 @@ fn gsi_loop(app: tauri::AppHandle, port: u16, token: String) {
             return;
         }
     };
-    // last map phase, shared across workers, so the live->gameover edge fires exactly once per match.
-    let prev_phase = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    // Shared across workers so both the live->gameover edge and the per-round record fire exactly
+    // once, whichever worker happens to pick up the POST that carries the transition.
+    let prev_phase = std::sync::Arc::new(std::sync::Mutex::new(RoundTracker::default()));
     // A small worker pool sharing the listener: a stalled or hostile local client (a body that never
     // finishes) ties up at most one worker, so genuine CS2 POSTs are still served by the others — the
     // previous single loop could be frozen entirely by one hung connection (slow-loris starvation).
@@ -409,11 +449,79 @@ fn gsi_loop(app: tauri::AppHandle, port: u16, token: String) {
     GSI_STARTED.store(false, Ordering::SeqCst);
 }
 
+/* The state machine, split out from the request so it is unit-testable: feed it payloads, get
+   back at most one record per round. Returns Some only on the freeze/live -> over edge.
+   Deliberately records WHAT HAPPENED and nothing else — no verdicts, no "you died too early".
+   Whether 14 seconds is early is a coaching claim, and it does not get to be made until there
+   is real data from real matches to make it against. */
+fn track_round(tr: &mut RoundTracker, v: &serde_json::Value) -> Option<serde_json::Value> {
+    let rphase = v.pointer("/round/phase").and_then(|p| p.as_str()).unwrap_or("").to_string();
+    let health = v.pointer("/player/state/health").and_then(|h| h.as_i64()).unwrap_or(-1);
+    let money = v.pointer("/player/state/money").and_then(|m| m.as_i64()).unwrap_or(0);
+    let equip = v.pointer("/player/state/equip_value").and_then(|m| m.as_i64()).unwrap_or(0);
+    let kills = v.pointer("/player/state/round_kills").and_then(|m| m.as_i64()).unwrap_or(0);
+    let round_no = v.pointer("/map/round").and_then(|r| r.as_i64()).unwrap_or(-1);
+
+    // A new round number always resets, even if we somehow missed the phase edges.
+    if round_no != tr.round_no {
+        tr.round_no = round_no;
+        tr.live_at = None;
+        tr.death_ms = None;
+        tr.emitted = false;
+        tr.buy_money = 0;
+        tr.buy_equip = 0;
+        tr.death_money = 0;
+        tr.death_kills = 0;
+    }
+
+    let was = std::mem::replace(&mut tr.round_phase, rphase.clone());
+
+    // The moment the round goes live is the only honest zero for a round clock, and it is also
+    // when the buy is final — so both are captured on the same edge.
+    if rphase == "live" && was != "live" {
+        tr.live_at = Some(std::time::Instant::now());
+        tr.buy_money = money;
+        tr.buy_equip = equip;
+        tr.death_ms = None;
+    }
+
+    // First transition to zero health while live is the death; later payloads must not overwrite
+    // it (you stay at 0 until the next freezetime, and we would keep pushing the time later).
+    if rphase == "live" && health == 0 && tr.death_ms.is_none() {
+        if let Some(started) = tr.live_at {
+            tr.death_ms = Some(started.elapsed().as_millis() as u64);
+            tr.death_money = money;
+            tr.death_kills = kills;
+        }
+    }
+
+    // Emit once, on the edge into "over", and only for a round we actually saw go live.
+    if rphase == "over" && was != "over" && !tr.emitted && tr.live_at.is_some() {
+        tr.emitted = true;
+        let team = v.pointer("/player/team").and_then(|s| s.as_str()).unwrap_or("");
+        let winner = v.pointer("/round/win_team").and_then(|s| s.as_str()).unwrap_or("");
+        let won = if team.is_empty() || winner.is_empty() { serde_json::Value::Null }
+                  else { serde_json::Value::Bool(team == winner) };
+        return Some(serde_json::json!({
+            "round": tr.round_no,
+            "map": v.pointer("/map/name").and_then(|s| s.as_str()).unwrap_or(""),
+            "died": tr.death_ms.is_some(),
+            "deathMs": tr.death_ms,
+            "buyMoney": tr.buy_money,
+            "buyEquip": tr.buy_equip,
+            "leftOver": tr.death_money,
+            "roundKills": tr.death_kills,
+            "won": won,
+        }));
+    }
+    None
+}
+
 fn handle_gsi_request(
     mut req: tiny_http::Request,
     app: &tauri::AppHandle,
     token: &str,
-    prev_phase: &std::sync::Mutex<String>,
+    prev_phase: &std::sync::Mutex<RoundTracker>,
 ) {
     let mut body = String::new();
     // capped read: bound memory even for an untrusted, oversized, or never-terminating body.
@@ -435,12 +543,18 @@ fn handle_gsi_request(
         .and_then(|p| p.as_str())
         .unwrap_or("")
         .to_string();
-    // read-modify-write the shared phase and decide the edge atomically under the lock.
-    let edge = {
-        let mut prev = prev_phase.lock().unwrap_or_else(|p| p.into_inner());
-        let was = std::mem::replace(&mut *prev, phase.clone());
-        phase == "gameover" && was != "gameover"
+    // Everything that mutates shared state happens under one lock, so two workers racing on
+    // adjacent POSTs cannot both claim the same edge or emit the same round twice.
+    let (edge, round_record) = {
+        let mut tr = prev_phase.lock().unwrap_or_else(|p| p.into_inner());
+        let was = std::mem::replace(&mut tr.map_phase, phase.clone());
+        let edge = phase == "gameover" && was != "gameover";
+        let rec = if gsi_is_self(&v) { track_round(&mut tr, &v) } else { None };
+        (edge, rec)
     };
+    if let Some(rec) = round_record {
+        let _ = app.emit("gsi-round", rec);
+    }
     if edge {
         let ct = v.pointer("/map/team_ct/score").and_then(|s| s.as_i64()).unwrap_or(0);
         let t = v.pointer("/map/team_t/score").and_then(|s| s.as_i64()).unwrap_or(0);
@@ -489,7 +603,96 @@ fn write_gsi_config(token: String, port: u16) -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{gsi_config_body, gsi_result, quoted_after};
+    use super::{gsi_config_body, gsi_is_self, gsi_result, quoted_after, track_round, RoundTracker};
+
+    // Payloads shaped like the ones CS2 actually posts, so the pointers are exercised for real.
+    fn payload(rphase: &str, round: i64, health: i64, money: i64, equip: i64, kills: i64) -> serde_json::Value {
+        serde_json::json!({
+            "provider": { "steamid": "76561198000000001" },
+            "player": {
+                "steamid": "76561198000000001",
+                "team": "CT",
+                "state": { "health": health, "money": money, "equip_value": equip, "round_kills": kills }
+            },
+            "map": { "name": "de_mirage", "round": round, "phase": "live" },
+            "round": { "phase": rphase, "win_team": "T" }
+        })
+    }
+
+    #[test]
+    fn a_round_produces_exactly_one_record_on_the_over_edge() {
+        let mut tr = RoundTracker::default();
+        assert!(track_round(&mut tr, &payload("freezetime", 3, 100, 4200, 200, 0)).is_none());
+        assert!(track_round(&mut tr, &payload("live", 3, 100, 800, 3600, 0)).is_none());
+        assert!(track_round(&mut tr, &payload("live", 3, 42, 800, 3600, 0)).is_none());
+        let rec = track_round(&mut tr, &payload("over", 3, 0, 800, 3600, 1));
+        assert!(rec.is_some(), "the over edge must produce a record");
+        // "over" persists for several posts — it must not emit again
+        assert!(track_round(&mut tr, &payload("over", 3, 0, 800, 3600, 1)).is_none());
+    }
+
+    #[test]
+    fn death_is_the_FIRST_zero_health_not_the_last() {
+        // you stay at 0 until the next freezetime, so later payloads would keep pushing the
+        // recorded time later and every death would look like it happened at round end.
+        let mut tr = RoundTracker::default();
+        track_round(&mut tr, &payload("live", 5, 100, 800, 3600, 0));
+        track_round(&mut tr, &payload("live", 5, 0, 650, 3600, 1));
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        track_round(&mut tr, &payload("live", 5, 0, 650, 3600, 1));
+        let rec = track_round(&mut tr, &payload("over", 5, 0, 650, 3600, 1)).unwrap();
+        assert_eq!(rec["died"], serde_json::json!(true));
+        assert_eq!(rec["roundKills"], serde_json::json!(1));
+        assert!(rec["deathMs"].as_u64().unwrap() < 30, "must be the first zero, not the last");
+    }
+
+    #[test]
+    fn surviving_the_round_records_no_death() {
+        let mut tr = RoundTracker::default();
+        track_round(&mut tr, &payload("live", 7, 100, 800, 3600, 0));
+        let rec = track_round(&mut tr, &payload("over", 7, 63, 800, 3600, 2)).unwrap();
+        assert_eq!(rec["died"], serde_json::json!(false));
+        assert_eq!(rec["deathMs"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn the_buy_is_read_when_the_round_goes_live_not_during_freezetime() {
+        // during freezetime money is still moving as you buy; the number that means anything is
+        // what you walked out of spawn holding.
+        let mut tr = RoundTracker::default();
+        track_round(&mut tr, &payload("freezetime", 9, 100, 5000, 0, 0));
+        track_round(&mut tr, &payload("live", 9, 100, 1150, 4200, 0));
+        let rec = track_round(&mut tr, &payload("over", 9, 100, 1150, 4200, 0)).unwrap();
+        assert_eq!(rec["buyMoney"], serde_json::json!(1150));
+        assert_eq!(rec["buyEquip"], serde_json::json!(4200));
+    }
+
+    #[test]
+    fn a_round_never_seen_live_emits_nothing() {
+        // joining mid-round, or a warmup "over", must not invent a record with a null clock
+        let mut tr = RoundTracker::default();
+        assert!(track_round(&mut tr, &payload("over", 11, 100, 800, 3600, 0)).is_none());
+    }
+
+    #[test]
+    fn spectating_a_team_mate_is_not_me() {
+        let mut v = payload("live", 4, 100, 800, 3600, 0);
+        v["player"]["steamid"] = serde_json::json!("76561198000000999");
+        assert!(!gsi_is_self(&v), "a different steamid is someone else's round");
+        assert!(gsi_is_self(&payload("live", 4, 100, 800, 3600, 0)));
+    }
+
+    #[test]
+    fn win_is_null_rather_than_false_when_the_teams_are_unknown() {
+        let mut tr = RoundTracker::default();
+        let mut live = payload("live", 2, 100, 800, 3600, 0);
+        live["player"]["team"] = serde_json::json!("");
+        track_round(&mut tr, &live);
+        let mut over = payload("over", 2, 100, 800, 3600, 0);
+        over["player"]["team"] = serde_json::json!("");
+        let rec = track_round(&mut tr, &over).unwrap();
+        assert_eq!(rec["won"], serde_json::Value::Null, "unknown must never read as a loss");
+    }
 
     // Sampled from a real cs2_user_convars_0_slot0.vcfg so the key names and the tab-quote
     // shape are the ones CS2 actually writes, not ones I assumed.
