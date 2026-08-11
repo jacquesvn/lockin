@@ -299,7 +299,6 @@
   .privrow{display:flex;gap:10px;align-items:flex-start;padding:7px 0;font-size:13.5px;color:var(--muted);}
   .privrow svg{width:15px;height:15px;color:var(--good);flex:0 0 auto;margin-top:2px;}
   .privcard .mhow{border-top:1px solid var(--line);padding-top:10px;color:var(--text);font-weight:600;}
-  .smini{margin-top:auto;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:14px;}
   /* ---------- the status rail (foot of the desktop sidebar) ---------- */
   .srail{margin-top:auto;border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:7px;}
   .srtop{display:flex;align-items:center;gap:7px;}
@@ -404,7 +403,6 @@
     .ach{padding:11px 6px;} .achd{display:none;} }
   /* streak milestone rail — one source of truth, shared with the tier name */
   .mrail{margin-bottom:10px;}
-  .mrrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(52px,1fr));gap:6px;margin-top:10px;}
   /* ---------- streak milestones: a TRACK, not six cards ---------- */
   .mrhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;}
   .mrto{font-family:var(--fm);font-size:9.5px;letter-spacing:0.08em;color:var(--accInk);}
@@ -424,11 +422,6 @@
   .mtn.on small{color:var(--muted);}
   .mtn.next .mthex{background:var(--surface2);color:var(--accInk);box-shadow:0 0 0 2px var(--acc);}
   @media (max-width:719px){ .mtn small{font-size:7.5px;letter-spacing:0.06em;} .mtn{width:44px;} }
-  .mrcell{border:1px solid var(--edge);border-radius:9px;padding:8px 4px;text-align:center;}
-  .mrcell.on{border-color:var(--acc);background:color-mix(in oklab,var(--acc) 14%,transparent);}
-  .mrcell.next{border-color:var(--acc);border-style:dashed;}
-  .mrn{font-family:var(--fd);font-weight:800;font-size:17px;color:var(--text);}
-  .mrcell.on .mrn{color:var(--accInk);}
   .mrt{font-family:var(--fm);font-size:7.5px;letter-spacing:0.1em;color:var(--faint);margin-top:2px;}
   /* auto-logged match summary */
   .adcard{margin-bottom:10px;}
@@ -824,9 +817,6 @@
   .bftoggle.on{border-color:var(--hero);color:var(--hero-ink);}
   .rtoggle{background:var(--surface2);border:1px solid var(--line);border-radius:999px;color:var(--muted);cursor:pointer;font-family:var(--fm);font-size:10px;font-weight:800;letter-spacing:0.12em;padding:7px 18px;flex:0 0 auto;}
   .rtoggle.on{background:var(--hero);border-color:var(--hero);color:var(--onhero);}
-  .sessrow{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:12px;}
-  .sessrow .startsession,.sessrow .quickbtn{margin-bottom:0;}
-  .sessrow .quickbtn{white-space:nowrap;padding-left:16px;padding-right:16px;}
   .startsession{width:100%;background:var(--hero);color:var(--onhero);border:none;border-radius:12px;padding:14px;font-family:var(--fm);font-weight:800;font-size:12px;letter-spacing:0.1em;cursor:pointer;margin-bottom:12px;}
   .startsession:hover{background:var(--hero2);}
   .field{margin-top:0;} .field label{font-family:var(--fm);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:5px;}
@@ -924,8 +914,6 @@
   .leakbar i{height:100%;display:block;}
   .lo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   @media (max-width:520px){.lo-grid{grid-template-columns:1fr;}}
-  .quickbtn{width:100%;background:transparent;color:var(--hero-ink);border:1px solid var(--hero-ink);border-radius:12px;padding:14px;font-family:var(--fm);font-weight:800;font-size:12px;letter-spacing:0.1em;cursor:pointer;margin-bottom:12px;}
-  .quickbtn:hover{background:color-mix(in oklab,var(--hero) 12%,transparent);}
 
   /* ---------- v0.8: map prep ---------- */
   .mapchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
@@ -990,7 +978,6 @@
   .lbhint{color:var(--faint);}
   .lndel{background:transparent;border:1px solid var(--line);border-radius:7px;color:var(--faint);cursor:pointer;width:28px;height:28px;flex:0 0 auto;font-size:12px;}
   .lndel:hover{border-color:var(--bad);color:var(--bad);}
-  .pcue{font-family:var(--fm);font-size:11px;color:var(--hero-ink);margin-top:4px;}
   .lnadd{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin-top:12px;}
   @media (max-width:600px){.lnadd{grid-template-columns:1fr;}}
 
@@ -1004,11 +991,8 @@
   /* scrolls rather than clips if a wordy drill meets a short screen */
   #session .sctr{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;}
   #session .sname{font-size:26px;max-width:16ch;line-height:1.05;}
-  #session .scue{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.01em;font-size:clamp(15px,3.4vw,19px);color:var(--hero-ink);max-width:22ch;margin:10px 0 2px;}
-  #session .srule{font-family:var(--fm);font-size:12px;color:var(--bad);max-width:36ch;margin-top:6px;line-height:1.5;}
   /* full-strength text, not --muted: this is read mid-drill at a glance, so it
      is content rather than caption and the grey was the main legibility fault */
-  #session .ssub{color:var(--text);font-size:15px;max-width:34ch;line-height:1.45;}
   /* One labelled fact per row, left-aligned so the labels form a column the eye
      runs down. Centred prose forced you to re-read to find anything. */
   /* drill screen — each piece styled by its job, not a flat list of look-alike rows */
@@ -1032,7 +1016,6 @@
   #session .smind{background:color-mix(in oklab,var(--hero) 11%,transparent);border:1px solid color-mix(in oklab,var(--hero) 38%,transparent);border-radius:12px;padding:11px 15px;}
   #session .smindk{display:block;font-family:var(--fm);font-size:9.5px;letter-spacing:0.14em;color:var(--hero-ink);}
   #session .smindc{display:block;font-family:var(--fd);font-weight:800;font-size:18px;color:var(--hero-ink);margin-top:3px;letter-spacing:-0.01em;}
-  #session .smeas{font-family:var(--fm);font-size:12px;color:var(--muted);margin-bottom:4px;}
   #session .stime{font-family:var(--fd);font-weight:800;font-size:clamp(64px,20vw,92px);letter-spacing:-0.03em;color:var(--hero-ink);font-variant-numeric:tabular-nums;line-height:1;margin:4px 0;}
   #session .stime.zero{color:var(--good);}
   #session .sctrls{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;justify-content:center;}
@@ -1043,10 +1026,6 @@
     #session{padding:28px 32px;}
     #session .sctr{gap:11px;}
     #session .sname{font-size:clamp(34px,3.2vw,50px);max-width:24ch;}
-    #session .ssub{font-size:clamp(17px,1.3vw,21px);max-width:54ch;}
-    #session .scue{font-size:clamp(21px,1.9vw,29px);max-width:36ch;margin:14px 0 2px;}
-    #session .smeas{font-size:13px;}
-    #session .srule{font-size:15px;max-width:62ch;}
     #session .sbody{max-width:58ch;gap:15px;margin-top:22px;}
     #session .srw{grid-template-columns:1fr 1fr;}
     #session .smap{font-size:13px;margin-top:14px;}
@@ -1077,8 +1056,6 @@
     color:var(--faint);margin-top:8px;}
   #cele .scan{position:absolute;left:0;right:0;height:2px;background:var(--hero);opacity:.6;animation:lk-scan 1.1s ease-in-out both;}
   #cele .inner{text-align:center;}
-  #cele .ct1{font-family:var(--fd);font-weight:800;font-size:28px;text-transform:uppercase;letter-spacing:-0.02em;margin-top:18px;animation:lk-rise .62s .34s cubic-bezier(.2,.9,.2,1) both;}
-  #cele .ct2{font-family:var(--fm);font-size:12px;letter-spacing:0.18em;color:var(--hero-ink);margin-top:8px;animation:lk-rise .62s .52s cubic-bezier(.2,.9,.2,1) both;}
 
   @keyframes lk-snap{from{transform:scale(1.55);opacity:0}to{transform:scale(1);opacity:1}}
   @keyframes lk-ping{from{transform:scale(.7);opacity:.8}to{transform:scale(2.1);opacity:0}}

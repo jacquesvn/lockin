@@ -662,12 +662,25 @@ ok('drill descriptions fit two lines at the rendered width', (function () {
   return over.length === 0;
 })());
 ok('session description is not left at caption-grey', (function () {
-  var m = html.match(/#session \.ssub\{[^}]*\}/);
-  return !!m && /color:var\(--text\)/.test(m[0]) && !/--muted|--faint/.test(m[0]);
+  // This asserted #session .ssub for a long time after the session screen stopped emitting
+  // it — v0.12 split that prose blob into labelled facts (DO / GOAL / RIGHT / WRONG / MIND)
+  // and .ssub survived only as CSS. So the guard passed while protecting nothing, and only
+  // deleting the dead rule revealed it. Re-pointed at the class that carries the job now.
+  var m = css.match(/#session \.sdotxt\{[^}]*\}/);
+  if (!m) { console.log('      no #session .sdotxt rule — has the session screen changed again?'); return false; }
+  // the thing you are actually doing must read as body text, never as a caption
+  return /color:var\(--text\)/.test(m[0]) && !/--muted|--faint/.test(m[0]);
 })());
 ok('session type scales up past the phone breakpoint', (function () {
-  return /#session \.sname\{font-size:clamp\(3\d/.test(html) &&
-         /#session \.ssub\{font-size:clamp/.test(html);
+  // Same story: the .ssub half of this was checking a class the screen no longer renders.
+  // The drill NAME still clamps, and the body text still steps up at the breakpoint — assert
+  // both against what is actually on screen, and require the step to be a real increase.
+  var name = /#session \.sname\{font-size:clamp\(3\d/.test(css);
+  var base = (css.match(/#session \.sdotxt\{[^}]*font-size:(\d+)px/) || [])[1];
+  var wide = (css.match(/#session \.sdotxt\{font-size:(\d+)px\}/g) || []).join(' ');
+  var stepped = /#session \.sdotxt\{font-size:18px/.test(css) && +base === 16;
+  if (!name || !stepped) console.log('      name-clamp=' + name + ' base=' + base + ' stepped=' + stepped);
+  return name && stepped;
 })());
 
 
