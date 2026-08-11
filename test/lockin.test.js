@@ -54,6 +54,8 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         weeklyRecap, recapCard, debriefCard, applyGsiMatch, DESTS, destOf, subTabs,
         dueCard, todayCards, todayStack, leakOfWeek, leakCard, tenList, tenMins, youVsYou,
         STREAK_TIERS, milestoneState, milestoneRail, autoDebrief, lineupCount, lineupMaps, recallCount,
+        streakDetail, pauseInfo, isPausedOn, planWeek, pauseCard, freezeRow, restWeek, restLine,
+        quietWeek, tierIdentity, QUIET_DAYS, PAUSE_WEEKS,
         LSRS, srsAnswer, dueLineups, lineupIsDue, lineupReviewCard,
         stateForBackup, takeBackupImages, picStrip, IMGS, IMG_PER,
         picSlots, picRole, PICROLE } = sandbox.module.exports;
@@ -1455,6 +1457,85 @@ ok('the privacy card states all four claims and the line only a free app can wri
          /Backups are yours and manual/.test(s) &&
          /Paid coaching apps cannot say this/.test(s);
 })());
+
+// --- v3 Group B: streak integrity ---
+(function () {
+  // 4-day plan (Mon-Thu train, Fri/Sat match, Sun rest) — the default shape
+  // created on the day training starts, as it is in reality — the walk-back stops there
+  function planFor() { return { weekly: {0:'rest',1:'cstrafe',2:'cstrafe',3:'cstrafe',4:'cstrafe',5:'match',6:'match'},
+                                keystone:'cstrafe', created:'2026-01-05', used:['cstrafe'] }; }
+  function stWith(days) { var st = { plan: planFor(), sessions: {}, settings: {}, lineups: {} };
+    days.forEach(function (d) { st.sessions[d] = { warm:true, drills:{0:true} }; }); return st; }
+
+  ok('streakDetail reports the freeze spend, not just the length', (function () {
+    // W1 Mon-Thu + W2 Mon,Wed,Thu (W2-Tue missed) = 7 warm days -> 1 freeze earned
+    var st = stWith(['2026-01-05','2026-01-06','2026-01-07','2026-01-08',
+                     '2026-01-12','2026-01-14','2026-01-15']);
+    var d = streakDetail(st, new Date(2026,0,15), freezeBudget(st));
+    return freezeBudget(st) === 1 && d.days === 7 && d.spent === 1 && d.held === 0;
+  })());
+  ok('a streak that needed no freeze reports none spent', (function () {
+    var st = stWith(['2026-01-05','2026-01-06','2026-01-07','2026-01-08',
+                     '2026-01-12','2026-01-13','2026-01-14']);
+    var d = streakDetail(st, new Date(2026,0,14), freezeBudget(st));
+    return d.days === 7 && d.spent === 0;
+  })());
+  ok('the freeze row names the spend and what is still held', (function () {
+    var st = stWith(['2026-01-05','2026-01-06','2026-01-07','2026-01-08',
+                     '2026-01-12','2026-01-14','2026-01-15']);
+    var h = freezeRow(st, new Date(2026,0,15));
+    return /FREEZE 1 OF 1 SPENT/.test(h) && /class="frzs spent"/.test(h);
+  })());
+  ok('a paused day is never a missed day, and never spends a freeze', (function () {
+    var st = stWith(['2026-01-05','2026-01-06','2026-01-07','2026-01-08']);
+    st.settings.pause = { weeks: 2, from: '2026-01-09' };
+    // Mon 12th and Tue 13th fall inside the pause window
+    return isPausedOn(st, new Date(2026,0,12)) && !isPausedOn(st, new Date(2026,0,26)) &&
+           streakDetail(st, new Date(2026,0,20), 0).days === 4 &&   // streak intact with NO budget
+           streakDetail(st, new Date(2026,0,20), 0).spent === 0 &&
+           lapseInfo(st, new Date(2026,0,20)) === null;             // and no lapse card either
+  })());
+  ok('the pause card holds the programme week and says the plan will not restart', (function () {
+    var st = stWith(['2026-01-05']);
+    st.plan.created = '2026-01-01';
+    st.settings.pause = { weeks: 6, from: '2026-01-08' };
+    var wkAtPause = planWeek(st, new Date(2026,0,8));
+    var wkLater   = planWeek(st, new Date(2026,1,10));   // a month into the pause
+    var c = pauseCard(st, new Date(2026,1,10));
+    return wkLater === wkAtPause &&                       // the clock is held
+           /Paused for six weeks/.test(c) && /does not restart/.test(c) &&
+           /held, not broken/.test(c) && /data-resume/.test(c) &&
+           PAUSE_WEEKS.join(',') === '2,4,6';
+  })());
+  ok('rest completes the week rather than leaving a hole', (function () {
+    var st = stWith([]);
+    st.plan.weekly = {0:'rest',1:'cstrafe',2:'cstrafe',3:'cstrafe',4:'cstrafe',5:'rest',6:'match'};
+    var mon = new Date(2026,0,5);                          // Mon 5 Jan 2026
+    var r0 = restWeek(st, mon);
+    st.sessions['2026-01-09'] = { rest:true };             // Fri
+    st.sessions['2026-01-11'] = { rest:true };             // Sun
+    var r1 = restWeek(st, mon);
+    return r0.planned === 2 && r0.logged === 0 && !r0.done &&
+           r1.logged === 2 && r1.done &&
+           /the week is complete, not incomplete/.test(restLine(st, mon)) &&
+           restLine({ plan:{weekly:{}}, sessions:{} }, mon) === '';   // no rest days -> no line
+  })());
+  ok('the quiet week runs for a few days after a return, then stops on its own', (function () {
+    var st = stWith(['2026-01-05','2026-01-06','2026-01-20']);   // trained, gap, returned on the 20th
+    var day1 = quietWeek(st, new Date(2026,0,20));
+    var day3 = quietWeek(st, new Date(2026,0,22));
+    var after = quietWeek(st, new Date(2026,0,26));
+    return QUIET_DAYS === 4 && day1 && day1.left === 4 && day3 && day3.left === 2 && after === null &&
+           quietWeek(stWith(['2026-01-05','2026-01-06']), new Date(2026,0,6)) === null;   // no lapse, no quiet week
+  })());
+  ok('the tier identity reads the same source as the rail', (function () {
+    var st = stWith([]); st.settings.tag = 'van_';
+    var h = tierIdentity(st, 14);
+    return /LOCKED IN, VAN_/.test(h) && /GOLD TIER/.test(h) &&
+           milestoneState(14).reached.t === 'GOLD' &&
+           /NO TIER YET/.test(tierIdentity(stWith([]), 0));
+  })());
+})();
 
 // --- v3 Group A part 2: milestone rail, badges, auto-debrief ---
 ok('the milestone ladder reports the tier reached and the honest distance to the next', (function () {

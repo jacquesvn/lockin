@@ -234,7 +234,42 @@
   .hero-card::after{content:"";position:absolute;top:-50px;right:-50px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,var(--hero),transparent 68%);opacity:.10;pointer-events:none;}
   .hero-row{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;}
   .big-n{font-family:var(--fd);font-weight:800;font-size:64px;line-height:.95;letter-spacing:-0.03em;color:var(--hero-ink);}
-  .frz{display:inline-flex;align-items:center;gap:5px;margin-top:7px;font-family:var(--fm);font-size:10px;letter-spacing:0.1em;color:var(--hero-ink);}
+  .frz{display:flex;align-items:center;gap:8px;margin-top:8px;font-family:var(--fm);font-size:9.5px;letter-spacing:0.1em;color:var(--accInk);}
+  .frzrow{display:inline-flex;gap:3px;}
+  .frzs{width:14px;height:14px;color:var(--accInk);display:inline-block;}
+  .frzs svg{width:14px;height:14px;}
+  .frzs.spent{color:var(--faint);opacity:.55;}      /* spent, not gone — you can see what it cost */
+  .frzt small{display:block;color:var(--faint);letter-spacing:0.08em;margin-top:2px;}
+  /* pause — stopping on purpose is not dropping off */
+  .pausecard{margin-bottom:11px;}
+  .pausebig{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.01em;font-size:22px;color:var(--accInk);margin-top:6px;}
+  .pauserow{display:flex;gap:8px;flex-wrap:wrap;}
+  .pausebtn{flex:1;min-width:92px;min-height:44px;background:transparent;border:1px solid var(--edge);border-radius:11px;
+    color:var(--text);font-family:var(--fm);font-size:11px;font-weight:700;letter-spacing:0.1em;cursor:pointer;}
+  .pausebtn:hover{border-color:var(--acc);color:var(--accInk);}
+  @media (min-width:720px){ .pausebtn{min-height:36px;} }   /* pointer-only chrome may drop to 36 */
+  /* rest as a first-class day */
+  .wc.restplan{border:1px dashed var(--edge);color:var(--faint);background:transparent;cursor:pointer;}
+  .wc.restplan:hover{border-color:var(--acc);color:var(--accInk);}
+  .wc.restdone{border:1px solid var(--acc);color:var(--accInk);background:color-mix(in oklab,var(--acc) 14%,transparent);}
+  .restline{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:11px;padding-top:10px;border-top:1px solid var(--line);}
+  .restline .ml{color:var(--faint);}
+  .restn{font-family:var(--fm);font-size:12px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;}
+  .restt{flex:1;min-width:180px;font-size:12px;color:var(--muted);}
+  .restline.on .restn,.restline.on .restt{color:var(--accInk);}
+  /* the earned tier as the sidebar identity */
+  .tierid{display:flex;align-items:center;gap:10px;}
+  .tierhex{width:38px;height:42px;flex:0 0 auto;display:grid;place-items:center;background:var(--acc);color:var(--onAcc);
+    clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);}
+  .tierhex b{font-family:var(--fd);font-weight:800;font-size:17px;}
+  .tiertx{min-width:0;}
+  .tiername{display:block;font-family:var(--fd);font-weight:800;font-size:12px;letter-spacing:-0.01em;overflow-wrap:anywhere;}
+  .tiertx small{display:block;font-family:var(--fm);font-size:8px;letter-spacing:0.16em;color:var(--faint);margin-top:2px;}
+  /* the quiet week, stated rather than done silently */
+  .quietnote{display:flex;gap:10px;align-items:flex-start;padding:11px 12px;margin-bottom:12px;
+    border:1px solid var(--accGhost);border-radius:11px;background:color-mix(in oklab,var(--acc) 8%,transparent);font-size:13px;color:var(--muted);}
+  .quietnote svg{width:16px;height:16px;color:var(--accInk);flex:0 0 auto;margin-top:1px;}
+  .quietnote b{color:var(--text);}
   .frz svg{width:12px;height:12px;}
   /* milestones / achievements */
   .achgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;}
@@ -1072,12 +1107,42 @@
   function isTrainingDay(plan,d){var wk=plan&&plan.weekly,f=wk?wk[d.getDay()]:null;if(f)return f!=="rest"&&f!=="match";return !isFreebie(d);}
   // freezes>0 lets the walk-back bridge that many missed TRAINING days without breaking —
   // the streak-freeze. Default 0 keeps it a strict streak (unchanged for every existing caller).
-  function computeStreak(st,today,freezes){var s=0,d=new Date(today),budget=freezes||0,t=st.sessions[dateKey(d)];if(!t||!t.warm)d=addDays(d,-1);
-    while(true){var x=st.sessions[dateKey(d)];
+  /* ---------- a deliberate pause: injury, exams, life ----------
+     A paused day is not a missed day. Nothing inside the window counts against the streak,
+     nothing is painted as missed, and the programme clock does not advance — on resume the
+     plan picks up at the week you left, it does not restart. */
+  function pauseInfo(st){
+    var p=st&&st.settings&&st.settings.pause;
+    if(!p||!p.from||!p.weeks)return null;
+    var from=parseKey(p.from),until=addDays(from,p.weeks*7);
+    return {from:from,until:until,weeks:p.weeks,fromKey:p.from};
+  }
+  function isPausedOn(st,d){
+    var p=pauseInfo(st);if(!p)return false;
+    var t=midnight(d).getTime();
+    return t>=midnight(p.from).getTime()&&t<midnight(p.until).getTime();
+  }
+  function isPaused(st,now){return isPausedOn(st,now||new Date());}
+  // One walk, two answers: how long the streak is AND how many freezes it cost to hold it.
+  // The streak used to survive a miss silently, which taught the player nothing.
+  function streakDetail(st,today,freezes){
+    var s=0,spent=0,d=new Date(today),budget=freezes||0,t=st.sessions[dateKey(d)];
+    // Stop at the day the plan was created. Before freezes the walk simply broke on the first
+    // untrained day, so pre-history was harmless; with a freeze budget it would instead SPEND
+    // a freeze on days that existed before the user did, silently eating what they'd earned.
+    var createdMid=(st.plan&&st.plan.created)?midnight(parseKey(st.plan.created)).getTime():0;
+    if(!t||!t.warm)d=addDays(d,-1);
+    while(true){
+      if(midnight(d).getTime()<createdMid)break;
+      var x=st.sessions[dateKey(d)];
       if(x&&x.warm){s++;d=addDays(d,-1);}
+      else if(isPausedOn(st,d)){d=addDays(d,-1);}          // paused days are skipped, never spent on
       else if(!isTrainingDay(st.plan,d)){d=addDays(d,-1);}
-      else if(budget>0){budget--;d=addDays(d,-1);}
-      else break;}return s;}
+      else if(budget>0){budget--;spent++;d=addDays(d,-1);}
+      else break;}
+    return {days:s,spent:spent,held:budget};
+  }
+  function computeStreak(st,today,freezes){return streakDetail(st,today,freezes).days;}
   // one freeze earned per 7 training days, capped at 3 — so a bad day can't wipe a long streak.
   function freezeBudget(st){return Math.min(3,Math.floor(warmDays(st).length/7));}
   function curStreak(st,now){return computeStreak(st,now||new Date(),freezeBudget(st));}
@@ -1188,7 +1253,7 @@
     if(gap<2)return null;
     var missed=0;
     for(var d=addDays(last,1);midnight(d)<midnight(now);d=addDays(d,1))
-      if(isTrainingDay(plan,d))missed++;
+      if(isTrainingDay(plan,d)&&!isPausedOn(st,d))missed++;   // a paused day was never missed
     if(missed<LAPSE_MIN)return null;                  // a normal gap for their own cadence
     var nextName="";
     if(!isTrainingDay(plan,now)){
@@ -1327,6 +1392,9 @@
   // Build every candidate card with its tier, then let todayStack decide what surfaces.
   function todayCards(st,now,ctx){
     var out=[];
+    // a live pause outranks everything — it explains the whole screen
+    var pc=pauseCard(st,now);
+    if(pc)out.push({tier:1,k:"paused",label:"Paused",html:pc});
     if(ctx.gate)out.push({tier:1,k:"gate",label:"Match-night gate",html:ctx.gate});
     if(ctx.lapse)out.push({tier:2,k:"lapse",label:"Welcome back",html:lapseCard(ctx.lapse)});
     var due=dueCard(st,ctx.pr,ctx.lnDue);
@@ -2024,6 +2092,15 @@
     };
   }
 
+  // The earned tier IS the identity. Reads milestoneState — the same source as the rail —
+  // so the sidebar, the Progress rail and the share card can never disagree about the tier.
+  function tierIdentity(st,streak){
+    var m=milestoneState(streak),tag=playerTag(st);
+    return '<div class="tierid">'+
+      '<span class="tierhex"><b>'+streak+'</b></span>'+
+      '<span class="tiertx"><span class="tiername">'+(tag?'LOCKED IN, '+esc(tag.toUpperCase()):'LOCKED IN')+'</span>'+
+      '<small>'+(m.reached?esc(m.reached.t)+' TIER':'NO TIER YET')+'</small></span></div>';
+  }
   function renderSide(st){
     var side=document.getElementById("side");
     var streak=curStreak(st),dueN=dueLineups(st).length;
@@ -2052,7 +2129,7 @@
         '<button data-go="gear" class="'+(screen==="gear"?"on":"")+'"'+(screen==="gear"?' aria-current="page"':'')+'><span class="navdia" aria-hidden="true"></span>'+MOUSE+'<span>GEAR</span></button>'+
         '<button data-go="setup" class="'+(screen==="setup"?"on":"")+'"'+(screen==="setup"?' aria-current="page"':'')+'><span class="navdia" aria-hidden="true"></span>'+GEAR+'<span>SETUP</span></button>'+
       '</nav>'+
-      '<div class="smini"><div><div class="ml">STREAK</div><div class="dsp" style="font-size:30px;color:var(--accInk);">'+streak+'</div></div>'+
+      '<div class="smini">'+tierIdentity(st,streak)+
       '<button class="gbtn tourbtn" data-act="tour" style="width:100%;"><span class="tourico">'+COMPASS+'</span>TAKE A TOUR</button>'+
       '<button class="gbtn" data-act="retake" style="width:100%;">RETAKE QUIZ</button>'+
       '<div class="segctl" role="group" aria-label="Theme"><button data-theme-set="dark" aria-pressed="'+(curTheme(st)==="dark"?"true":"false")+'" class="'+(curTheme(st)==="dark"?"on":"")+'">DARK</button><button data-theme-set="light" aria-pressed="'+(curTheme(st)==="light"?"true":"false")+'" class="'+(curTheme(st)==="light"?"on":"")+'">LIGHT</button></div></div>';
@@ -2077,6 +2154,7 @@
     var plan=st&&st.plan;if(!plan)return false;
     var yday=addDays(now,-1);
     if(!isTrainingDay(plan,yday))return false;
+    if(isPausedOn(st,yday))return false;                       // you were paused, not slacking
     var createdMid=plan.created?parseKey(plan.created).getTime():0;
     if(midnight(yday).getTime()<createdMid)return false;      // before this plan existed
     // "never miss twice" protects a habit you've started. Nagging someone who has never
@@ -2087,20 +2165,74 @@
     var s=sess[dateKey(yday)];
     return !(s&&s.warm);
   }
+  // Rest completes the pattern; it does not break it. Counts scheduled rest days for the
+  // current week and how many you've actually logged, so a full week reads as COMPLETE.
+  function restWeek(st,now){
+    var mon=mondayOf(now||new Date()),planned=0,logged=0;
+    for(var i=0;i<7;i++){
+      var day=addDays(mon,i);
+      if(!(st.plan&&st.plan.weekly&&st.plan.weekly[day.getDay()]==="rest"))continue;
+      planned++;
+      var s=st.sessions[dateKey(day)];
+      if(s&&s.rest)logged++;
+    }
+    return {planned:planned,logged:logged,done:planned>0&&logged>=planned};
+  }
+  function restLine(st,now){
+    var r=restWeek(st,now);
+    if(!r.planned)return "";
+    return '<div class="restline'+(r.done?" on":"")+'">'+
+      '<span class="ml">REST LOGGED</span>'+
+      '<span class="restn">'+r.logged+'/'+r.planned+'</span>'+
+      '<span class="restt">'+(r.done
+        ?'Both rest days logged — the week is complete, not incomplete.'
+        :'Tap a rest day in the strip when you take it. Rest is part of the plan.')+'</span></div>';
+  }
   function weekCells(st,now){
     var mon=mondayOf(now),tk=dateKey(now),sh=["M","T","W","T","F","S","S"],full=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],todayMid=midnight(now).getTime(),h="";
     var createdMid=(st.plan&&st.plan.created)?parseKey(st.plan.created).getTime():0; // don't mark days before the plan existed as missed
     for(var k=0;k<7;k++){var day=addDays(mon,k),dk=dateKey(day),s=st.sessions[dk];
       var isT=dk===tk,dm=midnight(day).getTime(),fut=dm>todayMid,req=isTrainingDay(st.plan,day),before=dm<createdMid;
       var cls,mark,lab;
+      // Rest is a first-class day: a SCHEDULED rest day you've logged completes the pattern
+      // rather than sitting there looking like a hole in the week.
+      var scheduledRest=!req&&!before&&st.plan&&st.plan.weekly&&st.plan.weekly[day.getDay()]==="rest";
       if(s&&s.warm){cls="done";mark="✓";lab="trained";}
+      else if(s&&s.rest){cls="restdone";mark="☾";lab="rest logged";}
       else if(isT){cls="today";mark="●";lab="today";}
-      else if(fut){cls="up";mark="";lab="upcoming";}
-      else if(req&&!before){cls="miss";mark="✕";lab="missed";}
+      else if(fut){cls=scheduledRest?"restplan":"up";mark=scheduledRest?"☾":"";lab=scheduledRest?"rest day":"upcoming";}
+      else if(req&&!before&&!isPausedOn(st,day)){cls="miss";mark="✕";lab="missed";}
+      else if(isPausedOn(st,day)){cls="rest";mark="॥";lab="paused";}
+      else if(scheduledRest){cls="restplan";mark="☾";lab="rest day — tap to log";}
       else{cls="rest";mark="—";lab="rest";}
-      h+='<div class="wd"><div class="dl">'+sh[k]+'</div><div class="wc '+cls+'" role="img" aria-label="'+full[k]+' '+day.getDate()+' — '+lab+'">'+mark+'</div></div>';
+      // a scheduled rest day that has arrived is tickable — logging it completes the week
+      var loggable=scheduledRest&&!fut&&!(s&&s.rest);
+      h+='<div class="wd"><div class="dl">'+sh[k]+'</div>'+
+        (loggable
+          ?'<button class="wc '+cls+'" data-restlog="'+dk+'" aria-label="'+full[k]+' '+day.getDate()+' — '+lab+'">'+mark+'</button>'
+          :'<div class="wc '+cls+'" role="img" aria-label="'+full[k]+' '+day.getDate()+' — '+lab+'">'+mark+'</div>')+
+        '</div>';
     }
     return h;
+  }
+  /* The quiet week. Coming back from a lapse to a FULL plan is precisely why people don't
+     come back, so for the first few days after a return the day is core-only. It is stated
+     on the screen rather than done silently — a plan that shrinks without saying so just
+     looks broken. QUIET_DAYS counts from the first day trained after the gap. */
+  var QUIET_DAYS=4;
+  function quietWeek(st,now){
+    now=now||new Date();
+    var warm=warmDays(st);if(warm.length<2)return null;
+    // find the most recent return: a training day logged after a gap long enough to lapse
+    for(var i=warm.length-1;i>0;i--){
+      var cur=parseKey(warm[i]),prev=parseKey(warm[i-1]);
+      var gapDays=Math.round((midnight(cur)-midnight(prev))/86400000);
+      if(gapDays<LAPSE_MIN+1)continue;
+      var since=Math.round((midnight(now)-midnight(cur))/86400000);
+      if(since<0||since>=QUIET_DAYS)return null;
+      return {since:since,left:QUIET_DAYS-since,returned:warm[i]};
+    }
+    return null;
   }
   // which drills to show for a focus, given the plan's time budget — core-only for the 10-min tier.
   // Preserves each drill's ORIGINAL index (completion is stored by index) so nothing shifts.
@@ -2124,10 +2256,10 @@
       '<div style="display:flex;gap:8px;align-items:center;">'+bfToggle+'<button class="iconbtn" data-go="setup" aria-label="Setup">'+GEAR+'</button></div></div>';
     var hero='<div class="hero-card" data-tour="today"><div class="hero-row">'+
       '<div><div class="ml">CURRENT STREAK</div><div class="big-n">'+streak+'</div><div class="ml" style="color:var(--muted);">DAYS LOCKED IN</div>'+
-      (freezeBudget(st)>0?'<div class="frz" title="A bad day won\'t reset your streak — one freeze per week trained, up to 3.">'+SHIELD+' FREEZE ×'+freezeBudget(st)+'</div>':'')+'</div>'+
+      freezeRow(st,now)+'</div>'+
       '<div class="hr-r"><div class="ml">THIS WEEK</div><div class="n2 dsp">'+wd+'<span style="color:var(--faint);">/'+target+'</span></div>'+
       '<div class="ml '+(wd>=target?"status-good":"status-mut")+'">'+(wd>=target?"TARGET HIT":"ON PACE")+'</div></div></div>'+
-      '<div class="wk7">'+weekCells(st,now)+'</div></div>';
+      '<div class="wk7">'+weekCells(st,now)+'</div>'+restLine(st,now)+'</div>';
     // cue bar
     var cue=st.settings.cue;
     var cuebar=cue?'<div class="cuebar"><span class="ml">YOUR CUE</span><span>'+esc(cue)+' → the ten.</span></div>':
@@ -2148,7 +2280,10 @@
         '<p style="color:var(--muted);font-size:13px;margin-top:6px;">'+F.drills[0].sub+'</p></div>';
     }else{
       var kx=(focusKey===plan.keystone)?" · KEYSTONE":"";
+      // coming back from a lapse: core only for a few days, and say so
+      var quiet=quietWeek(st,now);
       var shown=drillList(F,plan),dstate=sess.drills||{};
+      if(quiet){var coreOnly=shown.filter(function(it){return it.d.core;});if(coreOnly.length)shown=coreOnly;}
       var rows="";
       for(var j=0;j<shown.length;j++){
         var d=shown[j].d,dix=shown[j].i,done=!!dstate[dix];
@@ -2184,8 +2319,9 @@
         tierGate=reappraisalCard()+gateCard(sess);
         tierDebrief=autoDebrief(st,actK)+debriefCard(st,actK);
       }
+      var quietNote=quiet?'<div class="quietnote">'+SHIELD+'<span><b>A lighter week back.</b> Just the core drills for '+quiet.left+' more day'+(quiet.left===1?'':'s')+' — returning to a full plan is exactly why people don’t return. It goes back to normal on its own.</span></div>':'';
       body='<div class="divi"><span class="ml" role="heading" aria-level="2">'+(backfill?'YESTERDAY':'TODAY')+' ▸ '+esc(F.name).toUpperCase()+kx+'</span></div>'+
-        bfBanner+nmt+sessRow+
+        bfBanner+nmt+quietNote+sessRow+
         '<div class="cols"><div><div class="dlist">'+rows+'</div></div>'+
         '<div><div class="card"><div class="ml">HAND FEEL</div><div class="feelgrid">'+fbs+'</div>'+
         '<div class="fword" style="color:'+fcol+';">'+(sess.feel?fw[sess.feel]:"LOG IT AFTER YOUR REPS")+'</div></div>'+
@@ -2913,6 +3049,52 @@
     }
     return {streak:streak,reached:reached,next:next,toGo:next?next.n-streak:0,tiers:STREAK_TIERS};
   }
+  /* Freeze shields, and what they cost. A freeze used to be spent invisibly — the streak
+     survived and the player learned nothing from it. Now the spent ones show dimmed, the
+     spend is named, and the next earn is dated. */
+  // the programme week, held still while paused — resume picks up where you left off
+  function planWeek(st,now){
+    var p=pauseInfo(st),when=(p&&isPausedOn(st,now||new Date()))?p.from:(now||new Date());
+    return st.plan?programWeek(st.plan,when):1;
+  }
+  var PAUSE_WEEKS=[2,4,6];
+  function pauseWord(n){return n===2?"two":n===4?"four":n===6?"six":String(n);}
+  function pauseCard(st,now){
+    var p=pauseInfo(st);if(!p)return "";
+    var streak=curStreak(st,now);
+    return '<div class="card pausecard"><div class="ml" style="color:var(--accInk);">PAUSED</div>'+
+      '<p class="pausebig">Paused for '+pauseWord(p.weeks)+' weeks.</p>'+
+      '<p class="mhow" style="margin:6px 0 0;">Your '+streak+'-day streak is held, not broken, and nothing is marked missed. '+
+      'Come back and the plan resumes at week '+planWeek(st,now)+' — it does not restart.</p>'+
+      '<button class="pbtn" data-resume="1" style="margin-top:12px;">RESUME NOW</button></div>';
+  }
+  function pauseSection(st){
+    if(pauseInfo(st))return "";
+    var btns=PAUSE_WEEKS.map(function(w){
+      return '<button class="pausebtn" data-pause="'+w+'">'+w+' WEEKS</button>';}).join("");
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">INJURY, EXAMS, LIFE</span></div>'+
+      '<div class="card"><p class="mhow" style="margin:0 0 10px;">Stopping on purpose is not the same as dropping off. Pause and your streak is held, nothing is marked missed, and the plan waits at the week you are on.</p>'+
+      '<div class="pauserow">'+btns+'</div></div>';
+  }
+  function freezeRow(st,now){
+    var budget=freezeBudget(st);
+    var det=streakDetail(st,now||new Date(),budget);
+    if(!budget&&!det.spent)return "";
+    var shields="";
+    for(var i=0;i<budget;i++)
+      shields+='<span class="frzs'+(i<det.spent?" spent":"")+'" aria-hidden="true">'+SHIELD+'</span>';
+    // one freeze is earned per seven training days, so the next one is that far off
+    var warm=warmDays(st).length,toNext=budget>=3?0:(7-(warm%7));
+    var line=det.spent
+      ? 'FREEZE '+det.spent+' OF '+budget+' SPENT'
+      : 'FREEZE ×'+budget;
+    var sub=det.spent
+      ? (budget-det.spent)+' STILL HELD'+(toNext?' · EARN THE NEXT IN '+toNext+' DAY'+(toNext===1?'':'S'):'')
+      : '';
+    return '<div class="frz" title="A missed day is bridged instead of resetting your streak — one freeze per seven training days, up to three.">'+
+      '<span class="frzrow">'+shields+'</span>'+
+      '<span class="frzt">'+line+(sub?'<small>'+sub+'</small>':'')+'</span></div>';
+  }
   function milestoneRail(st){
     var m=milestoneState(curStreak(st));
     var cells=STREAK_TIERS.map(function(T){
@@ -3230,7 +3412,7 @@
       '<button class="datarow" data-act="reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span>Erase all data<small>Delete everything and start over — can’t be undone</small></span></button>'+
       '<input type="file" id="impF" accept="application/json" style="display:none;"></div>'+
       (storageOk?'':'<div class="ml" style="color:var(--bad);margin-top:8px;">⚠ STORAGE BLOCKED — EXPORT TO KEEP YOUR DATA</div>');
-    return hd+prof+tagSec+cueSec+app+remSec+gsiSec+updateSec()+privacy+data+feedbackSec()+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
+    return hd+prof+tagSec+cueSec+pauseSection(st)+app+remSec+gsiSec+updateSec()+privacy+data+feedbackSec()+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
   }
   // GEAR — your sens/DPI/eDPI, crosshair code and launch options. Its own tab so you can
   // pull it up mid-game to copy a crosshair or double-check your eDPI.
@@ -3246,6 +3428,24 @@
     for(var i=0;i<gos.length;i++)(function(b){b.onclick=function(){go(b.getAttribute("data-go"));};})(gos[i]);
     var dst=root.querySelectorAll("[data-dest]");
     for(var di=0;di<dst.length;di++)(function(b){b.onclick=function(){goDest(b.getAttribute("data-dest"));};})(dst[di]);
+    var rl=root.querySelectorAll("[data-restlog]");
+    for(var rli=0;rli<rl.length;rli++)(function(b){b.onclick=function(){
+      var dk=b.getAttribute("data-restlog"),s2=load();
+      var sx=s2.sessions[dk]||{warm:false,deep:false,feel:0,drills:{}};
+      sx.rest=!sx.rest;s2.sessions[dk]=sx;save(s2);render();};})(rl[rli]);
+    var pz=root.querySelectorAll("[data-pause]");
+    for(var pzi=0;pzi<pz.length;pzi++)(function(b){b.onclick=function(){
+      var s2=load();s2.settings.pause={weeks:parseInt(b.getAttribute("data-pause"),10),from:dateKey(new Date())};
+      save(s2);go("today");};})(pz[pzi]);
+    var rsm=root.querySelector("[data-resume]");
+    if(rsm)rsm.onclick=function(){
+      var s2=load(),p=pauseInfo(s2);if(!p)return;
+      // hold the programme clock: push plan.created forward by however long you were away,
+      // so week 3 is still week 3 when you come back rather than the plan having moved on
+      var now=new Date(),end=midnight(now)<midnight(p.until)?now:p.until;
+      var days=Math.max(0,Math.round((midnight(end)-midnight(p.from))/86400000));
+      if(s2.plan&&s2.plan.created&&days)s2.plan.created=dateKey(addDays(parseKey(s2.plan.created),days));
+      delete s2.settings.pause;save(s2);render();};
     var mct=root.querySelector("[data-morecards]");
     if(mct)mct.onclick=function(){moreCards=mct.getAttribute("data-morecards")==="1";render();};
     var dgo=root.querySelectorAll("[data-duego]");
@@ -3714,7 +3914,10 @@
     picSlots:picSlots,picRole:picRole,PICROLE:PICROLE,DESTS:DESTS,destOf:destOf,subTabs:subTabs,dueCard:dueCard,todayCards:todayCards,todayStack:todayStack,
     leakOfWeek:leakOfWeek,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou,
     STREAK_TIERS:STREAK_TIERS,milestoneState:milestoneState,milestoneRail:milestoneRail,autoDebrief:autoDebrief,
-    lineupCount:lineupCount,lineupMaps:lineupMaps,recallCount:recallCount};
+    lineupCount:lineupCount,lineupMaps:lineupMaps,recallCount:recallCount,
+    streakDetail:streakDetail,pauseInfo:pauseInfo,isPausedOn:isPausedOn,isPaused:isPaused,planWeek:planWeek,
+    pauseCard:pauseCard,freezeRow:freezeRow,restWeek:restWeek,restLine:restLine,quietWeek:quietWeek,
+    tierIdentity:tierIdentity,QUIET_DAYS:QUIET_DAYS,PAUSE_WEEKS:PAUSE_WEEKS};
 })();
 </script>
 </body>
