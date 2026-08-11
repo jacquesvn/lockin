@@ -296,7 +296,6 @@
   /* auto-logged match summary */
   .adcard{margin-bottom:10px;}
   .adtop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
-  .adchip{background:color-mix(in oklab,var(--acc) 16%,transparent);color:var(--accInk);border:1px solid var(--accGhost);}
   .adrow{display:flex;align-items:center;gap:9px;padding:6px 0;border-top:1px solid var(--line);font-size:13.5px;}
   .adrow:first-of-type{border-top:0;}
   .adrow b{min-width:44px;color:var(--text);}
@@ -356,7 +355,6 @@
   /* off-plan work: recorded, never counted for or against */
   .offcard{margin-top:12px;}
   .oftop{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
-  .ofchip{background:transparent;border:1px solid var(--edge);color:var(--faint);}
   .oflist{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
   .ofpill{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 6px 0 9px;border-radius:999px;
     background:var(--glass2);color:var(--muted);font-size:12px;}
@@ -434,6 +432,32 @@
   .dbody{flex:1;min-width:0;}
   .dname{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .drow.done .dname{color:var(--muted);}
+  /* ---------- the status language: FIVE roles, ONE shell ----------
+     Every state in the app speaks through this and nothing else. Before, status was
+     ad-hoc — an accent chip here, an inline var(--good) there — so the same idea looked
+     different on every screen. The roles:
+       live  · filled dot, good      — connected, both locked in
+       idle  · HOLLOW dot, faint     — not connected, nothing due. NEVER red; nothing is broken
+       cap   · neutral text, NO colour — desktop-only capability. A second hue against a
+               violet accent reads as a second accent rather than as information
+       due   · accent                — N due, review due
+       warn  · bad, and rare         — stop-loss, tilt risk
+     Do not add a sixth. If a card already carries an accent action, its chip takes .ghost
+     so the accent stays scarce — one accent element per card. */
+  .st{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:3px;
+    font-family:var(--fm);font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;
+    border:1px solid transparent;white-space:nowrap;}
+  .st i{width:6px;height:6px;border-radius:50%;flex:0 0 auto;}
+  .st.live{color:var(--good-ink);background:color-mix(in oklab,var(--good) 13%,transparent);}
+  .st.live i{background:var(--good);}
+  .st.idle{color:var(--faint);border-color:var(--line2);}
+  .st.idle i{border:1px solid var(--faint);}                 /* hollow — nothing is wrong */
+  .st.cap{color:var(--muted);border-color:var(--line2);}     /* capability carries no colour */
+  .st.due{color:var(--accInk);background:color-mix(in oklab,var(--acc) 15%,transparent);}
+  .st.due i{background:var(--acc);}
+  .st.warn{color:var(--bad-ink);background:color-mix(in oklab,var(--bad) 13%,transparent);}
+  .st.warn i{background:var(--bad);}
+  .st.ghost{background:transparent;border-color:currentColor;}
   .chip{font-family:var(--fm);font-size:9px;letter-spacing:0.12em;color:var(--hero-ink);border:1px solid var(--hero-ink);border-radius:4px;padding:1px 5px;font-weight:700;}
   .dwhere{font-family:var(--fm);font-size:11px;color:var(--hero-ink);margin-top:3px;}
   .dsub{font-size:12.5px;color:var(--muted);margin-top:2px;}
@@ -688,7 +712,7 @@
   .sparkrow:last-child{border-bottom:0;}
   .sparkrow .sl{flex:0 0 120px;}
   .sparkrow .sl b{display:block;font-size:12.5px;font-weight:600;}
-  .sparkrow .sl span{font-family:var(--fm);font-size:9.5px;color:var(--faint);letter-spacing:0.08em;text-transform:uppercase;}
+  .sparkrow .sl>span{font-family:var(--fm);font-size:9.5px;color:var(--faint);letter-spacing:0.08em;text-transform:uppercase;}
   .spark{flex:1;height:30px;min-width:0;}
   .bwrap{flex:1;min-width:0;max-width:460px;}
   .bcap{font-family:var(--fm);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;}
@@ -747,7 +771,7 @@
   .lnrow:last-of-type{border-bottom:0;}
   .lnrow .lnb{flex:1;min-width:0;}
   .lnrow .lnb b{display:block;font-size:13px;font-weight:600;overflow-wrap:anywhere;}
-  .lnrow .lnb span{display:block;font-size:12px;color:var(--muted);margin-top:2px;white-space:pre-wrap;word-break:break-word;}
+  .lnrow .lnb>span{display:block;font-size:12px;color:var(--muted);margin-top:2px;white-space:pre-wrap;word-break:break-word;}
   /* lineup pictures: thumbnails big enough to recognise a spot at a glance, tap to enlarge */
   .lnthumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
   /* the stand/aim pair reads as one unit: two equal columns, both always present in the vault */
@@ -1615,7 +1639,7 @@
     }).join("");
     var n=ms.length;
     return '<div class="card adcard"><div class="adtop"><div class="ml" style="color:var(--accInk);">TONIGHT</div>'+
-      '<span class="chip adchip">Auto-logged</span></div>'+rows+
+      statusChip("cap","Auto-logged")+'</div>'+rows+
       '<p class="mhow" style="margin:8px 0 0;">'+n+' match'+(n===1?"":"es")+' recorded by CS2 auto-tracking. Nothing to confirm — it already counted.</p></div>';
   }
   function debriefCard(st,dk){
@@ -1758,6 +1782,14 @@
     _mirrorT=setTimeout(function(){try{TAURI.core.invoke("backup_write",{json:JSON.stringify(stateForBackup(st))}).catch(function(){});}catch(_){}},800);
   }
   // the player's gamertag (optional) — always esc() it at the call site, it's user input
+  // The only way to render a state. Five roles, one shell — see the .st block in the CSS.
+  // `ghost` drops the fill so a card that already has an accent action keeps one accent.
+  var ST_ROLES=["live","idle","cap","due","warn"];
+  function statusChip(role,label,ghost){
+    if(ST_ROLES.indexOf(role)<0)role="cap";                // never invent a sixth
+    var dot=(role==="live"||role==="idle"||role==="due"||role==="warn")?'<i aria-hidden="true"></i>':'';
+    return '<span class="st '+role+(ghost?" ghost":"")+'">'+dot+esc(label)+'</span>';
+  }
   function playerTag(st){var t=(st||load()).settings;t=t&&t.tag;return t?String(t):"";}
   function migrate(o){
     if(o._m>=2)return; // one-time: load() runs on a 30s timer, so migration must not mutate on every read
@@ -3013,7 +3045,7 @@
           var nPic=((x.l.im||[]).length);
           // the slot you armed can't be past the end of the list, so name the frame you'll actually fill
           var role=picRole(Math.min(PICSLOT===null?nPic:PICSLOT,nPic));
-          return '<div class="lnrow"><div class="lnb"><b>'+esc(x.l.n)+(lineupIsDue(x.l,tk0)?' <span class="chip">DUE</span>':'')+'</b><span>'+esc(x.l.t||"")+'</span>'+
+          return '<div class="lnrow"><div class="lnb"><b>'+esc(x.l.n)+(lineupIsDue(x.l,tk0)?' '+statusChip("due","Due"):'')+'</b><span>'+esc(x.l.t||"")+'</span>'+
             picSlots(x.l,x.i)+
             (PICTARGET===x.i
               ?'<div class="picarm"><div class="ml" style="color:var(--hero-ink);">PASTE THE “'+role+'” SHOT · CTRL+V</div>'+
@@ -3602,7 +3634,7 @@
         }).join("")+'</div>'
       : '';
     return '<div class="card offcard"><div class="oftop"><div class="ml">TRAINED OFF-PLAN?</div>'+
-      '<span class="chip ofchip">NOT COUNTED AGAINST YOU</span></div>'+
+      statusChip("cap","Not counted against you")+'</div>'+
       '<p class="mhow" style="margin:6px 0 10px;">Anything you did that the plan did not ask for. It is recorded so your effort is visible, and it never counts as a missed day or a completed one.</p>'+
       '<div class="mapchips">'+chips+'</div>'+logged+'</div>';
   }
@@ -3946,7 +3978,7 @@
     var g=sess.gate||{},losses=sess.losses||0;
     function chk(k,label){return '<button class="gcheck'+(g[k]?" on":"")+'" data-gate="'+k+'" aria-pressed="'+(g[k]?"true":"false")+'"><span class="gbox">'+CHK+'</span><span>'+label+'</span></button>';}
     var stop=losses>=2?'<div class="warnbanner" style="margin-top:13px;">🛑 <b>Stop-loss hit.</b> Two on the bounce — the next one gets played tilted. Call it here and come back warm.</div>':"";
-    var auto=gsiLive()?'<p class="help" style="margin:10px 0 0;color:var(--good);">● CS2 auto-tracking on — finished matches and losses log themselves.</p>':"";
+    var auto=gsiLive()?'<div style="margin:10px 0 0;">'+statusChip("live","CS2 auto-tracking on")+'</div><p class="help" style="margin:6px 0 0;">Finished matches and losses log themselves.</p>':"";
     return '<div class="card gate" style="margin-bottom:12px;"><div class="ml" style="color:var(--hero-ink);">THE GATE · BEFORE YOU QUEUE</div>'+
       chk("warm","I warmed up — not cold-queueing")+
       chk("calm","I'm not tilted or fried")+
@@ -4039,7 +4071,7 @@
       gsiSec='<div class="divi"><span class="ml" role="heading" aria-level="2">CS2 AUTO-TRACKING · DESKTOP</span></div>'+
         '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;">'+
         '<div class="mname">Live match tracking</div>'+
-        '<span class="ml" style="color:'+(live?"var(--good)":"var(--faint)")+';">'+(live?"● CONNECTED":"○ NOT DETECTED")+'</span></div>'+
+        statusChip(live?"live":"idle",live?"Connected":"Not detected")+'</div>'+
         '<p class="help" style="margin:0 0 12px;">One click writes CS2’s Game State Integration config. After that, finished matches log themselves and a loss counts toward tonight’s stop-loss — no buttons to press. It reads the scoreboard only; nothing leaves this PC.</p>'+
         '<button class="gbtn tourbtn" data-gsi-setup="1" style="width:100%;"><span class="tourico">'+SHIELD+'</span>'+((GSISET&&GSISET.path)?"RE-WRITE CS2 CONFIG":"SET UP AUTO-TRACKING")+'</button>'+
         (GSISET?'<p class="help" style="margin:10px 0 0;'+(GSISET.ok?'':'color:var(--bad);')+'">'+esc(GSISET.msg)+'</p>':'')+'</div>';
@@ -4635,7 +4667,8 @@
     drillAdherence:drillAdherence,skippedDrill:skippedDrill,skippedCard:skippedCard,
     leakHistory:leakHistory,leakHistoryCard:leakHistoryCard,changedSince:changedSince,changedCard:changedCard,
     proofRows:proofRows,proofCard:proofCard,honestExport:honestExport,
-    firstWeekCard:firstWeekCard,graduateCard:graduateCard,altPlans:altPlans,altCard:altCard,adviceCard:adviceCard};
+    firstWeekCard:firstWeekCard,graduateCard:graduateCard,altPlans:altPlans,altCard:altCard,adviceCard:adviceCard,
+    statusChip:statusChip,ST_ROLES:ST_ROLES};
 })();
 </script>
 </body>

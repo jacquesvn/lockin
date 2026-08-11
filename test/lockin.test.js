@@ -61,7 +61,7 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         adherence, metricMove, driftCheck, driftCard, coachAsk, coachCard, applyCoachAnswer,
         COACH_ANSWERS, drillAdherence, skippedDrill, skippedCard,
         leakHistory, leakHistoryCard, changedSince, changedCard, proofRows, proofCard, honestExport,
-        firstWeekCard, graduateCard, altPlans, altCard, adviceCard,
+        firstWeekCard, graduateCard, altPlans, altCard, adviceCard, statusChip, ST_ROLES,
         LSRS, srsAnswer, dueLineups, lineupIsDue, lineupReviewCard,
         stateForBackup, takeBackupImages, picStrip, IMGS, IMG_PER,
         picSlots, picRole, PICROLE } = sandbox.module.exports;
@@ -1557,12 +1557,56 @@ ok('the privacy card states all four claims and the line only a free app can wri
     var empty = offPlanCard(st, 'D');
     st.offPlan['D'] = [{ k:'dm' }, { k:'scrim' }];
     var full = offPlanCard(st, 'D');
-    return /NOT COUNTED AGAINST YOU/.test(empty) && OFFPLAN.length === 5 &&
+    // the status shell uppercases via CSS, so the literal string is sentence case now
+    return /not counted against you/i.test(empty) && OFFPLAN.length === 5 &&
            /Deathmatch/.test(full) && /Scrim/.test(full) &&
            (full.match(/data-offdel=/g) || []).length === 2 &&
            /never counts as a missed day or a completed one/.test(empty);
   })());
 })();
+
+// --- v3 status language: five roles, one shell, no sixth ---
+ok('there are exactly five status roles and one 22px shell', (function () {
+  return ST_ROLES.join(',') === 'live,idle,cap,due,warn' &&
+         /\.st\{[^}]*height:22px/.test(html) &&
+         ST_ROLES.every(function (r) { return new RegExp('\\.st\\.' + r + '\\{').test(html); });
+})());
+ok('an unknown role falls back rather than inventing a sixth treatment', (function () {
+  var made = statusChip('sparkly', 'Whatever');
+  return /class="st cap"/.test(made) && made.indexOf('sparkly') < 0;
+})());
+ok('idle is a HOLLOW dot and is never red — nothing is broken', (function () {
+  return /\.st\.idle\{[^}]*color:var\(--faint\)/.test(html) &&
+         /\.st\.idle i\{border:1px solid var\(--faint\)\}/.test(html.replace(/;\s*\}/g, '}')) &&
+         !/\.st\.idle[^}]*var\(--bad\)/.test(html);
+})());
+ok('capability carries NO colour — a second hue would read as a second accent', (function () {
+  var m = html.match(/\.st\.cap\{([^}]*)\}/);
+  var rule = m ? m[1] : '';
+  return rule && !/--good|--bad|--acc/.test(rule) && /--muted/.test(rule) &&
+         statusChip('cap', 'Auto-logged').indexOf('<i') < 0;   // and no status dot either
+})());
+ok('the ad-hoc chips I invented are gone — status goes through the shell', (function () {
+  // live/idle are chosen by a ternary at the call site, so match the role strings passed in
+  return html.indexOf('.adchip{') < 0 && html.indexOf('.ofchip{') < 0 &&
+         /statusChip\(live\?"live":"idle"/.test(script) &&
+         /statusChip\("cap"/.test(script) && /statusChip\("due"/.test(script) &&
+         // and the old inline status colouring for the connection state is gone
+         script.indexOf('"● CONNECTED":"○ NOT DETECTED"') < 0;
+})());
+ok('no blanket element selector can outrank a status chip nested inside a component', (function () {
+  // .lnrow .lnb span (0,2,1) silently beat .st.due (0,2,0) and rendered the DUE chip grey.
+  // Component rules that style a bare element must be scoped to direct children.
+  var bad = [];
+  var re = /\.[a-z][a-z0-9-]*\s+\.[a-z][a-z0-9-]*\s+(span|b|i|small)\{([^}]*)\}/g, m;
+  while ((m = re.exec(html))) { if (/color:/.test(m[2])) bad.push(m[0].slice(0, 40)); }
+  if (bad.length) console.log('      unscoped: ' + bad.join(' | '));
+  return bad.length === 0;
+})());
+ok('the scarcity rule has a mechanism: a chip can drop to outline', (function () {
+  return /\.st\.ghost\{background:transparent/.test(html) &&
+         /class="st due ghost"/.test(statusChip('due', 'N due', true));
+})());
 
 // --- v3 motion: the signature moment must actually be wired, not just defined ---
 ok('"the assemble" is BUILT: both shards, bloom, ping and the rolling numeral', (function () {
