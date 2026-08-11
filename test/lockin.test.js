@@ -56,6 +56,8 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         STREAK_TIERS, milestoneState, milestoneRail, autoDebrief, lineupCount, lineupMaps, recallCount,
         streakDetail, pauseInfo, isPausedOn, planWeek, pauseCard, freezeRow, restWeek, restLine,
         quietWeek, tierIdentity, QUIET_DAYS, PAUSE_WEEKS,
+        isDeloadWeek, deloadDur, focusMins, deloadCard, whyPanel, whySource,
+        bottleneckCard, tiltCard, offPlanCard, OFFPLAN,
         LSRS, srsAnswer, dueLineups, lineupIsDue, lineupReviewCard,
         stateForBackup, takeBackupImages, picStrip, IMGS, IMG_PER,
         picSlots, picRole, PICROLE } = sandbox.module.exports;
@@ -1248,8 +1250,9 @@ ok('it only renders on match nights, and still BEFORE the gate checklist (the st
   /if\(focusKey==="match"&&!backfill\)\{\s*tierGate=reappraisalCard\(\)\+gateCard/.test(html));
 
 // --- v0.26: CS2 auto-tracking via Game State Integration ---
-ok('match log is part of the state, blank and defaulted on load', (function () {
-  return script.indexOf('matches:{}}') >= 0 && script.indexOf('o.matches=o.matches||{}') >= 0;
+ok('match log and off-plan log are part of the state, blank and defaulted on load', (function () {
+  return /blank\(\)\{return \{[^\n]*matches:\{\}/.test(script) && script.indexOf('o.matches=o.matches||{}') >= 0 &&
+         /blank\(\)\{return \{[^\n]*offPlan:\{\}/.test(script) && script.indexOf('o.offPlan=o.offPlan||{}') >= 0;
 })());
 ok('a decided LOSS logs the match AND bumps tonight’s stop-loss counter', (function () {
   var st = { sessions: {}, matches: {} };
@@ -1415,7 +1418,7 @@ ok('"the ten" is core drills capped at ten minutes, never more than the promise'
 })());
 ok('the five-minute escape hatch is gone — the app promises the ten and now offers it', (function () {
   return html.indexOf('⚡ 5 MIN') < 0 && /DO THE TEN · '\+tenMin\+' MIN/.test(script) &&
-         /remain:\(list\[0\]\.d\.dur\|\|1\)\*60/.test(script) &&   // no hardcoded 300s any more
+         /remain:deloadDur\(list\[0\]\.d,dl\)\*60/.test(script) &&  // no hardcoded 300s any more
          script.indexOf('remain:quick?300') < 0;
 })());
 ok('the ten is the ONE primary action; the full session is secondary', (function () {
@@ -1457,6 +1460,105 @@ ok('the privacy card states all four claims and the line only a free app can wri
          /Backups are yours and manual/.test(s) &&
          /Paid coaching apps cannot say this/.test(s);
 })());
+
+// --- v3 Group C: plan intelligence ---
+(function () {
+  function planAt(week) { // a plan whose programme week is `week`
+    var created = new Date(); created.setDate(created.getDate() - (week - 1) * 7);
+    return { weekly:{0:'rest',1:'cstrafe',2:'cstrafe',3:'cstrafe',4:'cstrafe',5:'match',6:'match'},
+             keystone:'cstrafe', used:['cstrafe'], profile:{}, created: dateKey(created) };
+  }
+  ok('deload lands on every 4th programme week and nowhere else', (function () {
+    var hits = [];
+    for (var w = 1; w <= 12; w++) if (isDeloadWeek({ plan: planAt(w), settings:{} }, new Date())) hits.push(w);
+    return hits.join(',') === '4,8,12';
+  })());
+  ok('deload HALVES the real load — the card cannot quote a lighter session than it runs', (function () {
+    var F = FOCI.cstrafe, plan = planAt(4);
+    var normal = focusMins(F, plan, false), light = focusMins(F, plan, true);
+    // every drill halves (rounded, min 1), and the session timer uses the same function
+    var perDrill = F.drills.every(function (d) { return deloadDur(d, true) === Math.max(1, Math.round((d.dur||1)/2)); });
+    var card = deloadCard({ plan: plan, settings:{} }, F, plan, new Date());
+    return perDrill && light < normal && light > 0 &&
+           card.indexOf(light + ' min today, against ' + normal) >= 0 &&
+           // the session's own deload flag must be DERIVED, not a literal, or the card can
+           // advertise a halved load the timer quietly ignores
+           /var dl=isDeloadWeek\(st,new Date\(\)\);/.test(script) &&
+           /remain:deloadDur\(list\[0\]\.d,dl\)\*60/.test(script) &&        // start of session
+           /SESS\.remain=deloadDur\(SESS\.list\[SESS\.idx\]\.d,SESS\.deload\)\*60/.test(script);  // and each advance
+  })());
+  ok('deload says nothing on a normal week', (function () {
+    return deloadCard({ plan: planAt(3), settings:{} }, FOCI.cstrafe, planAt(3), new Date()) === '';
+  })());
+  ok('"why this drill" cites only what we actually know, and flags the optional ones', (function () {
+    var st = { plan: planAt(2), sessions:{}, settings:{}, reviews:{}, lineups:{} };
+    var F = FOCI.cstrafe, core = F.drills.filter(function (d) { return d.core; })[0];
+    var opt = F.drills.filter(function (d) { return !d.core; })[0];
+    var src = whySource(st, F, planAt(2));
+    var pCore = whyPanel(st, F, core, planAt(2));
+    var pOpt = opt ? whyPanel(st, F, opt, planAt(2)) : '';
+    return /Quiz · your keystone/.test(src) &&           // cstrafe IS the keystone here
+           /WHY THIS DRILL/.test(pCore) && pCore.indexOf('optional') < 0 &&
+           (!opt || /does not cost you the day/.test(pOpt));
+  })());
+  ok('the why button is a SIBLING of the tick, never nested inside it', (function () {
+    // nesting is invalid HTML and is exactly how opening an explanation ticks the drill off
+    var wrap = script.indexOf('class="drowwrap');
+    var order = /<div class="drowwrap[\s\S]{0,900}?<button class="drow"[\s\S]{0,900}?<\/button>'\+[\s\S]{0,200}?data-why=/;
+    return wrap >= 0 && order.test(script);
+  })());
+  ok('"aim is not the bottleneck" uses the audit\'s OWN rows and introduces no new number', (function () {
+    var st = { plan: planAt(5), reviews:{}, sessions:{}, settings:{} };
+    st.plan.profile = { weak: 'aim' };
+    st.reviews[dateKey(new Date())] = { aim: 6, pos: 8, info: 4, trade: 2 };   // 20 total, 14 before-aim
+    var h = bottleneckCard(st);
+    return /70%/.test(h) && /8 holding a losing angle/.test(h) && /4 with no information/.test(h) &&
+           /2 with nobody to trade/.test(h) && /out of 20/.test(h) &&
+           /You said aim\. Your deaths say position\./.test(h);
+  })());
+  ok('it stays silent when the data agrees with the player, or when there is too little of it', (function () {
+    var agree = { plan: planAt(5), reviews:{}, sessions:{}, settings:{} };
+    agree.plan.profile = { weak:'aim' };
+    agree.reviews[dateKey(new Date())] = { aim: 16, pos: 2, info: 1, trade: 1 };   // aim really is it
+    var thin = { plan: planAt(5), reviews:{}, sessions:{}, settings:{} };
+    thin.plan.profile = { weak:'aim' };
+    thin.reviews[dateKey(new Date())] = { pos: 4 };
+    var notAim = { plan: planAt(5), reviews:{}, sessions:{}, settings:{} };
+    notAim.plan.profile = { weak:'utility' }; notAim.plan.keystone = 'utility';
+    notAim.reviews[dateKey(new Date())] = { pos: 9, info: 8, trade: 4 };
+    return bottleneckCard(agree) === '' && bottleneckCard(thin) === '' && bottleneckCard(notAim) === '';
+  })());
+  ok('the tilt card claims NO prediction and invents no rating drop', (function () {
+    var st = { sessions:{}, plan: planAt(3), settings:{} };
+    var late = new Date(); late.setHours(23, 40, 0, 0);
+    st.sessions[dateKey(late)] = { losses: 2 };
+    var h = tiltCard(st, late);
+    return /Two losses, and it is 23:40/.test(h) &&
+           /not something anyone can tell you/.test(h) &&
+           !/predict/i.test(h) && !/rating/i.test(h) && !/\bwill lose\b/i.test(h) &&
+           /DO THE TEN INSTEAD/.test(h) && /QUEUE ANYWAY/.test(h);
+  })());
+  ok('the tilt card needs BOTH conditions — two losses and late — or it stays quiet', (function () {
+    var st = { sessions:{}, plan: planAt(3), settings:{} };
+    var late = new Date(); late.setHours(23, 40, 0, 0);
+    var early = new Date(); early.setHours(20, 0, 0, 0);
+    st.sessions[dateKey(late)] = { losses: 1 };
+    var oneLossLate = tiltCard(st, late);
+    st.sessions[dateKey(early)] = { losses: 3 };
+    var manyLossesEarly = tiltCard(st, early);
+    return oneLossLate === '' && manyLossesEarly === '';
+  })());
+  ok('off-plan work is recorded and explicitly not counted against you', (function () {
+    var st = { offPlan:{}, sessions:{}, settings:{} };
+    var empty = offPlanCard(st, 'D');
+    st.offPlan['D'] = [{ k:'dm' }, { k:'scrim' }];
+    var full = offPlanCard(st, 'D');
+    return /NOT COUNTED AGAINST YOU/.test(empty) && OFFPLAN.length === 5 &&
+           /Deathmatch/.test(full) && /Scrim/.test(full) &&
+           (full.match(/data-offdel=/g) || []).length === 2 &&
+           /never counts as a missed day or a completed one/.test(empty);
+  })());
+})();
 
 // --- v3 Group B: streak integrity ---
 (function () {

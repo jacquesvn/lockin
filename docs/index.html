@@ -323,6 +323,36 @@
   .dlist{display:flex;flex-direction:column;gap:8px;}
   .drow{display:flex;gap:12px;align-items:flex-start;color:var(--text);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:11px;padding:13px 14px;cursor:pointer;transition:border-color .15s,opacity .15s;text-align:left;width:100%;}
   .drow.done{border-left-color:var(--hero);opacity:.72;}
+  /* the row and its "why" sit side by side; neither is inside the other */
+  .drowwrap{display:flex;gap:6px;align-items:stretch;}
+  .drowwrap .drow{flex:1;min-width:0;}
+  .drowwhy{flex:0 0 auto;width:44px;min-height:44px;background:transparent;border:1px solid var(--line);
+    border-radius:11px;color:var(--faint);font-family:var(--fm);font-size:15px;font-weight:700;cursor:pointer;}
+  .drowwhy:hover,.drowwhy[aria-expanded="true"]{border-color:var(--acc);color:var(--accInk);}
+  .drowwrap.done .drowwhy{opacity:.72;}
+  .whypanel{border:1px solid var(--accGhost);border-left:3px solid var(--acc);border-radius:11px;
+    padding:12px 14px;margin:6px 0 0;background:color-mix(in oklab,var(--acc) 7%,transparent);animation:v3-slide .22s cubic-bezier(.2,.9,.2,1);}
+  .whypanel p{font-size:13px;color:var(--muted);margin-top:6px;}
+  .whyopt{color:var(--faint)!important;font-style:italic;}
+  .whysrc{margin-top:9px;padding-top:8px;border-top:1px solid var(--line);
+    font-family:var(--fm);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint);}
+  .chip.opt{background:transparent;border:1px solid var(--line2);color:var(--faint);}
+  .deloadcard{margin-bottom:12px;}
+  .deloadbig{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.01em;font-size:20px;color:var(--accInk);margin-top:6px;}
+  /* the two evidence cards: a contradiction, and the stop-loss */
+  .bottleneck{margin-top:10px;border-left:3px solid var(--acc);}
+  .bnbig{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.01em;font-size:19px;color:var(--accInk);margin-top:6px;}
+  .tiltcard{margin-bottom:11px;border-left:3px solid var(--bad);}
+  .tiltbig{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.01em;font-size:21px;color:var(--bad-ink);margin-top:6px;}
+  /* off-plan work: recorded, never counted for or against */
+  .offcard{margin-top:12px;}
+  .oftop{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+  .ofchip{background:transparent;border:1px solid var(--edge);color:var(--faint);}
+  .oflist{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .ofpill{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 6px 0 9px;border-radius:999px;
+    background:var(--glass2);color:var(--muted);font-size:12px;}
+  .ofpill button{background:none;border:0;color:var(--faint);cursor:pointer;font-size:12px;line-height:1;padding:2px 3px;}
+  .ofpill button:hover{color:var(--bad-ink);}
   .dbox{width:26px;height:26px;border-radius:7px;flex:0 0 auto;display:grid;place-items:center;border:1.5px solid var(--edge);background:transparent;transition:all .15s;margin-top:1px;}
   .drow.done .dbox{background:var(--hero);border-color:var(--hero);}
   .dbox svg{width:14px;height:14px;color:var(--onhero);opacity:0;} .drow.done .dbox svg{opacity:1;}
@@ -1381,7 +1411,7 @@
        tomorrow.
      · A due plan review and due lineup recalls MERGE into one DUE card instead of
        competing for the same slot as two separate scheduled nags. */
-  var moreCards=false, showReview=false;
+  var moreCards=false, showReview=false, tiltDismissed=false;
   function dueCard(st,pr,lnDue){
     if(!pr&&!lnDue)return "";
     var rows="";
@@ -1395,6 +1425,8 @@
     // a live pause outranks everything — it explains the whole screen
     var pc=pauseCard(st,now);
     if(pc)out.push({tier:1,k:"paused",label:"Paused",html:pc});
+    // T1: the only trigger whose cost can't be taken back once you've queued
+    if(!tiltDismissed){var tc=tiltCard(st,now);if(tc)out.push({tier:1,k:"tilt",label:"Stop-loss",html:tc});}
     if(ctx.gate)out.push({tier:1,k:"gate",label:"Match-night gate",html:ctx.gate});
     if(ctx.lapse)out.push({tier:2,k:"lapse",label:"Welcome back",html:lapseCard(ctx.lapse)});
     var due=dueCard(st,ctx.pr,ctx.lnDue);
@@ -1438,14 +1470,14 @@
   function programWeek(plan,today){if(!plan||!plan.created)return 1;var days=Math.round((midnight(today)-parseKey(plan.created))/86400000);var wk=Math.floor(days/7)+1;return Math.max(1,Math.min(12,wk));}
 
   /* ---------- storage ---------- */
-  function blank(){return {plan:null,sessions:{},settings:{},metrics:{},reviews:{},lineups:{},planReviews:{},debriefs:{},matches:{}};}
+  function blank(){return {plan:null,sessions:{},settings:{},metrics:{},reviews:{},lineups:{},planReviews:{},debriefs:{},matches:{},offPlan:{}};}
   // If a WRITE has failed, localStorage holds a stale value while mem holds the real state, so mem is
   // authoritative until a write succeeds again — otherwise the next read would resurrect the old value
   // AND (by re-setting storageOk) dismiss the STORAGE-BLOCKED banner. A successful read never flips
   // storageOk true; only a successful save() (proof of writability) does.
   function load(){
     if(!storageOk&&mem)return mem;
-    try{var s=localStorage.getItem(KEY);if(!s)return mem||blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};o.reviews=o.reviews||{};o.lineups=o.lineups||{};o.planReviews=o.planReviews||{};o.debriefs=o.debriefs||{};o.matches=o.matches||{};migrate(o);return o;}
+    try{var s=localStorage.getItem(KEY);if(!s)return mem||blank();var o=JSON.parse(s);o.sessions=o.sessions||{};o.settings=o.settings||{};o.metrics=o.metrics||{};o.reviews=o.reviews||{};o.lineups=o.lineups||{};o.planReviews=o.planReviews||{};o.debriefs=o.debriefs||{};o.matches=o.matches||{};o.offPlan=o.offPlan||{};migrate(o);return o;}
     catch(e){storageOk=false;return mem||blank();}}
   function save(st){mem=st;try{localStorage.setItem(KEY,JSON.stringify(st));storageOk=true;}catch(e){storageOk=false;}mirrorBackup(st);}
   // Desktop only: shadow the live state to a file (debounced) so a wiped WebView cache
@@ -2236,6 +2268,55 @@
   }
   // which drills to show for a focus, given the plan's time budget — core-only for the 10-min tier.
   // Preserves each drill's ORIGINAL index (completion is stored by index) so nothing shifts.
+  /* "Why this drill" — every drill justifies itself in one line and cites where it came
+     from. The citation is only ever built from things we actually know: the focus the drill
+     belongs to, whether that focus is your keystone (which the quiz picked), and the death
+     audit when it independently points the same way. Nothing is asserted that isn't derived. */
+  /* Deload. Every fourth week of the programme the load is actually halved — the durations
+     the session runs on are halved, not just described as lighter. Both the deload total and
+     the normal total are computed from the drill data so the card can never quote a number
+     the session doesn't honour. */
+  function isDeloadWeek(st,now){
+    if(!st||!st.plan)return false;
+    var w=planWeek(st,now||new Date());
+    return w%4===0;                                  // weeks 4, 8, 12 of the twelve
+  }
+  function deloadDur(d,on){return on?Math.max(1,Math.round((d.dur||1)/2)):(d.dur||1);}
+  function focusMins(F,plan,on){
+    var t=0;drillList(F,plan).forEach(function(it){t+=deloadDur(it.d,on);});return t;
+  }
+  function deloadCard(st,F,plan,now){
+    if(!F||!isDeloadWeek(st,now))return "";
+    var light=focusMins(F,plan,true),normal=focusMins(F,plan,false);
+    return '<div class="card deloadcard"><div class="ml" style="color:var(--accInk);">DELOAD WEEK</div>'+
+      '<p class="deloadbig">'+light+' min today, against '+normal+'.</p>'+
+      '<p class="mhow" style="margin:6px 0 0;">Week '+planWeek(st,now)+' of the programme, so the load is halved on purpose. '+
+      'Twelve weeks at full intensity is how people quit at week seven — this is the plan working, not you slacking.</p></div>';
+  }
+  var openWhy=null;
+  function whySource(st,F,plan){
+    var bits=[];
+    var isKey=plan&&plan.keystone&&FOCI[plan.keystone]===F;
+    bits.push(isKey?"Quiz · your keystone":"Quiz · "+F.name.toLowerCase());
+    var L=leakOfWeek(st);
+    if(L){
+      // only cite the audit when it genuinely agrees with this focus
+      var agrees=(L.k==="aim"&&/aim|spray|consistency|placement/i.test(F.name))||
+                 (L.k==="pos"&&/position|movement/i.test(F.name))||
+                 (L.k==="util"&&/utility/i.test(F.name))||
+                 (L.k==="trade"&&/position|entry/i.test(F.name));
+      if(agrees)bits.push("death audit ("+L.pct+"% "+L.label.toLowerCase()+")");
+    }
+    return bits.join(" + ");
+  }
+  function whyPanel(st,F,d,plan){
+    var why=d.why||F.why||"";
+    return '<div class="whypanel">'+
+      '<div class="ml" style="color:var(--accInk);">WHY THIS DRILL</div>'+
+      '<p>'+esc(why)+'</p>'+
+      (d.core?'':'<p class="whyopt">This one is optional. Skipping it does not cost you the day.</p>')+
+      '<div class="whysrc">'+esc(whySource(st,F,plan))+'</div></div>';
+  }
   function drillList(F,plan){
     var lite=plan&&plan.profile&&plan.profile.time==="10";
     var out=[];F.drills.forEach(function(d,ix){if(!lite||d.core)out.push({d:d,i:ix});});
@@ -2281,27 +2362,34 @@
     }else{
       var kx=(focusKey===plan.keystone)?" · KEYSTONE":"";
       // coming back from a lapse: core only for a few days, and say so
-      var quiet=quietWeek(st,now);
+      var quiet=quietWeek(st,now),deloadOn=isDeloadWeek(st,now);
       var shown=drillList(F,plan),dstate=sess.drills||{};
       if(quiet){var coreOnly=shown.filter(function(it){return it.d.core;});if(coreOnly.length)shown=coreOnly;}
       var rows="";
       for(var j=0;j<shown.length;j++){
         var d=shown[j].d,dix=shown[j].i,done=!!dstate[dix];
-        rows+='<button class="drow'+(done?" done":"")+'" data-drill="'+dix+'" aria-pressed="'+(done?"true":"false")+'">'+
+        // The tick and the "why" are SEPARATE buttons in a wrapper, not a button inside a
+        // button — nesting them is invalid HTML and is exactly how opening an explanation
+        // ends up ticking the drill off. No stopPropagation needed if they never nest.
+        rows+='<div class="drowwrap'+(done?" done":"")+'">'+
+          '<button class="drow" data-drill="'+dix+'" aria-pressed="'+(done?"true":"false")+'">'+
           '<span class="dbox">'+CHK+'</span>'+
-          '<span class="dbody"><span class="dname">'+esc(d.t)+(d.core?'<span class="chip">CORE</span>':'')+'</span>'+
+          '<span class="dbody"><span class="dname">'+esc(d.t)+(d.core?'<span class="chip">CORE</span>':'<span class="chip opt">OPTIONAL</span>')+'</span>'+
           (d.where?'<span class="dwhere" style="display:block;">▸ '+esc(d.where)+'</span>':'')+
           '<span class="dsub" style="display:block;">'+esc(d.sub)+'</span>'+
           '<span class="dmeas" style="display:block;">◎ '+esc(d.m)+'</span></span>'+
-          (d.dur?'<span class="ddur">'+d.dur+'′</span>':'')+
-          '</button>';
+          (d.dur?'<span class="ddur">'+deloadDur(d,deloadOn)+'′</span>':'')+
+          '</button>'+
+          '<button class="drowwhy" data-why="'+dix+'" aria-expanded="'+(openWhy===dix?"true":"false")+'" aria-label="Why this drill">?</button>'+
+          '</div>'+
+          (openWhy===dix?whyPanel(st,F,d,plan):"");
       }
       var fw=["—","OFF","SHAKY","OK","WARM","DIALLED"];
       var fcol=sess.feel>=4?"var(--good)":(sess.feel>0&&sess.feel<=2?"var(--bad)":"var(--muted)");
       var fbs="";for(var f=1;f<=5;f++)fbs+='<button class="fbtn'+(f<=sess.feel?" on":"")+'" data-feel="'+f+'" aria-pressed="'+(f<=sess.feel?"true":"false")+'" aria-label="Hand feel '+f+' of 5">'+f+'</button>';
       var bfBanner=backfill?'<div class="warnbanner" style="background:var(--surface);border-color:var(--line);border-left-color:var(--hero);color:var(--muted);">Editing <b style="color:var(--text);">yesterday</b> ('+act.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})+'). Your streak updates automatically.</div>':'';
       var canSession=!backfill&&focusKey!=="match";
-      var totMin=0;for(var ti=0;ti<shown.length;ti++)totMin+=(shown[ti].d.dur||0);
+      var totMin=0;for(var ti=0;ti<shown.length;ti++)totMin+=deloadDur(shown[ti].d,deloadOn);
       var undone=false;for(var ui=0;ui<shown.length;ui++)if(!dstate[shown[ui].i])undone=true;
       // one row, not a stack: primary session + the five-minute escape hatch side by side,
       // so Today keeps the single clean column the design intended
@@ -2319,14 +2407,16 @@
         tierGate=reappraisalCard()+gateCard(sess);
         tierDebrief=autoDebrief(st,actK)+debriefCard(st,actK);
       }
+      var deloadNote=deloadCard(st,F,plan,now);
       var quietNote=quiet?'<div class="quietnote">'+SHIELD+'<span><b>A lighter week back.</b> Just the core drills for '+quiet.left+' more day'+(quiet.left===1?'':'s')+' — returning to a full plan is exactly why people don’t return. It goes back to normal on its own.</span></div>':'';
       body='<div class="divi"><span class="ml" role="heading" aria-level="2">'+(backfill?'YESTERDAY':'TODAY')+' ▸ '+esc(F.name).toUpperCase()+kx+'</span></div>'+
-        bfBanner+nmt+quietNote+sessRow+
+        bfBanner+nmt+deloadNote+quietNote+sessRow+
         '<div class="cols"><div><div class="dlist">'+rows+'</div></div>'+
         '<div><div class="card"><div class="ml">HAND FEEL</div><div class="feelgrid">'+fbs+'</div>'+
         '<div class="fword" style="color:'+fcol+';">'+(sess.feel?fw[sess.feel]:"LOG IT AFTER YOUR REPS")+'</div></div>'+
         '<div class="card rulecard" style="margin-top:12px;"><div class="ml" style="color:var(--hero-ink);">THE RULE</div>'+
-        '<p>Ten focused minutes beats a skipped hour. Tick one drill and today counts.</p></div></div></div>';
+        '<p>Ten focused minutes beats a skipped hour. Tick one drill and today counts.</p></div>'+
+        offPlanCard(st,actK)+'</div></div>';
     }
     // one milestone card at a time, so Today never piles up: a returning user gets the
     // welcome-back; otherwise a due plan-review; otherwise the weekly recap.
@@ -2820,7 +2910,8 @@
     mx+='</div>';
     // the leak sits directly ABOVE the audit that produced it, so the claim and its
     // evidence are adjacent and you can check the one against the other
-    return hd+youVsYou()+insightsCard(st)+milestoneRail(st)+milestonesCard(st)+cal+leakCard(st)+deathCard(st)+mx+glossary();
+    // the contradiction sits directly UNDER the audit that produced it, so the evidence is adjacent
+    return hd+youVsYou()+insightsCard(st)+milestoneRail(st)+milestonesCard(st)+cal+leakCard(st)+deathCard(st)+bottleneckCard(st)+mx+glossary();
   }
   // These averages come from Premier/Leetify data. The skill bands transfer, but the numbers
   // aren't measured on FACEIT or ESEA — say so rather than passing them off as native.
@@ -3212,6 +3303,64 @@
       '<div class="leakbig">'+esc(L.label)+'</div>'+
       '<p class="mhow" style="margin:6px 0 0;"><b style="color:var(--text);">'+L.pct+'%</b> of the deaths you logged this week — '+L.n+' of '+L.total+'. '+esc(L.fix)+'</p></div>';
   }
+  /* "You said aim. Your deaths say position." Re-reads the audit's OWN rows rather than
+     introducing a number of its own: the share of deaths that happen before aim is the
+     decider — position, info and no-trade — added from the same totals the audit prints
+     directly below. Only shown when the player actually named aim as their weakness and
+     the data disagrees, so it is a contradiction with evidence, never a lecture. */
+  /* The match you should not have played. The v3 copy asserted PREDICTION — "every condition
+     that predicts a tilt loss is true right now", plus an invented "you dropped 380 rating".
+     Tilt prediction is not evidence-backed and we don't track rating, so this states only
+     what is literally true and observed: how many you've lost tonight, and the local time.
+     It offers the ten minutes instead. No claim about what happens next. */
+  /* Off-plan logging. Sessions you did that the plan never asked for — a scrim, an hour of
+     DM, a friend's workshop map. Logged SEPARATELY and framed as not counting against you,
+     because the alternative is worse: without it, work you actually did is invisible, and
+     anything reading adherence concludes you stopped training when you didn't. */
+  var OFFPLAN=[["dm","Deathmatch"],["aim","Aim trainer"],["scrim","Scrim / team"],["prac","Map practice"],["other","Something else"]];
+  function offPlanCard(st,dk){
+    var list=((st.offPlan||{})[dk])||[];
+    var chips=OFFPLAN.map(function(o){
+      return '<button class="mchip" data-offplan="'+o[0]+'">'+esc(o[1])+'</button>';}).join("");
+    var logged=list.length
+      ? '<div class="oflist">'+list.map(function(o,i){
+          var label="";OFFPLAN.forEach(function(x){if(x[0]===o.k)label=x[1];});
+          return '<span class="ofpill">'+esc(label||o.k)+'<button data-offdel="'+i+'" aria-label="Remove">✕</button></span>';
+        }).join("")+'</div>'
+      : '';
+    return '<div class="card offcard"><div class="oftop"><div class="ml">TRAINED OFF-PLAN?</div>'+
+      '<span class="chip ofchip">NOT COUNTED AGAINST YOU</span></div>'+
+      '<p class="mhow" style="margin:6px 0 10px;">Anything you did that the plan did not ask for. It is recorded so your effort is visible, and it never counts as a missed day or a completed one.</p>'+
+      '<div class="mapchips">'+chips+'</div>'+logged+'</div>';
+  }
+  function tiltCard(st,now){
+    now=now||new Date();
+    var sess=st.sessions[dateKey(now)]||{},losses=sess.losses||0,hr=now.getHours();
+    var late=hr>=23||hr<5;
+    if(losses<2||!late)return "";                      // both true, or it stays quiet
+    var hhmm=two(hr)+":"+two(now.getMinutes());
+    return '<div class="card tiltcard"><div class="ml" style="color:var(--bad);">STOP-LOSS · AND IT IS LATE</div>'+
+      '<p class="tiltbig">Two losses, and it is '+hhmm+'.</p>'+
+      '<p class="mhow" style="margin:6px 0 0;">Those are the two things you told the app to watch for. What happens in the next match is not something anyone can tell you — but you already decided, when you were calm, that this was the point to stop.</p>'+
+      '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">'+
+      '<button class="pbtn" data-quickstart="1">DO THE TEN INSTEAD</button>'+
+      '<button class="gbtn" data-tiltdismiss="1">QUEUE ANYWAY</button></div></div>';
+  }
+  function bottleneckCard(st){
+    var t=reviewTotals(st,30),total=0;
+    for(var k in t)total+=t[k];
+    if(total<10)return "";                                  // too thin to contradict anyone
+    var saidAim=!!(st.plan&&st.plan.profile&&/aim|spray|consistency/i.test(String(st.plan.profile.weak||st.plan.keystone||"")));
+    if(!saidAim)return "";
+    var beforeAim=t.pos+t.info+t.trade;
+    var pct=Math.round(beforeAim/total*100);
+    if(pct<40)return "";                                    // the data agrees with them — say nothing
+    return '<div class="card bottleneck"><div class="ml" style="color:var(--accInk);">AIM IS NOT THE BOTTLENECK</div>'+
+      '<p class="bnbig">You said aim. Your deaths say position.</p>'+
+      '<p class="mhow" style="margin:6px 0 0;"><b style="color:var(--text);">'+pct+'%</b> of your logged deaths happen before aim decides anything — '+
+      t.pos+' holding a losing angle, '+t.info+' with no information, '+t.trade+' with nobody to trade you, out of '+total+'. '+
+      'That does not mean stop drilling aim. It means the ceiling you are hitting is positional, and the plan should weight it.</p></div>';
+  }
   function deathCard(st){
     var today=(st.reviews||{})[dateKey(new Date())]||{};
     var btns='<div class="causes">'+CAUSES.map(function(c){
@@ -3428,6 +3577,22 @@
     for(var i=0;i<gos.length;i++)(function(b){b.onclick=function(){go(b.getAttribute("data-go"));};})(gos[i]);
     var dst=root.querySelectorAll("[data-dest]");
     for(var di=0;di<dst.length;di++)(function(b){b.onclick=function(){goDest(b.getAttribute("data-dest"));};})(dst[di]);
+    var op=root.querySelectorAll("[data-offplan]");
+    for(var opi=0;opi<op.length;opi++)(function(b){b.onclick=function(){
+      var s2=load(),dk=dateKey(actDate());
+      s2.offPlan=s2.offPlan||{};s2.offPlan[dk]=s2.offPlan[dk]||[];
+      s2.offPlan[dk].push({k:b.getAttribute("data-offplan")});
+      save(s2);render();};})(op[opi]);
+    var od=root.querySelectorAll("[data-offdel]");
+    for(var odi=0;odi<od.length;odi++)(function(b){b.onclick=function(){
+      var s2=load(),dk=dateKey(actDate()),ix=parseInt(b.getAttribute("data-offdel"),10);
+      if(s2.offPlan&&s2.offPlan[dk]){s2.offPlan[dk].splice(ix,1);save(s2);render();}};})(od[odi]);
+    var td=root.querySelector("[data-tiltdismiss]");
+    if(td)td.onclick=function(){tiltDismissed=true;render();};
+    var wy=root.querySelectorAll("[data-why]");
+    for(var wyi=0;wyi<wy.length;wyi++)(function(b){b.onclick=function(){
+      var ix=parseInt(b.getAttribute("data-why"),10);
+      openWhy=(openWhy===ix)?null:ix;render();};})(wy[wyi]);
     var rl=root.querySelectorAll("[data-restlog]");
     for(var rli=0;rli<rl.length;rli++)(function(b){b.onclick=function(){
       var dk=b.getAttribute("data-restlog"),s2=load();
@@ -3729,7 +3894,10 @@
     if(!quick)list=list.concat([{d:CALM,i:-1}]);
     var sNow=st.sessions[dateKey(new Date())]||{drills:{}};
     sessReturnFocus=document.activeElement;
-    SESS={fk:fk,list:list,idx:0,remain:(list[0].d.dur||1)*60,paused:false,timer:null,
+    // a deload week halves the REAL timer too — the card must not quote a lighter load
+    // than the session actually runs
+    var dl=isDeloadWeek(st,new Date());
+    SESS={fk:fk,list:list,idx:0,deload:dl,remain:deloadDur(list[0].d,dl)*60,paused:false,timer:null,
       dayKey:dateKey(new Date()),coreWas:coreComplete(F,sNow.drills),quick:quick,mode:"plan"};
     renderSession();
     SESS.timer=setInterval(sessTick,1000);
@@ -3767,7 +3935,7 @@
       st.sessions[tk]=s;save(st);
     }
     if(SESS.idx+1>=SESS.list.length){endSession();return;}
-    SESS.idx++;SESS.remain=(SESS.list[SESS.idx].d.dur||1)*60;SESS.paused=false;renderSession();
+    SESS.idx++;SESS.remain=deloadDur(SESS.list[SESS.idx].d,SESS.deload)*60;SESS.paused=false;renderSession();
   }
   function endSession(){
     if(!SESS)return;
@@ -3917,7 +4085,10 @@
     lineupCount:lineupCount,lineupMaps:lineupMaps,recallCount:recallCount,
     streakDetail:streakDetail,pauseInfo:pauseInfo,isPausedOn:isPausedOn,isPaused:isPaused,planWeek:planWeek,
     pauseCard:pauseCard,freezeRow:freezeRow,restWeek:restWeek,restLine:restLine,quietWeek:quietWeek,
-    tierIdentity:tierIdentity,QUIET_DAYS:QUIET_DAYS,PAUSE_WEEKS:PAUSE_WEEKS};
+    tierIdentity:tierIdentity,QUIET_DAYS:QUIET_DAYS,PAUSE_WEEKS:PAUSE_WEEKS,
+    isDeloadWeek:isDeloadWeek,deloadDur:deloadDur,focusMins:focusMins,deloadCard:deloadCard,
+    whyPanel:whyPanel,whySource:whySource,bottleneckCard:bottleneckCard,tiltCard:tiltCard,
+    offPlanCard:offPlanCard,OFFPLAN:OFFPLAN};
 })();
 </script>
 </body>
