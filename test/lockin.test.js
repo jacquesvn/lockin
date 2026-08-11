@@ -1693,6 +1693,49 @@ ok('Progress card order: milestones open, achievements close, and the leak follo
          share < badges &&                       // share card, then the badges, as in the art
          /Derived from the audit above/.test(script);
 })());
+ok('RESUME NOW keeps the promise the pause card made — the streak survives it', (function () {
+  // settings.pause was the ONLY record of a pause, and RESUME NOW deleted it. That did not
+  // end the pause going forward, it erased the days already served and turned them into
+  // ordinary missed training days. Measured on a 16-day streak paused for two weeks: one
+  // click took the held streak to 0, spent both freezes, dropped adherence 100% -> 58% and
+  // popped the WELCOME BACK lapse card — right after the card said "held, not broken".
+  var plan = generatePlan({ rank: 'good', weapon: 'rifle', role: 'entry', weak: ['cstrafe'], time: '10', days: '4', goal: 'consistency' });
+  plan.created = '2026-01-05'; plan.startedOn = '2026-01-05';
+  var st = { plan: plan, sessions: {}, settings: {}, metrics: {}, matches: {}, lineups: {}, reviews: {} };
+  var start = new Date(2026, 0, 5);
+  for (var w = 0; w < 4; w++) for (var o = 0; o < 7; o++) {
+    var d = new Date(start); d.setDate(d.getDate() + w * 7 + o);
+    if (isTrainingDay(plan, d)) st.sessions[dateKey(d)] = { warm: true };
+  }
+  st.settings.pause = { from: '2026-01-30', weeks: 2 };
+  var now = new Date(2026, 1, 9);
+  var before = streakDetail(st, now, freezeBudget(st)), bestBefore = bestStreak(st);
+  // close the pause the way the handler now does
+  var p = pauseInfo(st);
+  st.settings.pause = { from: p.fromKey, weeks: p.weeks, endedOn: dateKey(now) };
+  var after = streakDetail(st, now, freezeBudget(st));
+  var held = before.days === 16 && after.days === before.days && after.spent === before.spent;
+  var bestKept = bestStreak(st) === bestBefore;
+  var noLapse = !lapseInfo(st, now);
+  // the served window must still read as paused; today onward must not
+  var servedStillPaused = isPausedOn(st, new Date(2026, 1, 2));
+  var todayLiveAgain = !isPausedOn(st, now);
+  if (!held || !bestKept || !noLapse) console.log('      before=' + JSON.stringify(before) + ' after=' + JSON.stringify(after) + ' best ' + bestBefore + '->' + bestStreak(st));
+  return held && bestKept && noLapse && servedStillPaused && todayLiveAgain &&
+         // and the record is closed, never deleted
+         /s2\.settings\.pause=\{from:p\.fromKey,weeks:p\.weeks,endedOn:dateKey\(now\)\}/.test(script) &&
+         script.indexOf('delete s2.settings.pause') < 0;
+})());
+ok('the streak walk floors on startedOn, which a resumed pause never moves', (function () {
+  // plan.created is the PROGRAMME CLOCK and gets pushed forward on every resume, so flooring
+  // history on it let a pause retroactively truncate the past — an all-time best of 16 became
+  // 9, the exact failure bestStreak exists to prevent.
+  var fn = script.slice(script.indexOf('function streakDetail('));
+  fn = fn.slice(0, fn.indexOf('\n  function ', 10));
+  return /st\.plan\.startedOn\|\|st\.plan\.created/.test(fn) &&
+         // and it must actually be stamped, or the fallback silently restores the old bug
+         /plan\.startedOn=\(st\.plan&&\(st\.plan\.startedOn\|\|st\.plan\.created\)\)\|\|plan\.created/.test(script);
+})());
 ok('a normal weekend is NOT a lapse — the quiet week never fires on a perfect user', (function () {
   // The bug: quietWeek measured the gap in CALENDAR days while lapseInfo — the app's other,
   // correct detector — counts MISSED TRAINING DAYS. On the default 4-day plan a perfect week

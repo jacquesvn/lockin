@@ -1472,7 +1472,16 @@
     var p=st&&st.settings&&st.settings.pause;
     if(!p||!p.from||!p.weeks)return null;
     var from=parseKey(p.from),until=addDays(from,p.weeks*7);
-    return {from:from,until:until,weeks:p.weeks,fromKey:p.from};
+    /* RESUME NOW used to DELETE this record. settings.pause is the only thing isPausedOn
+       consults, and isPausedOn is what makes those days skip in streakDetail, weekCells,
+       adherence, missedYesterday and lapseInfo — so deleting it did not end the pause going
+       forward, it erased the days already served and turned them into ordinary missed
+       training days. Measured on a 16-day streak paused for two weeks: one click took the
+       held streak 16 -> 0, spent both freezes, dropped 21-day adherence 100% -> 58% and
+       popped the WELCOME BACK lapse card. The card had just promised "held, not broken".
+       Ending a pause early SHORTENS it; it does not unmake it. */
+    if(p.endedOn){var e=parseKey(p.endedOn);if(midnight(e)<midnight(until))until=e;}
+    return {from:from,until:until,weeks:p.weeks,fromKey:p.from,endedOn:p.endedOn||null};
   }
   function isPausedOn(st,d){
     var p=pauseInfo(st);if(!p)return false;
@@ -1487,7 +1496,12 @@
     // Stop at the day the plan was created. Before freezes the walk simply broke on the first
     // untrained day, so pre-history was harmless; with a freeze budget it would instead SPEND
     // a freeze on days that existed before the user did, silently eating what they'd earned.
-    var createdMid=(st.plan&&st.plan.created)?midnight(parseKey(st.plan.created)).getTime():0;
+    // Floor on startedOn, NOT created. plan.created is the PROGRAMME CLOCK and gets pushed
+    // forward every time a pause is resumed, so using it here made a pause retroactively cut
+    // history off behind itself — measured: an all-time best of 16 silently became 9, which is
+    // the exact failure bestStreak exists to prevent. startedOn is stamped once and never moves.
+    var floorKey=(st.plan&&(st.plan.startedOn||st.plan.created))||null;
+    var createdMid=floorKey?midnight(parseKey(floorKey)).getTime():0;
     if(!t||!t.warm)d=addDays(d,-1);
     while(true){
       if(midnight(d).getTime()<createdMid)break;
@@ -2568,6 +2582,8 @@
         generating=true;renderOnboard();
         setTimeout(function(){
           var st=load();var plan=generatePlan(answers);plan.created=(st.plan&&st.plan.created)?st.plan.created:dateKey(new Date());
+          // immutable history floor: created is the programme CLOCK and a resumed pause pushes it
+          plan.startedOn=(st.plan&&(st.plan.startedOn||st.plan.created))||plan.created;
           st.plan=plan;save(st);
           // Leetify's guidelines ask that their data not be stored. The plan above is
           // built from the user's own answers; the response itself is dropped here.
@@ -4974,7 +4990,11 @@
       var now=new Date(),end=midnight(now)<midnight(p.until)?now:p.until;
       var days=Math.max(0,Math.round((midnight(end)-midnight(p.from))/86400000));
       if(s2.plan&&s2.plan.created&&days)s2.plan.created=dateKey(addDays(parseKey(s2.plan.created),days));
-      delete s2.settings.pause;save(s2);render();};
+      // CLOSE the pause, never delete it: the days already served must stay paused forever,
+      // or they become ordinary missed days the moment you come back. endedOn is an exclusive
+      // upper bound, so today onward is live again while the window behind you is preserved.
+      s2.settings.pause={from:p.fromKey,weeks:p.weeks,endedOn:dateKey(now)};
+      save(s2);render();};
     var mct=root.querySelector("[data-morecards]");
     if(mct)mct.onclick=function(){moreCards=mct.getAttribute("data-morecards")==="1";render();};
     var dgo=root.querySelectorAll("[data-duego]");
