@@ -48,7 +48,7 @@ vm.createContext(sandbox);
 vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
-        dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, MAPS,
+        dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, lineChart, heatmap, MAPS,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
         lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag,
         curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements,
@@ -1633,6 +1633,42 @@ ok('--line2 never PAINTS anything — it is a ~1.6:1 divider, not a colour', (fu
   if (bad2.length) console.log('      --line2 painting: ' + bad2.join(' | '));
   return bad2.length === 0 && /--edge\s*:/.test(css);
 })());
+ok('the milestone rungs sit evenly, not at their day value', (function () {
+  // 3/7/14/30/60/100 placed linearly crams four of six into the left third and leaves a long
+  // dead run to Global — arithmetically honest, useless as a picture. Even spacing reads as
+  // "six steps". Assert the positions ARE even, so nobody "fixes" it back to linear.
+  var st = { sessions: {}, plan: { weekly: {}, created: dateKey(new Date()) }, settings: {} };
+  var h = milestoneRail(st);
+  var pos = (h.match(/style="left:([\d.]+)%/g) || []).map(function (s) { return parseFloat(s.match(/([\d.]+)/)[1]); });
+  if (pos.length < 2) { console.log('      no positioned rungs'); return false; }
+  var step = pos[1] - pos[0], even = pos.every(function (p, i) { return Math.abs(p - i * step) < 0.05; });
+  return even && pos[0] === 0 && Math.abs(pos[pos.length - 1] - 100) < 0.05 && pos.length === STREAK_TIERS.length;
+})());
+ok('the twelve-week heatmap is 7 rows by N weeks, and its ramp actually steps', (function () {
+  var fn = script.slice(script.indexOf('function heatmap('));
+  fn = fn.slice(0, fn.indexOf('\n  function ', 10));
+  var rowsFixed = /for\(var d=0;d<7;d\+\+\)/.test(fn);          // days are the fixed axis
+  var colsFromData = /for\(var w=weeks-1;w>=0;w--\)/.test(fn);
+  // fixed cell size — flex-filled cells blew up to 63px and made a 450px wall of squares
+  var sized = /\.hm\{[^}]*width:12px;height:12px/.test(css);
+  var flexed = /\.hmcol\{[^}]*flex:0 0 auto/.test(css);
+  // and the four levels must be distinct stops, not two of them nearly touching
+  var mix = (css.match(/\.hm\.l[123]\{background:[^}]*?(\d+)%,var\(--surface2\)/g) || [])
+    .map(function (s) { return +s.match(/(\d+)%/)[1]; });
+  var stepped = mix.length === 3 && mix[0] >= 40 && mix[1] - mix[0] >= 20 && mix[2] === undefined ? false : true;
+  return rowsFixed && colsFromData && sized && flexed &&
+         /\.hm\.l1\{[^}]*45%/.test(css) && /\.hm\.l2\{[^}]*75%/.test(css) && /\.hm\.l3\{background:var\(--acc\)/.test(css);
+})());
+ok('a trend is a LINE with its own numbers, not an unlabelled sparkline', (function () {
+  var out = lineChart([2, 3, 3, 4, 5], { scale: 5, label: 'hand feel', from: 'a', to: 'b' });
+  return /<polyline class="lcline"/.test(out) &&
+         /<path class="lcfill"[^>]*url\(#/.test(out) &&      // the gradient falloff
+         /linearGradient/.test(out) &&
+         /class="lclast">5<small>\/5</.test(out) &&           // it carries its own number
+         /aria-label="hand feel, latest 5 out of 5"/.test(out) &&
+         /<div class="baxis"><span>a<\/span><span>b<\/span>/.test(out) &&
+         lineChart([3], {}) === '' && lineChart([], {}) === '';   // one point is not a trend
+})());
 ok('the desktop rail is identity on top, status at the foot, in that order', (function () {
   // The reference art puts WHO YOU ARE directly under the wordmark and WHERE YOU STAND
   // pinned to the bottom. We had the identity block at the foot and no status block at all,
@@ -2199,8 +2235,13 @@ ok('the milestone ladder reports the tier reached and the honest distance to the
 ok('the rail marks reached rungs and flags exactly one as next', (function () {
   var st = { sessions: {}, plan: { weekly: {}, created: dateKey(new Date()) }, settings: {} };
   var h = milestoneRail(st);
-  return (h.match(/class="mrcell next"/g) || []).length === 1 &&
-         STREAK_TIERS.length === 6 && />3<\/b> days to BRONZE/.test(h);
+  // now a TRACK: nodes positioned along one line, so also assert the geometry is real —
+  // every rung placed by percent, and the travelled portion filled.
+  var placed = (h.match(/class="mtn[^"]*" style="left:([\d.]+)%/g) || []);
+  return (h.match(/class="mtn next"/g) || []).length === 1 &&
+         STREAK_TIERS.length === 6 && placed.length === 6 &&
+         /class="mtline"><i style="width:[\d.]+%"/.test(h) &&
+         />3<\/b> days to BRONZE/.test(h);
 })());
 ok('the rail and the Fortnight badge agree — 14 is a rung on both', (function () {
   var onRail = STREAK_TIERS.some(function (t) { return t.n === 14; });
@@ -2208,11 +2249,14 @@ ok('the rail and the Fortnight badge agree — 14 is a rung on both', (function 
   return onRail && badge && badge.goal === 14;
 })());
 ok('badges: twelve, earned reads accent and locked reads outline (not a dimmed control)', (function () {
+  // badges are hex now, lit when earned and padlocked when not — but the original intent
+  // holds and is what this still asserts: locked must read as NOT YET, never as disabled.
   return ACHIEVEMENTS.length === 12 &&
-         /\.ach\{[^}]*border:1px solid var\(--edge\)/.test(html) &&
-         /\.ach\.on\{[^}]*border-color:var\(--acc\)/.test(html) &&
-         !/\.ach\{[^}]*opacity:\.5/.test(html) &&
-         /minmax\(88px,1fr\)/.test(html);          // three per row on a phone
+         /\.achhex\{[^}]*clip-path:polygon\(50% 0,100% 25%/.test(css) &&
+         /\.ach\.on \.achhex\{[^}]*background:var\(--acc\)/.test(css) &&
+         !/\.ach\{[^}]*opacity:\.5/.test(css) &&
+         /var LOCK=/.test(script) &&               // a padlock, not a dimmed medal
+         /minmax\(96px,1fr\)/.test(css);           // still three per row on a phone
 })());
 ok('the vault badges count real saved lineups, maps and passed recalls', (function () {
   var st = { lineups: {}, settings: { recalls: 7 } };
