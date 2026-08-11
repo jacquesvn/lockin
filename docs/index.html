@@ -230,6 +230,10 @@
     color:var(--muted);font-family:var(--fb);font-size:13px;cursor:pointer;margin-bottom:12px;}
   .fullbtn:hover{border-color:var(--muted);color:var(--text);}
   /* leak of the week — one claim, its evidence directly beneath it */
+  .bkcard{border-left:3px solid var(--acc);}
+  .wnlist{margin:9px 0 0;padding-left:18px;}
+  .wnlist li{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:5px;}
+  .wnlist li::marker{color:var(--accInk);}
   /* ---------- off-plan history ---------- */
   .ofhist{margin:8px 0 2px;border-top:1px solid var(--line);}
   .ofrow{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);}
@@ -1915,6 +1919,12 @@
     if(dc)out.push({tier:2,k:"drift",label:"Plan drift",html:dc});
     var sc=skippedCard(st,now);
     if(sc)out.push({tier:2,k:"skipped",label:"Skipped drill",html:sc});
+    // T2 rather than T4: the risk is real and grows, but it is not today-or-never
+    var bk=backupCard(st,now);
+    if(bk)out.push({tier:2,k:"backup",label:"Back up",html:bk});
+    // T4: purely informational, so it never displaces anything you could act on
+    var wn=whatsNew(st);
+    if(wn)out.push({tier:4,k:"whatsnew",label:"What changed",html:wn});
     // T3: scheduled — the Sunday question, and the WHAT CHANGES receipt once answered
     var cc=coachCard(st,now);
     if(cc)out.push({tier:3,k:"coach",label:"Coach's question",html:cc});
@@ -2001,7 +2011,95 @@
 
   /* ---------- backup export / import validation ---------- */
   // pictures ride along, or a restore on another PC would silently lose every one
-  function exportData(){var b=new Blob([JSON.stringify(stateForBackup(load()),null,2)],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="lockin-backup-"+dateKey(new Date())+".json";a.click();}
+  /* ---------- what changed in this version ----------
+     The app updates itself, which means features arrive silently: someone who had v0.43 now
+     has a settings audit, a share card and a twelve-week grid, and nothing has ever told
+     them. The update banner announces that a version exists, never what is in it.
+     Rules that keep this from becoming noise:
+     · Nothing on a FRESH install — nothing is "new" to someone who just arrived.
+     · Nothing for a version with no entry, so a silent patch stays silent.
+     · One dismissal, keyed to the version, and it never returns. */
+  // Keyed to the version each thing ACTUALLY shipped in. Getting this wrong is worse than
+  // having no changelog: telling someone about a feature they already had for a fortnight is
+  // how a "what's new" becomes something people close without reading.
+  var WHATSNEW={
+    "0.44.0":["Gear reads your CS2 config — crosshair, sensitivity and resolution, each with a verdict"],
+    "0.45.0":["The progress card can be copied straight to your clipboard, not just saved",
+              "Twelve weeks at a glance, and milestones as a track you move along",
+              "Your off-plan sessions are listed back to you instead of forgotten overnight"],
+    "0.46.0":["The moment you finish your core drills lasts longer, and the violet is calmer",
+              "On the web, Lockin now reminds you to export before a browser wipe can take your streak"]
+  };
+  function vcmp(a,b){
+    var x=String(a).split("."),y=String(b).split(".");
+    for(var i=0;i<3;i++){var d=(parseInt(x[i],10)||0)-(parseInt(y[i],10)||0);if(d)return d<0?-1:1;}
+    return 0;
+  }
+  function newSince(seen){
+    // EVERYTHING since your last version, not just the entry for this one — people skip
+    // releases, and an upgrade from 0.43 to 0.47 should not silently swallow three of them.
+    return Object.keys(WHATSNEW).filter(function(v){
+      return vcmp(v,seen)>0 && vcmp(v,VERSION)<=0;
+    }).sort(vcmp);
+  }
+  function whatsNew(st){
+    var seen=(st.settings||{}).seenVersion;
+    if(!seen)return "";                            // fresh install: nothing is new
+    if(seen===VERSION)return "";
+    var vs=newSince(seen);
+    if(!vs.length)return "";                       // a silent patch stays silent
+    var lines=[];vs.forEach(function(v){lines=lines.concat(WHATSNEW[v]);});
+    if(!lines.length)return "";
+    return '<div class="card wncard"><div class="oftop"><div class="ml" style="color:var(--accInk);">'+
+      (vs.length>1?'NEW SINCE YOU LAST LOOKED':'NEW IN THIS VERSION')+'</div>'+
+      statusChip("cap",vs.length>1?vs.length+" VERSIONS":"v"+esc(vs[0]))+'</div>'+
+      '<ul class="wnlist">'+lines.map(function(l){return '<li>'+esc(l)+'</li>';}).join("")+'</ul>'+
+      '<button class="gbtn" data-wnseen="1" style="margin-top:11px;">GOT IT</button></div>';
+  }
+  // stamp the version the moment anyone loads the app, so the NEXT update has a "from"
+  function markVersionSeen(st){
+    st.settings=st.settings||{};
+    if(!st.settings.seenVersion){st.settings.seenVersion=VERSION;return true;}
+    return false;
+  }
+  /* ---------- the backup nudge ----------
+     "No account" is a promise, and this is its cost: on the desktop app state is mirrored to
+     a file automatically after every save, but on web and the PWA it is ONE localStorage key.
+     A browser data-clear, a cache cleaner or a reset takes the whole programme, and until now
+     the app never said so at a moment when it mattered — the only mention was a passive line
+     in Setup describing backups as manual.
+     So: only on web, only once there is real work to lose, and it stays gone once you have
+     exported. Never on desktop, where the mirror already covers it — a nudge that fires when
+     the risk is not real is how people learn to dismiss the one that matters. */
+  var BACKUP_MIN_SESSIONS=8;                       // below this, losing it costs an evening
+  function backupAge(st,now){
+    var last=(st.settings||{}).lastExport;
+    if(!last)return null;
+    return Math.floor((midnight(now||new Date())-midnight(parseKey(last)))/86400000);
+  }
+  function needsBackup(st,now){
+    if(isNative)return false;                      // desktop mirrors to a file on every save
+    var n=Object.keys(st.sessions||{}).length;
+    if(n<BACKUP_MIN_SESSIONS)return false;
+    // "not now" means not now, not never — it comes back in a fortnight rather than nagging
+    var sn=(st.settings||{}).bkSnooze;
+    if(sn){var d=Math.floor((midnight(now||new Date())-midnight(parseKey(sn)))/86400000);if(d<14)return false;}
+    var age=backupAge(st,now);
+    return age===null||age>=21;                    // never exported, or three weeks stale
+  }
+  function backupCard(st,now){
+    if(!needsBackup(st,now))return "";
+    var n=Object.keys(st.sessions||{}).length,age=backupAge(st,now);
+    return '<div class="card bkcard"><div class="oftop"><div class="ml" style="color:var(--accInk);">KEEP YOUR STREAK SAFE</div>'+
+      statusChip("warn",age===null?"NEVER EXPORTED":age+" DAYS OLD")+'</div>'+
+      '<p class="mhow" style="margin:7px 0 0;">'+n+' sessions and a 12-week plan live in this browser and nowhere else — that is what no account buys you, and what it costs. '+
+      'Clearing site data would take all of it. One file, kept wherever you keep things.</p>'+
+      '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">'+
+        '<button class="pbtn facet" data-rec="export">EXPORT MY DATA</button>'+
+        '<button class="gbtn" data-bkdismiss="1">NOT NOW</button></div></div>';
+  }
+  function exportData(){var _s=load();_s.settings=_s.settings||{};_s.settings.lastExport=dateKey(new Date());save(_s);
+    var b=new Blob([JSON.stringify(stateForBackup(_s),null,2)],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="lockin-backup-"+dateKey(new Date())+".json";a.click();}
   function isObj(x){return x&&typeof x==="object"&&!Array.isArray(x);}
   // reject a restore file that isn't shaped like our data — an unvalidated plan could brick the app
   function validBackup(d2){
@@ -4720,6 +4818,10 @@
     var ca=root.querySelectorAll("[data-coach]");
     for(var cai=0;cai<ca.length;cai++)(function(b){b.onclick=function(){
       var s2=load();applyCoachAnswer(s2,b.getAttribute("data-coach"),new Date());save(s2);render();};})(ca[cai]);
+    var wns=root.querySelector("[data-wnseen]");
+    if(wns)wns.onclick=function(){var s2=load();s2.settings=s2.settings||{};s2.settings.seenVersion=VERSION;save(s2);render();};
+    var bkd=root.querySelector("[data-bkdismiss]");
+    if(bkd)bkd.onclick=function(){var s2=load();s2.settings=s2.settings||{};s2.settings.bkSnooze=dateKey(new Date());save(s2);render();};
     var sf=root.querySelectorAll("[data-setfocus]");
     for(var sfi=0;sfi<sf.length;sfi++)(function(b){b.onclick=function(){
       var s2=load();applyLeakFocus(s2,b.getAttribute("data-setfocus"));save(s2);render();};})(sf[sfi]);
@@ -5196,6 +5298,10 @@
   /* ---------- init ---------- */
   (function(){
     var st=load();applyTheme(curTheme(st));
+    // Stamp the version on the FIRST ever load so a brand-new user is never shown a
+    // "what changed" for a version they have only just arrived at. From then on the stamp
+    // lags by exactly one update, which is what makes the card meaningful.
+    if(markVersionSeen(st))save(st);
     startGsi();   // desktop: begin listening for CS2 match results (no-op on web)
     // web: ask the browser to keep our storage persistent (less likely to be evicted).
     // Best-effort — installed PWAs are usually granted it; a plain tab may not be.
@@ -5247,7 +5353,7 @@
   if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,lineChart:lineChart,heatmap:heatmap,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
     stateForBackup:stateForBackup,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER,
     picSlots:picSlots,picRole:picRole,PICROLE:PICROLE,DESTS:DESTS,destOf:destOf,subTabs:subTabs,dueCard:dueCard,todayCards:todayCards,todayStack:todayStack,
-    leakOfWeek:leakOfWeek,offPlanRecent:offPlanRecent,offPlanHistory:offPlanHistory,gearTiles:gearTiles,planShot:planShot,settingsAudit:settingsAudit,XHAIR_DYNAMIC:XHAIR_DYNAMIC,leakFocus:leakFocus,applyLeakFocus:applyLeakFocus,focusIsSet:focusIsSet,LEAK_DRILL:LEAK_DRILL,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou,
+    leakOfWeek:leakOfWeek,needsBackup:needsBackup,backupCard:backupCard,backupAge:backupAge,whatsNew:whatsNew,newSince:newSince,vcmp:vcmp,VERSION:VERSION,markVersionSeen:markVersionSeen,WHATSNEW:WHATSNEW,BACKUP_MIN_SESSIONS:BACKUP_MIN_SESSIONS,offPlanRecent:offPlanRecent,offPlanHistory:offPlanHistory,gearTiles:gearTiles,planShot:planShot,settingsAudit:settingsAudit,XHAIR_DYNAMIC:XHAIR_DYNAMIC,leakFocus:leakFocus,applyLeakFocus:applyLeakFocus,focusIsSet:focusIsSet,LEAK_DRILL:LEAK_DRILL,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou,
     STREAK_TIERS:STREAK_TIERS,milestoneState:milestoneState,milestoneRail:milestoneRail,autoDebrief:autoDebrief,
     lineupCount:lineupCount,lineupMaps:lineupMaps,recallCount:recallCount,
     streakDetail:streakDetail,pauseInfo:pauseInfo,isPausedOn:isPausedOn,isPaused:isPaused,planWeek:planWeek,

@@ -51,6 +51,7 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, lineChart, heatmap, MAPS,
         leakFocus, applyLeakFocus, focusIsSet, LEAK_DRILL, settingsAudit, XHAIR_DYNAMIC,
         offPlanRecent, offPlanHistory, gearTiles, planShot,
+        needsBackup, backupCard, backupAge, whatsNew, newSince, vcmp, VERSION, markVersionSeen, WHATSNEW, BACKUP_MIN_SESSIONS,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
         lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag,
         curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements,
@@ -1657,6 +1658,62 @@ ok('Progress card order: milestones open, achievements close, and the leak follo
          insights < badges && leak < badges &&   // trophies close, they do not interrupt
          share < badges &&                       // share card, then the badges, as in the art
          /Derived from the audit above/.test(script);
+})());
+ok('the backup nudge fires only where data can actually be lost, and only once it matters', (function () {
+  // "No account" is a promise; this is its cost. Desktop mirrors state to a file on every
+  // save, so the nudge must NEVER appear there — a warning that fires when the risk is not
+  // real is how people learn to dismiss the one that is.
+  var now = new Date();
+  function withSessions(n, extra) {
+    var st = { sessions: {}, settings: extra || {} };
+    for (var i = 0; i < n; i++) { var d = new Date(now); d.setDate(d.getDate() - i); st.sessions[dateKey(d)] = { warm: true }; }
+    return st;
+  }
+  var quietEarly = !needsBackup(withSessions(3), now);          // 3 sessions: an evening, not a season
+  var firesLater = needsBackup(withSessions(20), now);          // enough work to hurt
+  // an export silences it, and a stale one brings it back
+  var fresh = withSessions(20, { lastExport: dateKey(now) });
+  var stale = (function () { var d = new Date(now); d.setDate(d.getDate() - 40);
+    return withSessions(20, { lastExport: dateKey(d) }); })();
+  var silencedByExport = !needsBackup(fresh, now);
+  var returnsWhenStale = needsBackup(stale, now);
+  // "not now" snoozes rather than switching it off forever
+  var snoozed = withSessions(20, { bkSnooze: dateKey(now) });
+  var oldSnooze = (function () { var d = new Date(now); d.setDate(d.getDate() - 30);
+    return withSessions(20, { bkSnooze: dateKey(d) }); })();
+  var snoozeWorks = !needsBackup(snoozed, now) && needsBackup(oldSnooze, now);
+  // and the card names the real stake rather than saying "back up your data"
+  var card = backupCard(withSessions(20), now);
+  var namesTheStake = /live in this browser and nowhere else/.test(card) &&
+                      /Clearing site data would take all of it/.test(card) && /20 sessions/.test(card);
+  return quietEarly && firesLater && silencedByExport && returnsWhenStale && snoozeWorks && namesTheStake &&
+         /if\(isNative\)return false;/.test(script.slice(script.indexOf('function needsBackup(')));
+})());
+ok('what-changed never greets a brand-new user, and a silent patch stays silent', (function () {
+  // Someone who just installed has nothing "new" to be told about; showing them a changelog
+  // for the version they arrived at is noise dressed as a feature.
+  var fresh = whatsNew({ settings: {} });
+  var upgraded = whatsNew({ settings: { seenVersion: '0.0.1' } });
+  // must be the CURRENT version, not WHATSNEW's first key — those stopped being the same
+  // thing the moment the changelog held more than one entry, and the test quietly broke
+  var current = whatsNew({ settings: { seenVersion: VERSION } });
+  var noEntry = whatsNew({ settings: { seenVersion: '0.0.1' } });
+  // first load stamps the version, so the NEXT update has something to compare against
+  var st = { settings: {} };
+  var stamped = markVersionSeen(st) === true && !!st.settings.seenVersion;
+  var doesNotRestamp = markVersionSeen(st) === false;
+  // skipping releases must not swallow them: an upgrade across several versions shows all
+  // of their entries, not just the one for the version you landed on
+  var spans = newSince('0.0.1');
+  var ordered = spans.slice().sort(vcmp).join(',') === spans.join(',');
+  var neverFuture = spans.every(function (v) { return vcmp(v, VERSION) <= 0; });
+  return fresh === '' &&                                  // brand new: silent
+         current === '' &&                                // already on it: silent
+         stamped && doesNotRestamp && ordered && neverFuture &&
+         vcmp('0.9.0', '0.10.0') < 0 &&                   // numeric, not lexical
+         (Object.keys(WHATSNEW).length === 0 || typeof noEntry === 'string') &&
+         /if\(!seen\)return "";/.test(script) &&
+         /if\(!vs\.length\)return "";/.test(script);   // nothing since your version, no card
 })());
 ok('the core-left count reflects CORE drills only, and vanishes when the work is done', (function () {
   // "0 CORE LEFT" is a worse way of saying the day is finished, so it must hide rather than
