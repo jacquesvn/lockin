@@ -197,6 +197,23 @@
     cursor:pointer;margin-bottom:11px;}
   .moretog:hover{border-color:var(--acc);color:var(--text);}
   .morewrap{animation:v3-slide .26s cubic-bezier(.2,.9,.2,1);}
+  /* ten minutes, one tap — the single primary action on Today */
+  .tenbtn{width:100%;min-height:52px;background:var(--acc);color:var(--onAcc);border:none;cursor:pointer;
+    font-family:var(--fm);font-weight:800;font-size:12.5px;letter-spacing:0.12em;margin-bottom:8px;}
+  .tenbtn:hover{background:var(--accH);}
+  .fullbtn{width:100%;min-height:44px;background:transparent;border:1px solid var(--line2);border-radius:11px;
+    color:var(--muted);font-family:var(--fb);font-size:13px;cursor:pointer;margin-bottom:12px;}
+  .fullbtn:hover{border-color:var(--edge);color:var(--text);}
+  /* leak of the week — one claim, its evidence directly beneath it */
+  .leakcard{margin-bottom:10px;}
+  .leakbig{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.01em;
+    font-size:26px;color:var(--accInk);margin-top:6px;}
+  .yvy{font-size:13px;color:var(--muted);margin-bottom:12px;}
+  .yvy b{color:var(--text);}
+  /* nothing leaves this device */
+  .privrow{display:flex;gap:10px;align-items:flex-start;padding:7px 0;font-size:13.5px;color:var(--muted);}
+  .privrow svg{width:15px;height:15px;color:var(--good);flex:0 0 auto;margin-top:2px;}
+  .privcard .mhow{border-top:1px solid var(--line);padding-top:10px;color:var(--text);font-weight:600;}
   .smini{margin-top:auto;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:14px;}
 
   /* ---------- brand ---------- */
@@ -724,7 +741,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.35.0";
+  var VERSION="0.36.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -2110,9 +2127,12 @@
       var undone=false;for(var ui=0;ui<shown.length;ui++)if(!dstate[shown[ui].i])undone=true;
       // one row, not a stack: primary session + the five-minute escape hatch side by side,
       // so Today keeps the single clean column the design intended
+      // ONE primary action. The full session is the secondary option, not the headline —
+      // the promise is the ten, and a single tap has to be able to keep it.
+      var tenMin=tenMins(F,plan);
       var sessRow=(canSession&&undone)
-        ?'<div class="sessrow"><button class="startsession" data-startsession="1">▸ START SESSION · '+totMin+' MIN</button>'+
-         '<button class="quickbtn" data-quickstart="1">⚡ 5 MIN</button></div>'
+        ?'<button class="tenbtn facet" data-quickstart="1">DO THE TEN · '+tenMin+' MIN</button>'+
+         '<button class="fullbtn" data-startsession="1">Full session · '+totMin+' min</button>'
         :'';
       // the reappraisal script is read BEFORE the gate checklist, as in the study
       // the gate (T1) and the debrief (T4) are CONDITION CARDS now — they rise into the
@@ -2619,7 +2639,9 @@
         mx+='<div class="'+(due===cp[0]?"due":"")+'"><label>'+cp[1]+'</label><input type="number" inputmode="decimal" step="any" aria-label="'+esc(t.n)+' — '+cp[1]+'" data-mk="'+key+'" data-mp="'+cp[0]+'" value="'+esc(v[cp[0]]!=null?v[cp[0]]:"")+'" placeholder="—"></div>';});
       mx+='</div></div>';});
     mx+='</div>';
-    return hd+insightsCard(st)+milestonesCard(st)+cal+deathCard(st)+mx+glossary();
+    // the leak sits directly ABOVE the audit that produced it, so the claim and its
+    // evidence are adjacent and you can check the one against the other
+    return hd+youVsYou()+insightsCard(st)+milestonesCard(st)+cal+leakCard(st)+deathCard(st)+mx+glossary();
   }
   // These averages come from Premier/Leetify data. The skill bands transfer, but the numbers
   // aren't measured on FACEIT or ESEA — say so rather than passing them off as native.
@@ -2896,6 +2918,35 @@
     for(var i=0;i<days;i++){var r=(st.reviews||{})[dateKey(addDays(now,-i))];
       if(r)for(var c in t){if(r[c])t[c]+=r[c];}}
     return t;}
+  /* Leak of the week — the death audit already knows which cause is costing you most; it
+     just never said so. Surfaced as one line, from a 7-day window, and only once there is
+     enough logged to mean anything. Nothing invented: it names the cause you logged most. */
+  var LEAKFIX={
+    aim:"That's a mechanics week — the drills you already have are the fix.",
+    pos:"Aim drills won't touch this one. Where you stand is the fix.",
+    util:"Utility, not aim. Learn the throws that stop the round starting badly.",
+    info:"You're dying to things you couldn't see. Slow down and get the info first.",
+    trade:"You're dying alone. Play closer to someone who can trade you."
+  };
+  function leakOfWeek(st,minTotal){
+    var t=reviewTotals(st,7),total=0,top=null;
+    for(var k in t){total+=t[k];if(!top||t[k]>t[top])top=k;}
+    if(total<(minTotal===undefined?5:minTotal)||!top||!t[top])return null;
+    var label="";CAUSES.forEach(function(c){if(c[0]===top)label=c[1];});
+    return {k:top,label:label,n:t[top],total:total,pct:Math.round(t[top]/total*100),fix:LEAKFIX[top]||""};
+  }
+  // You vs you. Every number in Progress is measured against this player's own past —
+  // there is no leaderboard anywhere in Lockin, and saying so is part of the product.
+  function youVsYou(){
+    return '<p class="yvy">Everything here is <b>you against your own past</b>. There is no leaderboard, no ranking against other players, and nothing here is shared.</p>';
+  }
+  function leakCard(st){
+    var L=leakOfWeek(st);
+    if(!L)return "";
+    return '<div class="card leakcard"><div class="ml" style="color:var(--accInk);">LEAK OF THE WEEK</div>'+
+      '<div class="leakbig">'+esc(L.label)+'</div>'+
+      '<p class="mhow" style="margin:6px 0 0;"><b style="color:var(--text);">'+L.pct+'%</b> of the deaths you logged this week — '+L.n+' of '+L.total+'. '+esc(L.fix)+'</p></div>';
+  }
   function deathCard(st){
     var today=(st.reviews||{})[dateKey(new Date())]||{};
     var btns='<div class="causes">'+CAUSES.map(function(c){
@@ -3077,6 +3128,15 @@
         '<button class="gbtn tourbtn" data-gsi-setup="1" style="width:100%;"><span class="tourico">'+SHIELD+'</span>'+((GSISET&&GSISET.path)?"RE-WRITE CS2 CONFIG":"SET UP AUTO-TRACKING")+'</button>'+
         (GSISET?'<p class="help" style="margin:10px 0 0;'+(GSISET.ok?'':'color:var(--bad);')+'">'+esc(GSISET.msg)+'</p>':'')+'</div>';
     }
+    // The privacy claim, stated plainly rather than implied. It is the one promise a paid
+    // coaching product structurally cannot copy, so it earns its own card.
+    var privacy='<div class="divi"><span class="ml" role="heading" aria-level="2">NOTHING LEAVES THIS DEVICE</span></div>'+
+      '<div class="card privcard">'+
+      '<div class="privrow">'+CHK+'<span>No account. There is nothing to sign up for.</span></div>'+
+      '<div class="privrow">'+CHK+'<span>No server. Your plan, streak and numbers live in this device’s storage — there is nowhere for them to be uploaded to.</span></div>'+
+      '<div class="privrow">'+CHK+'<span>No telemetry. Nothing you do here is counted, timed or reported.</span></div>'+
+      '<div class="privrow">'+CHK+'<span>Backups are yours and manual — a file you export, kept where you put it.</span></div>'+
+      '<p class="mhow" style="margin:12px 0 0;">Paid coaching apps cannot say this.</p></div>';
     var data='<div class="divi"><span class="ml" role="heading" aria-level="2">DATA · LOCAL ONLY</span></div>'+
       '<p class="help" style="margin:0 0 8px;">'+(isNative
         ?'<b style="color:var(--text);">Auto-backup is on.</b> Your progress is mirrored to a file on this PC and restored automatically if the app’s cache is ever cleared. Export a copy to move to another machine.'
@@ -3087,7 +3147,7 @@
       '<button class="datarow" data-act="reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span>Erase all data<small>Delete everything and start over — can’t be undone</small></span></button>'+
       '<input type="file" id="impF" accept="application/json" style="display:none;"></div>'+
       (storageOk?'':'<div class="ml" style="color:var(--bad);margin-top:8px;">⚠ STORAGE BLOCKED — EXPORT TO KEEP YOUR DATA</div>');
-    return hd+prof+tagSec+cueSec+app+remSec+gsiSec+updateSec()+data+feedbackSec()+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
+    return hd+prof+tagSec+cueSec+app+remSec+gsiSec+updateSec()+privacy+data+feedbackSec()+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
   }
   // GEAR — your sens/DPI/eDPI, crosshair code and launch options. Its own tab so you can
   // pull it up mid-game to copy a crosshair or double-check your eDPI.
@@ -3356,19 +3416,35 @@
   var SESS=null, sessKeydown=null, sessReturnFocus=null;
   function fmtT(s){s=Math.max(0,s);var m=Math.floor(s/60),ss=s%60;return m+":"+(ss<10?"0":"")+ss;}
   function coreComplete(F,drills){return F.drills.every(function(d,ix){return !d.core||(drills&&drills[ix]);});}
+  // Core drills up to ten minutes — at least one, never more than the promise.
+  function tenList(F,plan){
+    var all=drillList(F,plan);if(!all.length)return [];
+    var core=all.filter(function(it){return it.d.core;});
+    if(!core.length)core=all.slice(0,1);
+    var out=[],mins=0;
+    for(var i=0;i<core.length;i++){
+      var d=core[i].d.dur||1;
+      if(out.length&&mins+d>10)break;
+      out.push(core[i]);mins+=d;
+    }
+    return out;
+  }
+  function tenMins(F,plan){var t=0;tenList(F,plan).forEach(function(it){t+=(it.d.dur||1);});return t;}
   function startSession(opts){
     if(SESS)return;                                    // never run two sessions / two intervals at once
     var quick=!!(opts&&opts.quick===true);             // (guard: a click handler may pass an Event)
     var st=load(),plan=st.plan,fk=plan.weekly[new Date().getDay()],F=FOCI[fk];
     if(!F||fk==="rest"||fk==="match")return;
     var list=drillList(F,plan);if(!list.length)return;
-    // quick mode: just the single highest-leverage core drill, five minutes, day still counts
-    if(quick){var core=list.filter(function(it){return it.d.core;});list=[core[0]||list[0]];}
+    // "the ten": core drills up to ten minutes. The app has always promised that ten focused
+    // minutes beat a skipped hour and asks you to commit to "the ten" — the escape hatch used
+    // to be five, which quietly contradicted both.
+    if(quick){list=tenList(F,plan);if(!list.length)return;}
     // close on clean reps — you keep whatever you did last (skipped in quick mode, no time for it)
     if(!quick)list=list.concat([{d:CALM,i:-1}]);
     var sNow=st.sessions[dateKey(new Date())]||{drills:{}};
     sessReturnFocus=document.activeElement;
-    SESS={fk:fk,list:list,idx:0,remain:quick?300:((list[0].d.dur||1)*60),paused:false,timer:null,
+    SESS={fk:fk,list:list,idx:0,remain:(list[0].d.dur||1)*60,paused:false,timer:null,
       dayKey:dateKey(new Date()),coreWas:coreComplete(F,sNow.drills),quick:quick,mode:"plan"};
     renderSession();
     SESS.timer=setInterval(sessTick,1000);
@@ -3550,7 +3626,8 @@
   }
   if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
     stateForBackup:stateForBackup,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER,
-    picSlots:picSlots,picRole:picRole,PICROLE:PICROLE,DESTS:DESTS,destOf:destOf,subTabs:subTabs,dueCard:dueCard,todayCards:todayCards,todayStack:todayStack};
+    picSlots:picSlots,picRole:picRole,PICROLE:PICROLE,DESTS:DESTS,destOf:destOf,subTabs:subTabs,dueCard:dueCard,todayCards:todayCards,todayStack:todayStack,
+    leakOfWeek:leakOfWeek,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou};
 })();
 </script>
 </body>

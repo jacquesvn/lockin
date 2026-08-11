@@ -52,7 +52,7 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag,
         curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements,
         weeklyRecap, recapCard, debriefCard, applyGsiMatch, DESTS, destOf, subTabs,
-        dueCard, todayCards, todayStack,
+        dueCard, todayCards, todayStack, leakOfWeek, leakCard, tenList, tenMins, youVsYou,
         LSRS, srsAnswer, dueLineups, lineupIsDue, lineupReviewCard,
         stateForBackup, takeBackupImages, picStrip, IMGS, IMG_PER,
         picSlots, picRole, PICROLE } = sandbox.module.exports;
@@ -1394,6 +1394,66 @@ ok('the review card is recall-first: throw hidden until revealed, then a self-gr
          shown.indexOf('antenna') >= 0 && shown.indexOf('data-lrok') >= 0 && shown.indexOf('data-lrno') >= 0 &&
          shown.indexOf('A EXECUTES') >= 0;
 })());
+// --- v3 Group A: ten-minutes-one-tap, leak of the week, you-vs-you, privacy ---
+ok('"the ten" is core drills capped at ten minutes, never more than the promise', (function () {
+  var bad = [];
+  Object.keys(FOCI).forEach(function (k) {
+    var F = FOCI[k]; if (!F.drills || !F.drills.length) return;
+    var plan = { profile: {}, weekly: {} };
+    var list = tenList(F, plan), mins = tenMins(F, plan);
+    if (!list.length) { bad.push(k + ':empty'); return; }        // must always offer something
+    if (mins > 10) bad.push(k + ':' + mins + 'min');             // must never exceed the promise
+    if (!list.every(function (it) { return it.d.core || F.drills.filter(function (d) { return d.core; }).length === 0; }))
+      bad.push(k + ':non-core');
+  });
+  if (bad.length) console.log('      ' + bad.join(', '));
+  return bad.length === 0;
+})());
+ok('the five-minute escape hatch is gone — the app promises the ten and now offers it', (function () {
+  return html.indexOf('⚡ 5 MIN') < 0 && /DO THE TEN · '\+tenMin\+' MIN/.test(script) &&
+         /remain:\(list\[0\]\.d\.dur\|\|1\)\*60/.test(script) &&   // no hardcoded 300s any more
+         script.indexOf('remain:quick?300') < 0;
+})());
+ok('the ten is the ONE primary action; the full session is secondary', (function () {
+  return /\.tenbtn\{[^}]*min-height:52px/.test(html) && /\.tenbtn\{[^}]*background:var\(--acc\)/.test(html) &&
+         /class="tenbtn facet"/.test(script) &&
+         /\.fullbtn\{[^}]*background:transparent/.test(html);   // secondary carries no accent fill
+})());
+ok('leak of the week names the cause you actually logged most, with its real share', (function () {
+  var st = { reviews: {} };
+  var k = dateKey(new Date());
+  st.reviews[k] = { aim: 2, pos: 7, util: 1 };                  // 10 logged, position dominant
+  var L = leakOfWeek(st);
+  return L && L.k === 'pos' && L.label === 'Position' && L.n === 7 && L.total === 10 && L.pct === 70 &&
+         /Position/.test(leakCard(st)) && /70%/.test(leakCard(st)) && /7 of 10/.test(leakCard(st));
+})());
+ok('leak of the week stays silent until there is enough logged to mean anything', (function () {
+  var st = { reviews: {} };
+  st.reviews[dateKey(new Date())] = { aim: 2 };                 // only 2 deaths logged
+  return leakOfWeek(st) === null && leakCard(st) === '' && leakCard({ reviews: {} }) === '';
+})());
+ok('it reads a 7-day window, not all time', (function () {
+  var st = { reviews: {} };
+  var old = new Date(); old.setDate(old.getDate() - 30);
+  st.reviews[dateKey(old)] = { aim: 50 };                       // old, out of window
+  st.reviews[dateKey(new Date())] = { pos: 6 };
+  var L = leakOfWeek(st);
+  return L && L.k === 'pos' && L.total === 6;
+})());
+ok('Progress states you-vs-you and the app has no leaderboard anywhere', (function () {
+  var y = youVsYou();
+  return /no leaderboard/i.test(y) && /own past/i.test(y) &&
+         html.indexOf('youVsYou()+insightsCard') >= 0 &&
+         !/leaderboard/i.test(html.replace(/no leaderboard/ig, ''));   // only ever mentioned to deny it
+})());
+ok('the privacy card states all four claims and the line only a free app can write', (function () {
+  var m = html.match(/NOTHING LEAVES THIS DEVICE[\s\S]{0,900}/);
+  var s = m ? m[0] : '';
+  return /No account/.test(s) && /No server/.test(s) && /No telemetry/.test(s) &&
+         /Backups are yours and manual/.test(s) &&
+         /Paid coaching apps cannot say this/.test(s);
+})());
+
 // --- v3 Today tier system: rank by how fast the moment passes ---
 ok('the gate (T1) OUTRANKS a lapse (T2) — queueing is the only trigger with a real expiry', (function () {
   var st = { lineups: {}, sessions: {} };
