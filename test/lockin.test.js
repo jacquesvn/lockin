@@ -1448,6 +1448,23 @@ ok('paste only fires into an armed lineup, and the map links point at a real per
   return /addEventListener\("paste"/.test(script) && /if\(PICTARGET===null\|\|!e\.clipboardData\)return/.test(script) &&
          /https:\/\/csnades\.gg\/'\+esc\(sel\)/.test(script);
 })());
+// --- v0.32: AA fixes flagged by the v3 design handoff (both measured, both real) ---
+ok('state-carrying borders use --edge (>=3:1), never decorative --line2 (~2:1)', (function () {
+  // the unchecked drill circle, the quiz tick, the gate checkbox and the dashed rest cell
+  // all COMMUNICATE state, so their border must clear the 3:1 non-text minimum
+  var rules = ['.wc.rest', '.dbox', '.tick', '.gcheck .gbox'];
+  return rules.every(function (sel) {
+    var re = new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{[^}]*border:[^;]*var\\(--edge\\)');
+    return re.test(html);
+  }) && /--edge:oklch/.test(html);
+})());
+ok('light --hero-ink clears AA on surface2 (where chips sit), not just on white', (function () {
+  // 0.52 passed on white (5.47) but failed on --surface2 (4.41); 0.49 gives 6.21 / 5.01
+  var m = html.match(/--hero-ink:oklch\(([\d.]+)/g) || [];
+  var light = m[m.length - 1];
+  return light && parseFloat(light.replace(/[^\d.]/g, '')) <= 0.49;
+})());
+
 // --- v0.31: verified movement + damage mechanics ---
 // Sourced from a coaching video, then checked: the peek-velocity and tagging/aim-punch claims
 // hold up; the "spam A and D to charge velocity" trick and the radar view-cone claim did not.

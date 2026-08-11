@@ -21,6 +21,11 @@
     --stage:oklch(0.128 0.004 100);--bg:oklch(0.168 0.004 100);
     --surface:oklch(0.205 0.005 100);--surface2:oklch(0.248 0.006 100);
     --line:oklch(0.315 0.006 100);--line2:oklch(0.40 0.008 100);
+    /* --line2 is DECORATIVE only (1.95:1 dark / 2.04:1 light — below the 3:1 non-text
+       minimum). Any border that CARRIES MEANING — an unchecked drill circle, a gate
+       checkbox, a dashed rest-day cell — uses --edge, measured ≥3:1 on both surface and bg
+       in both themes (dark 3.54/3.79, light 4.22/3.40). */
+    --edge:oklch(0.54 0.006 100);
     --text:oklch(0.965 0.004 100);--muted:oklch(0.665 0.006 100);--faint:oklch(0.625 0.006 100);
     --hero:oklch(0.865 0.165 96);--hero2:oklch(0.80 0.16 96);--onhero:oklch(0.20 0.03 96);--hero-ink:oklch(0.865 0.165 96);
     --good:oklch(0.805 0.15 152);--bad:oklch(0.685 0.19 27);--info:oklch(0.78 0.085 225);
@@ -32,12 +37,15 @@
     --stage:oklch(0.90 0.005 95);--bg:oklch(0.948 0.004 95);
     --surface:oklch(0.995 0.003 95);--surface2:oklch(0.922 0.006 95);
     --line:oklch(0.855 0.006 95);--line2:oklch(0.77 0.008 95);
+    --edge:oklch(0.58 0.006 95);
     --text:oklch(0.205 0.006 95);--muted:oklch(0.44 0.006 95);--faint:oklch(0.495 0.006 95);
     --hero:oklch(0.845 0.17 91);--hero2:oklch(0.79 0.16 91);--onhero:oklch(0.18 0.035 91);
     /* --hero-ink is the TEXT gold (foreground); --hero stays the fill gold. Darkened
        from 0.585 → 0.52 so gold text clears WCAG AA (4.5:1) on cards and page bg in
-       light mode — the bright fill gold as text was ~1.5:1, effectively invisible. */
-    --hero-ink:oklch(0.52 0.13 84);
+       light mode — the bright fill gold as text was ~1.5:1, effectively invisible.
+       Then 0.52 → 0.49: 0.52 cleared white cards (5.47) but FAILED on --surface2
+       (4.41), which is exactly where chips sit. 0.49 gives 6.21 / 5.01. */
+    --hero-ink:oklch(0.49 0.13 84);
     --good:oklch(0.50 0.14 152);--bad:oklch(0.53 0.20 27);   /* good darkened 0.55→0.50 so green status text clears AA on light cards */
   }
   *{box-sizing:border-box;margin:0;}
@@ -145,7 +153,7 @@
   .wc{height:30px;border-radius:8px;display:grid;place-items:center;font-family:var(--fm);font-size:12px;font-weight:700;border:1px solid transparent;}
   .wc.done{background:var(--hero);color:var(--onhero);}
   .wc.today{border:1.5px solid var(--hero);color:var(--hero-ink);}
-  .wc.rest{border:1px dashed var(--line2);color:var(--faint);}
+  .wc.rest{border:1px dashed var(--edge);color:var(--faint);}
   .wc.up{background:var(--surface2);color:var(--faint);}
   .wc.miss{border:1px dashed var(--bad);color:var(--bad);}
 
@@ -157,7 +165,7 @@
   .dlist{display:flex;flex-direction:column;gap:8px;}
   .drow{display:flex;gap:12px;align-items:flex-start;color:var(--text);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:11px;padding:13px 14px;cursor:pointer;transition:border-color .15s,opacity .15s;text-align:left;width:100%;}
   .drow.done{border-left-color:var(--hero);opacity:.72;}
-  .dbox{width:26px;height:26px;border-radius:7px;flex:0 0 auto;display:grid;place-items:center;border:1.5px solid var(--line2);background:transparent;transition:all .15s;margin-top:1px;}
+  .dbox{width:26px;height:26px;border-radius:7px;flex:0 0 auto;display:grid;place-items:center;border:1.5px solid var(--edge);background:transparent;transition:all .15s;margin-top:1px;}
   .drow.done .dbox{background:var(--hero);border-color:var(--hero);}
   .dbox svg{width:14px;height:14px;color:var(--onhero);opacity:0;} .drow.done .dbox svg{opacity:1;}
   .dbody{flex:1;min-width:0;}
@@ -209,7 +217,7 @@
   .opts{display:flex;flex-direction:column;gap:9px;}
   .opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:14px 15px;cursor:pointer;color:var(--text);font-size:14.5px;transition:border-color .12s,background .12s;}
   .opt.on{border-color:var(--hero);background:color-mix(in oklab,var(--hero) 10%, transparent);}
-  .tick{width:21px;height:21px;flex:0 0 auto;border:1.5px solid var(--line2);display:grid;place-items:center;color:transparent;}
+  .tick{width:21px;height:21px;flex:0 0 auto;border:1.5px solid var(--edge);display:grid;place-items:center;color:transparent;}
   .tick.c{border-radius:50%;} .tick.s{border-radius:6px;}
   .opt.on .tick{background:var(--hero);border-color:var(--hero);color:var(--onhero);}
   .tick svg{width:12px;height:12px;}
@@ -438,7 +446,7 @@
   @media (max-width:719px){.sparkrow{align-items:flex-start;flex-direction:column;gap:10px;} .sparkrow .sl{flex:none;} .bwrap{width:100%;max-width:none;}}
   .gate{border-left:3px solid var(--hero);}
   .gcheck{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:transparent;border:none;border-bottom:1px solid var(--line);padding:10px 0;cursor:pointer;color:var(--text);font-size:14px;}
-  .gcheck .gbox{width:22px;height:22px;border-radius:7px;border:1.5px solid var(--line2);display:grid;place-items:center;flex:0 0 auto;}
+  .gcheck .gbox{width:22px;height:22px;border-radius:7px;border:1.5px solid var(--edge);display:grid;place-items:center;flex:0 0 auto;}
   .gcheck.on .gbox{background:var(--hero);border-color:var(--hero);}
   .gcheck .gbox svg{width:12px;height:12px;color:var(--onhero);opacity:0;}
   .gcheck.on .gbox svg{opacity:1;}
@@ -621,7 +629,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.31.0";
+  var VERSION="0.32.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
