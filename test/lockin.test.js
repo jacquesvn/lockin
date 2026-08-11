@@ -7,6 +7,7 @@ const vm = require('vm');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'docs', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
+const css = html.match(/<style>([\s\S]*?)<\/style>/)[1];
 
 // A Proxy "element" that no-ops any DOM access, so the app's init IIFE can run headless.
 function fakeEl() {
@@ -795,14 +796,21 @@ ok('Plan library renders the why line', html.indexOf('class="lwhy"') >= 0);
     nWSCAN.done = true; nWSCAN.ok = true; nWSCAN.busy = false;
     nWSCAN.installed = {}; nWSCAN.installed[nWORK[0].id] = true;   // first map present, others not
     var h = nKit();
-    var pass = h.indexOf('class="wsinst"') >= 0 && h.indexOf('class="wsmiss"') >= 0 && h.indexOf('data-wsrecheck') >= 0;
+    // these badges used to be .wsinst / .wsmiss — the maps screen's own private status
+    // vocabulary. They now speak through the one shell, and MISSING is idle, never warn.
+    var pass = h.indexOf('class="st live"') >= 0 && h.indexOf('class="st idle"') >= 0 &&
+               h.indexOf('data-wsrecheck') >= 0 && h.indexOf('class="st warn') < 0;
     nWSCAN.done = false; nWSCAN.ok = false; nWSCAN.installed = {};
     return pass;
   })());
   ok('map badges FAIL SAFE: Steam unreadable (ok:false) shows NO badges, never false "missing"', (function () {
     nWSCAN.done = true; nWSCAN.ok = false; nWSCAN.busy = false; nWSCAN.installed = {};
     var h = nKit();
-    var pass = h.indexOf('class="wsinst"') < 0 && h.indexOf('class="wsmiss"') < 0 && h.indexOf('data-wsrecheck') < 0;
+    // assert on the CHIPS, not on dead class names — after the .wsinst/.wsmiss rules were
+    // deleted this test passed for free, which is no guard at all. START HERE is a due chip
+    // and is unconditional, so exclude it and check only the two scan-dependent roles.
+    var pass = h.indexOf('class="st live"') < 0 && h.indexOf('class="st idle"') < 0 &&
+               h.indexOf('data-wsrecheck') < 0;
     nWSCAN.done = false;
     return pass;
   })());
@@ -1588,11 +1596,39 @@ ok('capability carries NO colour — a second hue would read as a second accent'
 })());
 ok('the ad-hoc chips I invented are gone — status goes through the shell', (function () {
   // live/idle are chosen by a ternary at the call site, so match the role strings passed in
-  return html.indexOf('.adchip{') < 0 && html.indexOf('.ofchip{') < 0 &&
-         /statusChip\(live\?"live":"idle"/.test(script) &&
+  return /statusChip\(live\?"live":"idle"/.test(script) &&
          /statusChip\("cap"/.test(script) && /statusChip\("due"/.test(script) &&
          // and the old inline status colouring for the connection state is gone
          script.indexOf('"● CONNECTED":"○ NOT DETECTED"') < 0;
+})());
+ok('no second status vocabulary: every chip-SHAPED rule is .st or is a control', (function () {
+  // The previous version of this guard named .adchip and .ofchip explicitly — a whitelist of
+  // the two I happened to remember — so .chip, .chip.opt, .wstag, .wsinst and .wsmiss all
+  // sailed past it and the maps screen kept a whole parallel vocabulary. Match by SHAPE, not
+  // by name: a tiny tracked label with its own enclosure IS a chip whatever it's called.
+  // Controls are exempt (they carry cursor:pointer or are button/a rules) — a chip is inert.
+  var re = /([^{}@]+)\{([^}]*)\}/g, m, bad = [];
+  while ((m = re.exec(css))) {
+    var sel = m[1].trim().replace(/\s+/g, ' ').replace(/\/\*[\s\S]*?\*\//g, '').trim(), b = m[2];
+    var size = b.match(/font-size:\s*([\d.]+)px/);
+    if (!size || +size[1] > 11) continue;                   // chips are tiny
+    if (!/letter-spacing/.test(b)) continue;                // and tracked
+    if (!/(^|;)\s*(border|background)\s*:|border-color\s*:/.test(b)) continue;   // and enclosed
+    if (/cursor:\s*pointer/.test(b) || /\b(button|a|input|select)\b/.test(sel)) continue;
+    if (/^\.st\b/.test(sel)) continue;                      // the one sanctioned shell
+    bad.push(sel);
+  }
+  if (bad.length) console.log('      rival chip shells: ' + bad.join(', '));
+  return bad.length === 0;
+})());
+ok('--line2 is never a control boundary — it is 1.5:1 and misses the 3:1 non-text minimum', (function () {
+  // AA bug 2 from the handoff, and I only half-fixed it: --edge went onto the drill
+  // checkboxes and dashed targets it named, while .subtab / .fullbtn / .tbtn — transparent
+  // buttons whose ONLY affordance is that border — kept --line2. Measured 1.53-1.72:1 on
+  // every ground, against --edge at 3.41-4.22:1. Directional rules are dividers, not
+  // boundaries, so they stay allowed; a full border or border-color does not.
+  var bad2 = (css.match(/border(?:-color)?\s*:[^;}]*var\(--line2\)/g) || []);
+  return bad2.length === 0 && /--edge\s*:/.test(css);
 })());
 ok('no blanket element selector can outrank a status chip nested inside a component', (function () {
   // .lnrow .lnb span (0,2,1) silently beat .st.due (0,2,0) and rendered the DUE chip grey.

@@ -105,7 +105,7 @@
   #tour .tnav{display:flex;align-items:center;gap:8px;margin-top:15px;}
   #tour .tsteps{font-family:var(--fm);font-size:11px;color:var(--faint);margin-right:auto;}
   #tour .tskip{background:none;border:none;color:var(--faint);font:inherit;font-size:12px;cursor:pointer;text-decoration:underline;padding:0;}
-  #tour .tbtn{border:1px solid var(--line2);background:transparent;color:var(--text);border-radius:9px;padding:8px 13px;font-family:var(--fm);font-size:12px;letter-spacing:0.05em;cursor:pointer;}
+  #tour .tbtn{border:1px solid var(--edge);background:transparent;color:var(--text);border-radius:9px;padding:8px 13px;font-family:var(--fm);font-size:12px;letter-spacing:0.05em;cursor:pointer;}
   #tour .tbtn.pri{background:var(--hero);border-color:var(--hero);color:var(--onhero);font-weight:700;}
   .profacts{display:flex;flex-direction:column;gap:7px;}
   .tourbtn{display:flex;align-items:center;justify-content:center;gap:7px;}
@@ -173,7 +173,7 @@
   /* Practice sub-tabs inside the screen. The selected one is a solid accent fill with the
      facet — a 1px outline was too subtle to read and shipped as a bug. */
   .substrip{display:flex;gap:6px;margin-bottom:6px;}
-  .subtab{min-height:44px;padding:0 16px;background:transparent;border:1px solid var(--line2);border-radius:10px;
+  .subtab{min-height:44px;padding:0 16px;background:transparent;border:1px solid var(--edge);border-radius:10px;
     color:var(--muted);font-family:var(--fm);font-size:11px;font-weight:700;letter-spacing:0.1em;cursor:pointer;}
   .subtab.on{background:var(--acc);border-color:var(--acc);color:var(--onAcc);border-radius:0;}
   .subcap{font-family:var(--fm);font-size:8.5px;letter-spacing:0.18em;color:var(--faint);margin-bottom:14px;}
@@ -209,9 +209,9 @@
   .tenbtn{width:100%;min-height:52px;background:var(--acc);color:var(--onAcc);border:none;cursor:pointer;
     font-family:var(--fm);font-weight:800;font-size:12.5px;letter-spacing:0.12em;margin-bottom:8px;}
   .tenbtn:hover{background:var(--accH);}
-  .fullbtn{width:100%;min-height:44px;background:transparent;border:1px solid var(--line2);border-radius:11px;
+  .fullbtn{width:100%;min-height:44px;background:transparent;border:1px solid var(--edge);border-radius:11px;
     color:var(--muted);font-family:var(--fb);font-size:13px;cursor:pointer;margin-bottom:12px;}
-  .fullbtn:hover{border-color:var(--edge);color:var(--text);}
+  .fullbtn:hover{border-color:var(--muted);color:var(--text);}
   /* leak of the week — one claim, its evidence directly beneath it */
   .leakcard{margin-bottom:10px;}
   .leakbig{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.01em;
@@ -344,7 +344,6 @@
   .whyopt{color:var(--faint)!important;font-style:italic;}
   .whysrc{margin-top:9px;padding-top:8px;border-top:1px solid var(--line);
     font-family:var(--fm);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint);}
-  .chip.opt{background:transparent;border:1px solid var(--line2);color:var(--faint);}
   .deloadcard{margin-bottom:12px;}
   .deloadbig{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.01em;font-size:20px;color:var(--accInk);margin-top:6px;}
   /* the two evidence cards: a contradiction, and the stop-loss */
@@ -446,19 +445,18 @@
      so the accent stays scarce — one accent element per card. */
   .st{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:3px;
     font-family:var(--fm);font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;
-    border:1px solid transparent;white-space:nowrap;}
+    border:1px solid transparent;white-space:nowrap;vertical-align:middle;flex:0 0 auto;}
   .st i{width:6px;height:6px;border-radius:50%;flex:0 0 auto;}
   .st.live{color:var(--good-ink);background:color-mix(in oklab,var(--good) 13%,transparent);}
   .st.live i{background:var(--good);}
-  .st.idle{color:var(--faint);border-color:var(--line2);}
+  .st.idle{color:var(--faint);border-color:var(--edge);}
   .st.idle i{border:1px solid var(--faint);}                 /* hollow — nothing is wrong */
-  .st.cap{color:var(--muted);border-color:var(--line2);}     /* capability carries no colour */
+  .st.cap{color:var(--muted);border-color:var(--edge);}      /* capability carries no colour */
   .st.due{color:var(--accInk);background:color-mix(in oklab,var(--acc) 15%,transparent);}
   .st.due i{background:var(--acc);}
   .st.warn{color:var(--bad-ink);background:color-mix(in oklab,var(--bad) 13%,transparent);}
   .st.warn i{background:var(--bad);}
   .st.ghost{background:transparent;border-color:currentColor;}
-  .chip{font-family:var(--fm);font-size:9px;letter-spacing:0.12em;color:var(--hero-ink);border:1px solid var(--hero-ink);border-radius:4px;padding:1px 5px;font-weight:700;}
   .dwhere{font-family:var(--fm);font-size:11px;color:var(--hero-ink);margin-top:3px;}
   .dsub{font-size:12.5px;color:var(--muted);margin-top:2px;}
   .dmeas{font-family:var(--fm);font-size:11px;color:var(--faint);margin-top:5px;}
@@ -562,10 +560,6 @@
   .wsrow:focus-visible{outline:2px solid var(--hero);outline-offset:2px;}
   .wstop{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
   .wsname{font-weight:600;font-size:13.5px;color:var(--text);margin-right:auto;}
-  .wstag{flex:none;font-family:var(--fm);font-size:8.5px;letter-spacing:0.1em;font-weight:700;color:var(--onhero);background:var(--hero);border-radius:5px;padding:2px 5px;}
-  /* map-download status badges (desktop only). installed = green outline, missing = muted */
-  .wsinst{flex:none;font-family:var(--fm);font-size:8.5px;letter-spacing:0.08em;font-weight:700;color:var(--good);border:1px solid color-mix(in oklab,var(--good) 45%,transparent);border-radius:5px;padding:2px 5px;}
-  .wsmiss{flex:none;font-family:var(--fm);font-size:8.5px;letter-spacing:0.08em;font-weight:700;color:var(--faint);border:1px solid var(--line2);border-radius:5px;padding:2px 5px;}
   .wsrecheck{background:none;border:none;color:var(--hero-ink);font:inherit;font-size:12.5px;cursor:pointer;text-decoration:underline;padding:0;}
   .wsdesc{font-size:12px;color:var(--muted);line-height:1.45;}
   .wsget{font-family:var(--fm);font-size:10px;letter-spacing:0.08em;color:var(--hero-ink);margin-top:4px;}
@@ -815,7 +809,6 @@
   .lbhint{color:var(--faint);}
   .lndel{background:transparent;border:1px solid var(--line);border-radius:7px;color:var(--faint);cursor:pointer;width:28px;height:28px;flex:0 0 auto;font-size:12px;}
   .lndel:hover{border-color:var(--bad);color:var(--bad);}
-  .pmodel{font-family:var(--fm);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--hero-ink);border:1px dashed var(--hero-ink);border-radius:8px;padding:8px 11px;margin-top:12px;display:inline-block;}
   .pcue{font-family:var(--fm);font-size:11px;color:var(--hero-ink);margin-top:4px;}
   .lnadd{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin-top:12px;}
   @media (max-width:600px){.lnadd{grid-template-columns:1fr;}}
@@ -2674,7 +2667,10 @@
         rows+='<div class="drowwrap'+(done?" done":"")+'">'+
           '<button class="drow" data-drill="'+dix+'" aria-pressed="'+(done?"true":"false")+'">'+
           '<span class="dbox">'+CHK+'</span>'+
-          '<span class="dbody"><span class="dname">'+esc(d.t)+(d.core?'<span class="chip">CORE</span>':'<span class="chip opt">OPTIONAL</span>')+'</span>'+
+          // 36 of 53 drills are core, so marking CORE would put an accent chip on two rows
+          // in three — and the row already spends its accent on the checked box. Absence of
+          // the OPTIONAL chip means core; only the 17 exceptions carry a (neutral) marker.
+          '<span class="dbody"><span class="dname">'+esc(d.t)+(d.core?'':' '+statusChip("cap","OPTIONAL"))+'</span>'+
           (d.where?'<span class="dwhere" style="display:block;">▸ '+esc(d.where)+'</span>':'')+
           '<span class="dsub" style="display:block;">'+esc(d.sub)+'</span>'+
           '<span class="dmeas" style="display:block;">◎ '+esc(d.m)+'</span></span>'+
@@ -3102,7 +3098,10 @@
         '<div class="card diagcard" style="max-width:none;">'+
         '<div class="ml" style="margin-bottom:6px;">'+esc(P.name).toUpperCase()+' · '+esc(P.mins)+' MIN · BY '+esc(P.by).toUpperCase()+'</div>'+
         '<p style="font-size:13.5px;color:var(--muted);">'+esc(P.blurb)+'</p>'+
-        '<div class="pmodel">'+esc(P.model)+'</div>'+
+        // was a dashed ACCENT-outlined block sitting directly above the accent RUN button —
+        // two accents on one card. It names the methodology, which is attribution, not
+        // status, so it takes the neutral shell and the accent stays on the action.
+        '<div style="margin-top:12px;">'+statusChip("cap",P.model)+'</div>'+
         '<button class="startsession" data-protocol="'+esc(P.id)+'" style="margin-top:14px;">▸ RUN THE PROTOCOL · '+total+' MIN</button>'+
         '<div class="ml" style="margin-top:16px;">THE BLOCKS</div>'+rows+
         '<p class="help" style="margin-top:12px;">'+esc(P.after)+'</p></div>';
@@ -3134,7 +3133,7 @@
     if(isNative&&!WSCAN.done&&!WSCAN.busy)scanWorkshop();   // lazy, once; re-render adds badges
     var scanned=isNative&&WSCAN.done&&WSCAN.ok;             // only badge when we truly read the install
     var out='<div class="divi" style="margin-top:16px;" data-tour="maps"><span class="ml" role="heading" aria-level="2">GET THE MAPS</span></div>'+
-      '<p class="mhow" style="margin-top:0;">Each opens its Steam Workshop page — hit <b style="color:var(--text);">Subscribe</b> and it downloads into CS2 under <b style="color:var(--text);">Play ▸ Workshop Maps</b>. New here? The three marked <span class="wstag">START HERE</span> cover most of the plan.</p>';
+      '<p class="mhow" style="margin-top:0;">Each opens its Steam Workshop page — hit <b style="color:var(--text);">Subscribe</b> and it downloads into CS2 under <b style="color:var(--text);">Play ▸ Workshop Maps</b>. New here? The three marked '+statusChip("due","START HERE",true)+' cover most of the plan.</p>';
     if(scanned){
       var have=WORKSHOP.filter(function(m){return WSCAN.installed[m.id];}).length;
       out+='<p class="mhow" style="margin-top:6px;">Checked against your CS2 install — <b style="color:var(--text);">'+have+' of '+WORKSHOP.length+'</b> already downloaded. '+
@@ -3146,11 +3145,17 @@
       out+='<div class="wsgrouph" role="heading" aria-level="3">'+esc(grp[1])+'</div><div class="wsgrid">';
       items.forEach(function(m){
         var inst=scanned?!!WSCAN.installed[m.id]:null;      // null = don't know → no badge (web, or Steam not found)
-        var badge=inst===true?'<span class="wsinst">✓ Installed</span>':inst===false?'<span class="wsmiss">Not downloaded</span>':'';
+        // the maps screen had grown its own status vocabulary — a hand-rolled green outline
+        // for installed and a muted one for missing. Same two ideas as everywhere else, so
+        // they speak through the same shell. Not-downloaded is IDLE, never a warning: you
+        // simply haven't subscribed yet, and nothing is broken.
+        var badge=inst===true?statusChip("live","Installed"):inst===false?statusChip("idle","Not downloaded"):'';
         var st=inst===true?', installed':inst===false?', not downloaded':'';
         out+='<a class="wsrow" href="'+workshopUrl(m.id)+'" target="_blank" rel="noopener noreferrer" '+
           'aria-label="Open '+esc(m.t)+' on the Steam Workshop'+(m.s?' — recommended starter map':'')+st+'">'+
-          '<span class="wstop"><span class="wsname">'+esc(m.t)+'</span>'+(m.s?'<span class="wstag">START HERE</span>':'')+badge+'</span>'+
+          '<span class="wstop"><span class="wsname">'+esc(m.t)+'</span>'+          // the row already spends its accent on "Open on Steam Workshop ↗", so per the
+          // scarcity rule this drops to outline rather than adding a second solid accent.
+          (m.s?statusChip("due","START HERE",true):'')+badge+'</span>'+
           '<span class="wsdesc">'+esc(m.d)+'</span>'+
           '<span class="wsget">Open on Steam Workshop ↗</span></a>';
       });
@@ -3573,7 +3578,7 @@
 
   /* ---------- v0.7: death audit (demo review) ---------- */
   var CAUSES=[["aim","Aim"],["pos","Position"],["util","Utility"],["info","Info"],["trade","No trade"]];
-  var CAUSE_COL={aim:"var(--bad)",pos:"var(--info)",util:"var(--good)",info:"var(--hero)",trade:"var(--line2)"};
+  var CAUSE_COL={aim:"var(--bad)",pos:"var(--info)",util:"var(--good)",info:"var(--hero)",trade:"var(--edge)"};
   function reviewTotals(st,days){
     var t={aim:0,pos:0,util:0,info:0,trade:0},now=new Date();
     for(var i=0;i<days;i++){var r=(st.reviews||{})[dateKey(addDays(now,-i))];
@@ -3856,7 +3861,9 @@
     var plan=st.plan;
     var mine=drillList(FOCI[plan.keystone]||FOCI[Object.keys(FOCI)[0]],plan)[0];
     var rows='<div class="altrow picked"><div class="altk">'+esc(plan.keystoneName||plan.keystone)+
-      '<span class="chip">YOURS</span></div><div class="altd">'+esc(mine?mine.d.t:"")+
+      // the picked row already carries the accent (border + tint), so per the scarcity rule
+      // its chip drops to outline. "YOURS" is a marker, not one of the five states — neutral.
+      ' '+statusChip("cap","YOURS",true)+'</div><div class="altd">'+esc(mine?mine.d.t:"")+
       (mine&&mine.d.dur?' · '+mine.d.dur+' min':'')+'</div>'+
       '<div class="altw">'+esc(ALT_CASE[plan.keystone]||"")+'</div></div>';
     rows+=alts.map(function(a){
