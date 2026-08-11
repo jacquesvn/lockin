@@ -1564,6 +1564,44 @@ ok('the privacy card states all four claims and the line only a free app can wri
   })());
 })();
 
+// --- v3 motion: the signature moment must actually be wired, not just defined ---
+ok('"the assemble" is BUILT: both shards, bloom, ping and the rolling numeral', (function () {
+  // the v3 keyframes existed for four releases while celebrate() still used the old lk-*
+  // markup — defined-but-dead CSS. These assert the moment is actually rendered.
+  return /\.asm \.shA\{animation:v3-shardA/.test(html) &&
+         /\.asm \.shB\{animation:v3-shardB/.test(html) &&
+         /\.asmbloom\{[^}]*animation:v3-bloom/.test(html) &&
+         /\.asmping\{[^}]*animation:v3-ping/.test(html) &&
+         /\.asmn\{[^}]*animation:v3-roll/.test(html) &&
+         /class="shA" d="'\+EMBLEM_A/.test(script) &&      // the real emblem paths, not a placeholder
+         /class="shB" d="'\+EMBLEM_B/.test(script);
+})());
+ok('the assemble self-clears in under 1.3s of motion and never demands dismissal', (function () {
+  var m = script.match(/celeT=setTimeout\(done,(\d+)\)/);
+  // scoped to celebrate() — the lightbox DOES ask to be dismissed, and should
+  var fn = (script.match(/function celebrate\([\s\S]*?\n  \}/) || [''])[0];
+  return m && +m[1] <= 1600 &&                              // clears itself
+         fn.indexOf('TAP OR PRESS') < 0 &&                  // no instruction to dismiss
+         /celeKey=function\(e\)\{if\(e\.key==="Escape"/.test(script);   // but Esc still works
+})());
+ok('every v3 keyframe we define is actually used somewhere', (function () {
+  var defined = (html.match(/@keyframes (v3-[a-zA-Z]+)/g) || []).map(function (s) { return s.replace('@keyframes ', ''); });
+  var used = {};
+  (html.match(/animation:[^;]*?(v3-[a-zA-Z]+)/g) || []).forEach(function (s) {
+    var m = s.match(/(v3-[a-zA-Z]+)/); if (m) used[m[1]] = 1;
+  });
+  var dead = defined.filter(function (k) { return !used[k]; });
+  if (dead.length) console.log('      dead keyframes: ' + dead.join(', '));
+  return dead.length === 0;
+})());
+ok('bars animate with scaleX so the inline width stays the true percentage', (function () {
+  // animating width itself would make the number a function of the animation
+  return /@keyframes v3-growX\{0%\{transform:scaleX\(0\)\}/.test(html) &&
+         /\.skbar i\{[^}]*animation:v3-growX/.test(html) &&
+         /\.lhbars i\{[^}]*animation:v3-growX/.test(html) &&
+         !/@keyframes v3-growX\{[^}]*width:/.test(html);
+})());
+
 // --- v3 Group E: lifecycle ---
 (function () {
   function mkPlanE(weeksIn) {

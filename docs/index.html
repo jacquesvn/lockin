@@ -32,12 +32,18 @@
      The --hero* names below are aliases kept so existing rules keep working; new code
      should use the --acc* names. */
   :root{
-    --stage:oklch(0.098 0.026 303);--bg:oklch(0.132 0.032 303);
-    --surface:oklch(0.185 0.042 303);--surface2:oklch(0.238 0.050 303);
+    /* GROUNDS DESATURATED (v0.41). The v3 palette ran the grounds at chroma 0.026–0.050,
+       which was too much violet to sit in front of for an hour. This is the designer's own
+       stated correction: pull the grounds toward chroma 0.02 and KEEP the accent — the hue
+       stays locked at 303, and --acc/--accInk/--accH/--accGhost/--bloom are untouched, so
+       the identity is intact and only the room it sits in got quieter. The gradient is
+       preserved (chroma still rises with lightness) so the surfaces keep their depth. */
+    --stage:oklch(0.098 0.010 303);--bg:oklch(0.132 0.013 303);
+    --surface:oklch(0.185 0.017 303);--surface2:oklch(0.238 0.020 303);
     --glass:oklch(1 0 0 / .045);--glass2:oklch(1 0 0 / .085);
     --line:oklch(1 0 0 / .10);--line2:oklch(1 0 0 / .17);
-    --edge:oklch(0.55 0.020 303);
-    --text:oklch(0.975 0.006 303);--muted:oklch(0.735 0.028 303);--faint:oklch(0.652 0.030 303);
+    --edge:oklch(0.55 0.014 303);
+    --text:oklch(0.975 0.005 303);--muted:oklch(0.735 0.016 303);--faint:oklch(0.652 0.018 303);
     --acc:oklch(0.575 0.235 318);--accH:oklch(0.635 0.235 318);--accInk:oklch(0.775 0.175 318);
     --accGhost:oklch(0.575 0.235 318 / .38);--onAcc:oklch(0.99 0.004 318);
     --bloom:oklch(0.62 0.26 316);
@@ -54,12 +60,13 @@
     --facet:polygon(0 0,calc(100% - 15px) 0,100% 15px,100% 100%,15px 100%,0 calc(100% - 15px));
   }
   [data-theme="light"]{
-    --stage:oklch(0.930 0.016 303);--bg:oklch(0.972 0.010 303);
-    --surface:oklch(1 0 0);--surface2:oklch(0.945 0.016 303);
-    --glass:oklch(0.30 0.06 303 / .04);--glass2:oklch(0.30 0.06 303 / .075);
-    --line:oklch(0.28 0.05 303 / .13);--line2:oklch(0.28 0.05 303 / .22);
-    --edge:oklch(0.585 0.020 303);
-    --text:oklch(0.185 0.040 303);--muted:oklch(0.435 0.035 303);--faint:oklch(0.470 0.032 303);
+    /* light gets the same treatment: grounds and neutrals quieter, accent untouched */
+    --stage:oklch(0.930 0.007 303);--bg:oklch(0.972 0.005 303);
+    --surface:oklch(1 0 0);--surface2:oklch(0.945 0.007 303);
+    --glass:oklch(0.30 0.03 303 / .04);--glass2:oklch(0.30 0.03 303 / .075);
+    --line:oklch(0.28 0.025 303 / .13);--line2:oklch(0.28 0.025 303 / .22);
+    --edge:oklch(0.585 0.014 303);
+    --text:oklch(0.185 0.018 303);--muted:oklch(0.435 0.016 303);--faint:oklch(0.470 0.015 303);
     --acc:oklch(0.505 0.245 318);--accH:oklch(0.455 0.235 318);--accInk:oklch(0.455 0.230 318);
     --accGhost:oklch(0.505 0.245 318 / .34);--onAcc:oklch(0.995 0.003 318);
     --bloom:oklch(0.60 0.24 316);
@@ -127,13 +134,13 @@
   #tabbar .tab svg{width:20px;height:20px;}
   #tabbar .tab span{display:block;font-size:8.5px;letter-spacing:0.08em;}
   #tabbar .tab.on{background:var(--acc);color:var(--onAcc);--knock:var(--acc);clip-path:var(--facet);}
-  .tabdue{position:absolute;top:4px;right:12px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;
+  .tabdue{animation:v3-pop .34s cubic-bezier(.2,.9,.2,1) both;position:absolute;top:4px;right:12px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;
     background:var(--acc);color:var(--onAcc);font-family:var(--fm);font-size:8.5px;font-weight:700;
     display:grid;place-items:center;line-height:1;}
   #tabbar .tab.on .tabdue{background:var(--onAcc);color:var(--acc);}
   /* the dock floats over content, so the scroll container has to clear it */
   @media (max-width:719px){ .wrap{padding-bottom:104px;} }
-  .scr{display:none;} .scr.show{display:block;animation:lk-rise .22s ease;}
+  .scr{display:none;} .scr.show{display:block;animation:v3-rise .28s cubic-bezier(.2,.9,.2,1);}
 
   @media (min-width:720px){
     #app{display:grid;grid-template-columns:216px 1fr;}   /* 216px leaves 824px of content at a 1040px window */
@@ -153,7 +160,8 @@
   .navdia{width:5px;height:5px;flex:0 0 auto;transform:rotate(45deg);border:1px solid var(--edge);}
   .snav button.on .navdia{background:var(--acc);border-color:var(--acc);}
   .navdue{margin-left:auto;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--acc);color:var(--onAcc);
-    font-family:var(--fm);font-size:9px;font-weight:700;display:grid;place-items:center;line-height:1;}
+    font-family:var(--fm);font-size:9px;font-weight:700;display:grid;place-items:center;line-height:1;
+    animation:v3-pop .34s cubic-bezier(.2,.9,.2,1) both;}   /* a count arriving should land, not fade in */
   /* Practice expands in place rather than hiding its two screens behind a click */
   .snsubs{display:flex;flex-direction:column;gap:2px;margin:2px 0 2px 30px;}
   .snav .snsub{padding:7px 10px;font-family:var(--fb);font-size:12px;letter-spacing:0;font-weight:600;text-transform:none;color:var(--faint);}
@@ -298,6 +306,7 @@
      a locked badge is a target you can read, not a disabled control. */
   .ach{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--edge);border-radius:12px;padding:11px 12px;background:transparent;}
   .ach.on{border-color:var(--acc);background:color-mix(in oklab,var(--acc) 12%,transparent);}
+  .ach.on .achico{animation:v3-badge .42s cubic-bezier(.2,.9,.2,1) both;}
   .achico{flex:none;width:26px;height:26px;color:var(--faint);} .ach.on .achico{color:var(--hero-ink);} .achico svg{width:26px;height:26px;}
   .acht{font-weight:600;font-size:13px;color:var(--text);} .achd{font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:2px;}
   .achp{font-family:var(--fm);font-size:9.5px;letter-spacing:0.08em;color:var(--faint);margin-top:4px;}
@@ -369,7 +378,10 @@
   .skrow{display:flex;align-items:center;gap:9px;font-size:12.5px;}
   .skname{flex:0 0 40%;min-width:0;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .skbar{flex:1;height:8px;background:var(--glass2);border-radius:4px;overflow:hidden;}
-  .skbar i{display:block;height:100%;background:var(--acc);}
+  /* bars grow into their real width. scaleX is used deliberately rather than animating
+     width, so the inline width stays the true percentage — the number is never the animation. */
+  .skbar i{display:block;height:100%;background:var(--acc);transform-origin:left center;
+    animation:v3-growX .5s cubic-bezier(.2,.9,.2,1) both;}
   .skbar i.bad{background:var(--bad);}
   .skpct{flex:0 0 auto;font-family:var(--fm);font-size:11px;color:var(--text);font-variant-numeric:tabular-nums;}
   .skopts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
@@ -380,7 +392,8 @@
   .lhrow{display:flex;align-items:center;gap:9px;font-size:12.5px;}
   .lhname{flex:0 0 34%;min-width:0;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .lhbars{flex:1;display:flex;flex-direction:column;gap:3px;}
-  .lhbars i{display:block;height:6px;border-radius:3px;}
+  .lhbars i{display:block;height:6px;border-radius:3px;transform-origin:left center;
+    animation:v3-growX .5s cubic-bezier(.2,.9,.2,1) both;}
   .lhbars i.was{background:var(--line2);}
   .lhbars i.now{background:var(--good);}
   .lhpct{flex:0 0 auto;font-family:var(--fm);font-size:11px;color:var(--text);font-variant-numeric:tabular-nums;}
@@ -417,7 +430,7 @@
   .advecho p{font-size:13.5px;color:var(--text);margin-top:5px;}
   .dbox{width:26px;height:26px;border-radius:7px;flex:0 0 auto;display:grid;place-items:center;border:1.5px solid var(--edge);background:transparent;transition:all .15s;margin-top:1px;}
   .drow.done .dbox{background:var(--hero);border-color:var(--hero);}
-  .dbox svg{width:14px;height:14px;color:var(--onhero);opacity:0;} .drow.done .dbox svg{opacity:1;}
+  .dbox svg{width:14px;height:14px;color:var(--onhero);opacity:0;} .drow.done .dbox svg{opacity:1;animation:v3-tick .3s cubic-bezier(.2,.9,.2,1) both;}
   .dbody{flex:1;min-width:0;}
   .dname{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .drow.done .dname{color:var(--muted);}
@@ -588,7 +601,7 @@
   .calhd .nav button:hover{border-color:var(--hero);}
   .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
   .cal .ch{font-family:var(--fm);font-size:9px;color:var(--faint);text-align:center;text-transform:uppercase;letter-spacing:0.05em;}
-  .cell{aspect-ratio:1;border-radius:8px;background:var(--surface2);border:1px solid var(--line);display:grid;place-items:center;font-size:10.5px;color:var(--faint);font-family:var(--fm);}
+  .cell{animation:v3-cell .3s ease-out both;aspect-ratio:1;border-radius:8px;background:var(--surface2);border:1px solid var(--line);display:grid;place-items:center;font-size:10.5px;color:var(--faint);font-family:var(--fm);}
   .cell.pad{background:transparent;border:0;}
   .cell.warm{background:color-mix(in oklab,var(--hero) 12%,transparent);border-color:var(--hero);color:var(--hero-ink);font-weight:700;}
   .cell.deep{background:var(--hero);border-color:var(--hero);color:var(--onhero);font-weight:700;}
@@ -845,8 +858,25 @@
   }
 
   /* ---------- celebrate overlay ---------- */
-  #cele{position:fixed;inset:0;z-index:80;display:none;place-items:center;background:color-mix(in oklab,var(--bg) 88%, transparent);overflow:hidden;}
+  #cele{position:fixed;inset:0;z-index:80;display:none;place-items:center;align-content:center;
+    background:color-mix(in oklab,var(--bg) 88%, transparent);overflow:hidden;text-align:center;}
   #cele.show{display:grid;}
+  /* the assemble: two shards meeting, a bloom behind them, a ring, then the number */
+  .asmwrap{position:relative;width:96px;height:96px;display:grid;place-items:center;margin:0 auto;}
+  .asm{width:66px;height:66px;color:var(--accInk);position:relative;z-index:2;}
+  .asm .shA{animation:v3-shardA .42s cubic-bezier(.2,.9,.2,1) both;}
+  .asm .shB{animation:v3-shardB .42s cubic-bezier(.2,.9,.2,1) both;}
+  .asmbloom{position:absolute;inset:-18%;border-radius:50%;z-index:1;
+    background:radial-gradient(circle,var(--bloom) 0%,transparent 68%);
+    animation:v3-bloom .62s cubic-bezier(.2,.9,.2,1) .28s both;}
+  .asmping{position:absolute;inset:8%;border-radius:50%;border:2px solid var(--acc);z-index:1;
+    animation:v3-ping .62s cubic-bezier(.2,.9,.2,1) .40s both;}
+  .asmt{margin-top:16px;font-family:var(--fm);font-size:10px;letter-spacing:0.2em;color:var(--muted);
+    animation:v3-rise .34s cubic-bezier(.2,.9,.2,1) .46s both;}
+  .asmn{font-family:var(--fd);font-weight:800;font-size:58px;line-height:1;letter-spacing:-0.045em;
+    color:var(--accInk);margin-top:6px;animation:v3-roll .44s cubic-bezier(.2,.9,.2,1) .52s both;}
+  .asmn small{display:block;font-family:var(--fm);font-size:9.5px;font-weight:400;letter-spacing:0.18em;
+    color:var(--faint);margin-top:8px;}
   #cele .scan{position:absolute;left:0;right:0;height:2px;background:var(--hero);opacity:.6;animation:lk-scan 1.1s ease-in-out both;}
   #cele .inner{text-align:center;}
   #cele .ct1{font-family:var(--fd);font-weight:800;font-size:28px;text-transform:uppercase;letter-spacing:-0.02em;margin-top:18px;animation:lk-rise .5s .2s ease both;}
@@ -868,6 +898,11 @@
   @keyframes v3-roll{0%{transform:translateY(40%) scale(.84);opacity:0}100%{transform:translateY(0) scale(1);opacity:1}}
   @keyframes v3-pop{0%{transform:scale(.6);opacity:0}62%{transform:scale(1.14)}100%{transform:scale(1);opacity:1}}
   @keyframes v3-slide{0%{transform:translateY(16px);opacity:0}100%{transform:translateY(0);opacity:1}}
+  /* a bar filling to its own width — scaleX, so the width itself stays the real number */
+  @keyframes v3-growX{0%{transform:scaleX(0)}100%{transform:scaleX(1)}}
+  @keyframes v3-badge{0%{transform:scale(.7);opacity:0}70%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+  @keyframes v3-cell{0%{transform:scale(.86);opacity:0}100%{transform:scale(1);opacity:1}}
+  @keyframes v3-tick{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.18)}100%{transform:scale(1);opacity:1}}
   /* Collapse motion to ~0 but KEEP end states and every numeric update intact. */
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;}}
 </style>
@@ -4489,14 +4524,28 @@
   }
 
   var celeT, celeKey;
+  /* ---------- "the assemble" — the signature moment ----------
+     Ticking the last core drill puts the mark together: the two emblem shards fly in along
+     their own diagonals and MEET, a violet bloom breathes out behind them, a ring pings, and
+     the streak numeral rolls up. Under 1.3s and SELF-CLEARING — it never asks to be
+     dismissed, because a reward you have to close is a chore. Tap or Esc still ends it early.
+     Under prefers-reduced-motion the global rule collapses every duration to ~0, so the end
+     state and the streak number are still exactly right, with no movement. */
   function celebrate(streak,title,sub){
     var c=document.getElementById("cele");
-    c.innerHTML='<div class="scan"></div><div class="inner"><div class="badge" style="margin:0 auto;">'+RET+'<span class="ping"></span></div>'+
-      '<div class="ct1">'+(title||"DAY SECURED")+'</div><div class="ct2">'+(sub||("STREAK ▸ "+streak+" DAY"+(streak===1?"":"S")))+'</div>'+
-      '<div class="ml" style="margin-top:14px;color:var(--faint);">TAP OR PRESS ESC</div></div>';
+    c.innerHTML='<div class="asmwrap">'+
+        '<span class="asmbloom" aria-hidden="true"></span>'+
+        '<span class="asmping" aria-hidden="true"></span>'+
+        '<svg class="asm" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">'+
+          '<path class="shA" d="'+EMBLEM_A+'"/><path class="shB" d="'+EMBLEM_B+'"/>'+
+        '</svg>'+
+      '</div>'+
+      '<div class="asmt">'+(title||"DAY SECURED")+'</div>'+
+      '<div class="asmn">'+(sub||(streak+'<small>DAY'+(streak===1?"":"S")+' LOCKED IN</small>'))+'</div>';
     c.classList.add("show");
-    function done(){c.classList.remove("show");clearTimeout(celeT);if(celeKey){document.removeEventListener("keydown",celeKey);celeKey=null;}}
-    clearTimeout(celeT);celeT=setTimeout(done,2600);
+    function done(){c.classList.remove("show");c.innerHTML="";clearTimeout(celeT);
+      if(celeKey){document.removeEventListener("keydown",celeKey);celeKey=null;}}
+    clearTimeout(celeT);celeT=setTimeout(done,1600);      // clears itself; no dismiss required
     c.onclick=done;
     if(celeKey)document.removeEventListener("keydown",celeKey);
     celeKey=function(e){if(e.key==="Escape"||e.key==="Enter"||e.key===" ")done();};
