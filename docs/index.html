@@ -159,13 +159,16 @@
   }
   .snav{display:flex;flex-direction:column;gap:4px;}
   .snav button{display:flex;align-items:center;gap:10px;background:transparent;border:none;border-radius:10px;padding:10px 12px;cursor:pointer;color:var(--muted);font-family:var(--fm);font-size:12px;font-weight:700;letter-spacing:0.1em;text-align:left;position:relative;}
-  /* desktop active state is a tracer rail + glass, NOT the mobile fill — the sidebar is
-     pointer-only chrome and a solid accent slab down the side is too loud at this size */
-  .snav button.on{background:var(--glass);color:var(--text);}
-  .snav button.on::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:2px;background:var(--acc);border-radius:2px;}
+  /* The active desktop item is a SOLID accent slab with the facet, the same gesture as the
+     mobile dock — not the glass-and-tracer-rail I built from the prose. The reference art is
+     unambiguous about this on every screen, and it is what makes the rail read at a glance. */
+  .snav button.on{background:var(--acc);color:var(--onAcc);border-radius:0;
+    clip-path:var(--facet);font-weight:800;}
+  .snav button.on svg{color:var(--onAcc);}
   .snav button svg{width:16px;height:16px;}
   .navdia{width:5px;height:5px;flex:0 0 auto;transform:rotate(45deg);border:1px solid var(--edge);}
-  .snav button.on .navdia{background:var(--acc);border-color:var(--acc);}
+  .snav button.on .navdia{background:var(--onAcc);border-color:var(--onAcc);}
+  .snav button.on .navdue{background:var(--onAcc);color:var(--acc);}
   .navdue{margin-left:auto;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--acc);color:var(--onAcc);
     font-family:var(--fm);font-size:9px;font-weight:700;display:grid;place-items:center;line-height:1;
     animation:v3-pop .34s cubic-bezier(.2,.9,.2,1);}   /* a count arriving should land, not fade in */
@@ -237,6 +240,36 @@
   .privrow svg{width:15px;height:15px;color:var(--good);flex:0 0 auto;margin-top:2px;}
   .privcard .mhow{border-top:1px solid var(--line);padding-top:10px;color:var(--text);font-weight:600;}
   .smini{margin-top:auto;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:14px;}
+  /* ---------- the status rail (foot of the desktop sidebar) ---------- */
+  .srail{margin-top:auto;border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:7px;}
+  .srtop{display:flex;align-items:center;gap:7px;}
+  /* .big-n is declared later in the sheet, so a bare .srn ties on specificity and loses —
+     the rail numeral rendered at the headline's 68px. Scope it so the rail wins. */
+  .srail .srn{font-size:44px;line-height:.9;color:var(--text);letter-spacing:-0.03em;}
+  .srunit{font-family:var(--fm);font-size:8.5px;letter-spacing:0.14em;color:var(--faint);line-height:1.15;}
+  .srunit small{display:block;font-size:8.5px;}
+  .srail .frzrow{margin-left:auto;display:inline-flex;gap:3px;}
+  .srail .frzs{width:13px;height:13px;color:var(--accInk);}
+  .srail .frzs svg{width:13px;height:13px;}
+  .srail .frzs.spent{color:var(--faint);opacity:.55;}
+  .srail .frzs.none{color:var(--edge);}
+  .srsub{font-family:var(--fm);font-size:8.5px;letter-spacing:0.05em;color:var(--faint);}
+  .srbar{height:2px;background:var(--line);border-radius:2px;overflow:hidden;}
+  .srbar i{display:block;height:100%;background:var(--acc);transform-origin:left center;
+    animation:v3-growX .45s cubic-bezier(.2,.9,.2,1);}
+  .srgsi{display:flex;}
+  .srdue{width:100%;min-height:38px;background:var(--acc);color:var(--onAcc);border:none;border-radius:0;
+    font-family:var(--fm);font-size:10px;font-weight:800;letter-spacing:0.12em;cursor:pointer;margin-top:2px;}
+  .srdue:hover{background:var(--accH);}
+  /* the utility row: icons, not word-buttons — the rail has no room for three text controls */
+  .srow{display:flex;align-items:center;gap:8px;padding-top:12px;border-top:1px solid var(--line);}
+  .sico{width:36px;height:36px;border-radius:50%;background:transparent;border:1px solid var(--line);
+    color:var(--faint);cursor:pointer;display:grid;place-items:center;flex:0 0 auto;}
+  .sico svg{width:16px;height:16px;}
+  .sico:hover{color:var(--text);border-color:var(--edge);}
+  .segctl.thm{margin-left:auto;border-radius:999px;padding:3px;gap:2px;background:var(--surface2);display:inline-flex;}
+  .segctl.thm button{width:34px;height:34px;min-height:34px;border-radius:50%;padding:0;display:grid;place-items:center;}
+  .segctl.thm button svg{width:15px;height:15px;}
 
   /* ---------- brand ---------- */
   .brand{display:flex;align-items:center;gap:9px;--knock:var(--surface);}
@@ -289,6 +322,15 @@
   .tiertx{min-width:0;}
   .tiername{display:block;font-family:var(--fd);font-weight:800;font-size:12px;letter-spacing:-0.01em;overflow-wrap:anywhere;}
   .tiertx small{display:block;font-family:var(--fm);font-size:8px;letter-spacing:0.16em;color:var(--faint);margin-top:2px;}
+  /* In the rail the hierarchy inverts: the handle is the quiet line and the TIER is the loud
+     one, in accent. We had it the other way round — the tier was 8px --faint, a whisper. */
+  #side .tierid{padding-bottom:16px;border-bottom:1px solid var(--line);}
+  #side .tierhex{width:26px;height:29px;}
+  #side .tierhex b{font-size:11px;}
+  #side .tiername{font-family:var(--fm);font-size:8.5px;font-weight:400;letter-spacing:0.14em;
+    text-transform:uppercase;color:var(--faint);}
+  #side .tiertx small{font-family:var(--fd);font-size:13px;font-weight:800;letter-spacing:-0.01em;
+    text-transform:uppercase;color:var(--accInk);margin-top:1px;}
   /* the quiet week, stated rather than done silently */
   .quietnote{display:flex;gap:10px;align-items:flex-start;padding:11px 12px;margin-bottom:12px;
     border:1px solid var(--accGhost);border-radius:11px;background:color-mix(in oklab,var(--acc) 8%,transparent);font-size:13px;color:var(--muted);}
@@ -1017,6 +1059,9 @@
   var MOUSE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 7v4"/></svg>';
   var CAM='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;"><path d="M3 8h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.4"/></svg>';
   var SHIELD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg>';
+  var REDO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/></svg>';
+  var MOON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>';
+  var SUN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.6M12 19.4V22M2 12h2.6M19.4 12H22M5 5l1.9 1.9M17.1 17.1L19 19M19 5l-1.9 1.9M6.9 17.1L5 19"/></svg>';
   var MEDAL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="14.5" r="5.5"/><path d="M8 3h8M9.5 3l2.5 6M14.5 3l-2.5 6"/></svg>';
 
   /* ---------- coaching catalog (research-corrected Jul 2026) ---------- */
@@ -2466,6 +2511,33 @@
       '<span class="tiertx"><span class="tiername">'+(tag?'LOCKED IN, '+esc(tag.toUpperCase()):'LOCKED IN')+'</span>'+
       '<small>'+(m.reached?esc(m.reached.t)+' TIER':'NO TIER YET')+'</small></span></div>';
   }
+  // The foot of the desktop rail: streak, freeze reserve, and the two things that can want
+  // something from you. It repeats numbers the Today screen also shows, deliberately — the
+  // rail is visible from Maps and Gear and Setup, where those numbers are otherwise gone.
+  function statusRail(st,streak,dueN){
+    var total=freezeBudget(st),det=streakDetail(st,new Date(),total);
+    var held=det.held,warm=warmDays(st).length;
+    var toNext=total>=3?0:(7-(warm%7))%7||7;
+    var shields="";
+    for(var i=0;i<3;i++){
+      var cls=i<held?"":(i<total?"spent":"none");
+      shields+='<span class="frzs '+cls+'">'+SHIELD+'</span>';
+    }
+    var pct=total>=3?100:Math.round(((warm%7)/7)*100);
+    var live=gsiLive();
+    return '<div class="srail">'+
+      '<div class="ml kicker">STATUS</div>'+
+      '<div class="srtop">'+
+        '<span class="big-n srn">'+streak+'</span>'+
+        '<span class="srunit">DAY<small>STREAK</small></span>'+
+        '<span class="frzrow" aria-label="'+held+' of 3 freezes held">'+shields+'</span>'+
+      '</div>'+
+      '<div class="srsub">'+held+' of 3'+(total>=3?'':' · next freeze in '+toNext+' day'+(toNext===1?'':'s'))+'</div>'+
+      '<div class="srbar" role="img" aria-label="'+pct+'% toward the next freeze"><i style="width:'+pct+'%"></i></div>'+
+      (isNative?'<div class="srgsi">'+statusChip(live?"live":"idle",live?"CS2 CONNECTED":"CS2 NOT DETECTED")+'</div>':'')+
+      (dueN?'<button class="srdue facet" data-duego="maps">'+dueN+' REVIEW'+(dueN===1?'':'S')+' DUE</button>':'')+
+    '</div>';
+  }
   function renderSide(st){
     var side=document.getElementById("side");
     var streak=curStreak(st),dueN=dueLineups(st).length;
@@ -2483,7 +2555,11 @@
       return '<button data-go="'+k+'" class="snsub'+(on?" on":"")+'"'+(on?' aria-current="page"':'')+'><span>'+l+'</span></button>';
     }
     var practiceOpen=destOf(screen).k==="practice";
+    // The identity block belongs directly under the wordmark, not at the foot of the rail —
+    // the reference art puts WHO YOU ARE at the top and WHERE YOU STAND at the bottom, and
+    // the tier is the loud part of it, in accent rather than a whisper of --faint.
     side.innerHTML='<div class="brand">'+ '<span style="width:22px;height:22px;color:var(--accInk);display:inline-block;">'+RET+'</span><span class="wordmark">LOCK<b>IN</b></span></div>'+
+      tierIdentity(st,streak)+
       '<nav class="snav" aria-label="Primary">'+
         nb("today","TODAY",RET)+
         nb("practice","PRACTICE",TARGET)+
@@ -2494,10 +2570,18 @@
         '<button data-go="gear" class="'+(screen==="gear"?"on":"")+'"'+(screen==="gear"?' aria-current="page"':'')+'><span class="navdia" aria-hidden="true"></span>'+MOUSE+'<span>GEAR</span></button>'+
         '<button data-go="setup" class="'+(screen==="setup"?"on":"")+'"'+(screen==="setup"?' aria-current="page"':'')+'><span class="navdia" aria-hidden="true"></span>'+GEAR+'<span>SETUP</span></button>'+
       '</nav>'+
-      '<div class="smini">'+tierIdentity(st,streak)+
-      '<button class="gbtn tourbtn" data-act="tour" style="width:100%;"><span class="tourico">'+COMPASS+'</span>TAKE A TOUR</button>'+
-      '<button class="gbtn" data-act="retake" style="width:100%;">RETAKE QUIZ</button>'+
-      '<div class="segctl" role="group" aria-label="Theme"><button data-theme-set="dark" aria-pressed="'+(curTheme(st)==="dark"?"true":"false")+'" class="'+(curTheme(st)==="dark"?"on":"")+'">DARK</button><button data-theme-set="light" aria-pressed="'+(curTheme(st)==="light"?"true":"false")+'" class="'+(curTheme(st)==="light"?"on":"")+'">LIGHT</button></div></div>';
+      // WHERE YOU STAND, pinned to the foot of the rail: the streak reads at a glance from
+      // any screen, the freeze shields say what you have in reserve, and the two things that
+      // can need you — the CS2 link and anything due — sit directly under it.
+      statusRail(st,streak,dueN)+
+      '<div class="srow">'+
+        '<button class="sico" data-act="tour" aria-label="Take a tour" title="Take a tour">'+COMPASS+'</button>'+
+        '<button class="sico" data-act="retake" aria-label="Retake the quiz" title="Retake the quiz">'+REDO+'</button>'+
+        '<div class="segctl thm" role="group" aria-label="Theme">'+
+          '<button data-theme-set="dark" aria-label="Dark theme" aria-pressed="'+(curTheme(st)==="dark"?"true":"false")+'" class="'+(curTheme(st)==="dark"?"on":"")+'">'+MOON+'</button>'+
+          '<button data-theme-set="light" aria-label="Light theme" aria-pressed="'+(curTheme(st)==="light"?"true":"false")+'" class="'+(curTheme(st)==="light"?"on":"")+'">'+SUN+'</button>'+
+        '</div>'+
+      '</div>';
   }
   // The mobile dock: FIVE destinations with permanently visible labels. Seven icon-only
   // targets at 375px was the core failure — the icons were never the problem, the count

@@ -1633,6 +1633,48 @@ ok('--line2 never PAINTS anything — it is a ~1.6:1 divider, not a colour', (fu
   if (bad2.length) console.log('      --line2 painting: ' + bad2.join(' | '));
   return bad2.length === 0 && /--edge\s*:/.test(css);
 })());
+ok('the desktop rail is identity on top, status at the foot, in that order', (function () {
+  // The reference art puts WHO YOU ARE directly under the wordmark and WHERE YOU STAND
+  // pinned to the bottom. We had the identity block at the foot and no status block at all,
+  // so the streak vanished the moment you left Today — on Maps, Gear and Setup the rail
+  // said nothing. Assert the render order, not just that the pieces exist.
+  var body = script.slice(script.indexOf('function renderSide('));
+  body = body.slice(0, body.indexOf('\n  function ', 10));
+  var iBrand = body.indexOf('class="brand"');
+  var iTier = body.indexOf('tierIdentity(');
+  var iNav = body.indexOf('<nav class="snav"');
+  var iRail = body.indexOf('statusRail(');
+  var ordered = iBrand >= 0 && iTier > iBrand && iNav > iTier && iRail > iNav;
+  if (!ordered) console.log('      order brand/tier/nav/rail = ' + [iBrand, iTier, iNav, iRail].join('/'));
+  return ordered;
+})());
+ok('the status rail carries streak, freeze reserve and anything that wants you', (function () {
+  var fn = script.slice(script.indexOf('function statusRail('));
+  fn = fn.slice(0, fn.indexOf('\n  function ', 10));
+  return /class="ml kicker">STATUS/.test(fn) &&
+         /class="big-n srn"/.test(fn) &&
+         /frzs/.test(fn) && /SHIELD/.test(fn) &&              // the reserve, drawn not described
+         /next freeze in/.test(fn) &&
+         /statusChip\(live\?"live":"idle"/.test(fn) &&        // and it speaks the status language
+         /srdue/.test(fn) && /data-duego/.test(fn) &&         // the due button actually navigates
+         /\.srail \.srn\{font-size:44px/.test(css);           // scoped so .big-n cannot outrank it
+})());
+ok('the active desktop nav item is a solid accent slab with the facet', (function () {
+  // I built glass + a 2px tracer rail from the prose; the reference art shows a solid accent
+  // fill with the chamfer on every single screen, the same gesture as the mobile dock.
+  var rule = (css.match(/\.snav button\.on\{[^}]*\}/) || [''])[0];
+  return /background:var\(--acc\)/.test(rule) && /clip-path:var\(--facet\)/.test(rule) &&
+         /color:var\(--onAcc\)/.test(rule) &&
+         css.indexOf('.snav button.on::before{content:""') < 0;   // the old tracer rail is gone
+})());
+ok('the tier is the loud line in the rail, not a whisper', (function () {
+  // shipped as 8px --faint under a 12px display name — the identity read as the handle, and
+  // the tier, which is the thing that changes and that people care about, was the small print.
+  var tier = (css.match(/#side \.tiertx small\{[^}]*\}/) || [''])[0];
+  var name = (css.match(/#side \.tiername\{[^}]*\}/) || [''])[0];
+  function px(r) { var m = r.match(/font-size:([\d.]+)px/); return m ? +m[1] : 0; }
+  return px(tier) > px(name) && /--accInk/.test(tier) && /--faint/.test(name);
+})());
 ok('every touch-reachable control clears 44px, with a SEPARATE desktop variant', (function () {
   // Section 2 names this as an already-shipped bug and it was shipped again: at 375px
   // nineteen control types sat under 44, the worst at 24-30px. Desktop legitimately keeps
