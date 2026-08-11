@@ -37,6 +37,20 @@ offers you a different focus for the weeks ahead. You choose; **Apply it** keeps
 history, streak and your own match/rest days and only reshuffles the training slots. If you
 logged too little to conclude anything, it says so instead of inventing a verdict.
 
+**Argues with the plan, not with you.** When you keep showing up and a checkpoint you
+entered has barely moved, Lockin says so plainly — *"You showed up 15 of 15 days. The habit
+is not the problem"* — and offers to change the plan. It only speaks when both halves are
+evidenced; missing either, it stays quiet rather than guessing. Every fourth week the load
+is actually halved, not just described as lighter. Every Sunday it asks one question, and
+each answer does something genuinely different — including the one that changes nothing and
+says so. And if a drill is the one you keep skipping, it treats that as the plan's problem:
+*"That is not laziness — a drill skipped this consistently is either too hard or wrong
+for you."*
+
+**Today shows one thing at a time.** Cards are ranked by how fast the moment passes — the
+match-night gate expires the second you queue, a lapse is just as true tomorrow — so at
+most one surfaces, with the rest behind a *N more waiting*. It can't become a wall.
+
 **Gets you to actually train.**
 - **Guided session** — a timed drill runner, one drill at a time. Every drill states the
   same six things: what you're doing, the map, the goal, the mindset to hold, what a right
@@ -53,12 +67,19 @@ logged too little to conclude anything, it says so instead of inventing a verdic
 - **Come back after a lapse** and you get *welcome back*, not a telling-off — the week
   you're in, your best streak, your total, and one five-minute session to be back on. The
   plan never restarts.
-- **A guided tour on first run** — a spotlight walk through all seven sections, so nothing
+- **A guided tour on first run** — a spotlight walk through the whole app, so nothing
   useful stays hidden. Replayable any time from the sidebar.
+- **A lighter week back** — return after a lapse and the day is core-only for a few days,
+  and it says so. Coming back to a full plan is exactly why people don't come back.
+- **Pause it on purpose** — injury, exams, life. Two, four or six weeks: the streak is
+  held, nothing is marked missed, and the programme clock stops so you resume at the week
+  you left rather than restarting.
+- **Rest is a real day** — scheduled rest days are tickable. Log them and the week reads
+  *complete*, not incomplete.
 
 **A coach-built session, as written.** The Oblivion Protocol — 33 minutes of aim
 foundations then angle discipline, with the exact map settings and per-block cues, runnable
-straight from the Drills tab. Written by a coach for a real player and kept as it was.
+straight from Practice. Written by a coach for a real player and kept as it was.
 
 **Match nights get their own screen.** First the nerves — a short reappraisal script, the
 one pressure intervention that has actually been tested on Counter-Strike players, with its
@@ -83,6 +104,18 @@ set it up.
   — entirely optional, and the averages say when they are Premier-derived rather than
   native to your platform
 - **Death audit** — tag each death by cause and Lockin names your biggest leak
+- **Leak of the week** — the cause costing you most, with its real share ("70% of the
+  deaths you logged this week — 7 of 10")
+- **Aim is not the bottleneck** — if you said aim but your deaths say position, it says so,
+  using the audit's own rows and no number of its own. Silent when the data agrees with you.
+- **Leaks closed** — the share of your deaths a cause took last month against the month
+  before, so logging more deaths can never look like progress
+- **Proof for a sceptic** — every row names its source, and the sources are honest: the
+  checkpoint figures are ones *you* entered from Leetify, not something Lockin measured.
+  It states what it does *not* prove — your rank — because understating it is what makes
+  it usable in an argument.
+- **The honest export** — the same progress written as prose you can paste into Discord.
+  A backup file is only useful to the app.
 - **A weekly recap** every Monday — days trained against days planned, how it felt, and the
   leak that showed up most. Once a week, and never on a week you didn't play.
 
@@ -100,7 +133,7 @@ Saved lineups then come back for a quick recall check on a spaced schedule
 reveal and mark it *got it* or *shaky*. Spacing reviews out is well established for
 remembering facts; using it for lineups is our own adaptation, and the card says so.
 
-**Gets you the training maps in one click.** A *Get the maps* panel on the Maps tab links
+**Gets you the training maps in one click.** A *Get the maps* panel on Maps links
 straight to each Workshop item — titles and IDs checked against the live pages, grouped by
 purpose, with a *start here* trio marked. On desktop it also shows which ones you already
 have, and the links open in your real browser rather than a trapped in-app window.
@@ -179,12 +212,17 @@ npm test         # unit tests only
 ```
 
 The tests extract the actual `<script>` from `docs/index.html` and run it in a sandboxed
-DOM, so they exercise the shipped code rather than a copy of it — 282 of them, including a
+DOM, so they exercise the shipped code rather than a copy of it — 359 of them, including a
 second sandbox with `window.__TAURI__` mocked so the desktop-only paths are covered too.
 Several are content guards rather than logic tests: they fail the build if the copy starts
 claiming a rifle needs a dead stop, or that anything makes you *faster*. The Rust side has
 its own `cargo test` run in CI, covering the win/loss derivation behind auto-tracking and
 the shape of the CS2 config it writes.
+
+A newer set guards **honesty about sources**. Contrast is measured from the shipped tokens
+rather than assumed. The evidence cards fail the build if a bar stops being its real
+percentage, if "leaks closed" starts comparing counts instead of shares, or if *Proof for a
+sceptic* ever claims Lockin measured a number the player typed in themselves.
 
 Lineup pictures are the one thing **not** in `localStorage` — they live in IndexedDB.
 `localStorage` is a ~5MB budget shared across the whole origin, and filling it with
