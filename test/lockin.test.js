@@ -1633,6 +1633,41 @@ ok('--line2 never PAINTS anything — it is a ~1.6:1 divider, not a colour', (fu
   if (bad2.length) console.log('      --line2 painting: ' + bad2.join(' | '));
   return bad2.length === 0 && /--edge\s*:/.test(css);
 })());
+ok('every touch-reachable control clears 44px, with a SEPARATE desktop variant', (function () {
+  // Section 2 names this as an already-shipped bug and it was shipped again: at 375px
+  // nineteen control types sat under 44, the worst at 24-30px. Desktop legitimately keeps
+  // its denser pointer-only chrome, which is exactly why this needs TWO variants rather
+  // than one literal — so assert the touch block exists and actually covers the offenders.
+  var block = (css.match(/@media \(max-width:719px\),\(pointer:coarse\)\{[\s\S]*?\n  \}/) || [''])[0];
+  if (!block) { console.log('      no touch-target media block at all'); return false; }
+  // match the min-height:44px RULE, not the whole block — .mchip also appears in a second
+  // rule inside it, so a block-wide indexOf passed while the selector was actually removed
+  // from the sizing list. That is the hollow-guard shape, caught by falsifying it.
+  var sized = (block.match(/([^{}]*)\{\s*min-height:44px;\s*\}/) || [])[1] || '';
+  var must = ['.mchip', '.rtoggle', '.btncopy', '.bftoggle', '.fbtn', '.gbtn', '.pbtn',
+              '.startsession', '.iconbtn', '.lndel', '.segctl button'];
+  var missing = must.filter(function (sel) { return sized.indexOf(sel) < 0; });
+  if (missing.length) console.log('      not in the 44px rule: ' + missing.join(', '));
+  return missing.length === 0 && /input\[type="text"\]/.test(block);
+})());
+ok('standard transitions stay inside the 260-450ms band, on the standard curve', (function () {
+  // Section 2: "durations 260-450ms", standard easing cubic-bezier(.2,.9,.2,1). Ambient and
+  // looping motion (the spinner, the scan, the celebration bloom/ping) is deliberately
+  // exempt — it is not a transition. Everything else drifted: .whypanel ran 220ms, three
+  // entry animations ran 500ms, and four carried a bare `ease`.
+  var AMBIENT = /v3-spin|lk-scan|lk-blink|lk-ping|v3-bloom|v3-ping/;
+  var re = /animation:([\w-]+)([^;}]*)/g, m, bad = [];
+  while ((m = re.exec(css))) {
+    if (AMBIENT.test(m[1])) continue;
+    var rest = m[2];
+    var times = (rest.match(/(?:^|\s)(\d*\.?\d+)(ms|s)(?=\s|$)/g) || [])
+      .map(function (t) { t = t.trim(); return /ms$/.test(t) ? parseFloat(t) : parseFloat(t) * 1000; });
+    if (times.length && (times[0] < 260 || times[0] > 450)) bad.push(m[1] + ' ' + times[0] + 'ms');
+    if (/\bease(-in|-out|-in-out)?\b/.test(rest) && !/cubic-bezier/.test(rest)) bad.push(m[1] + ' bare ease');
+  }
+  if (bad.length) console.log('      ' + Array.from(new Set(bad)).join(' | '));
+  return bad.length === 0;
+})());
 ok('the two micro-label roles are distinct and both sit inside the spec type scale', (function () {
   // One .ml class was doing the work of two roles at 11px/0.14em — above the size range of
   // either and below the kicker's tracking. ~50 visible labels carried it, which is most of

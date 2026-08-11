@@ -355,7 +355,7 @@
   .drowwhy:hover,.drowwhy[aria-expanded="true"]{border-color:var(--acc);color:var(--accInk);}
   .drowwrap.done .drowwhy{opacity:.72;}
   .whypanel{border:1px solid var(--accGhost);border-left:3px solid var(--acc);border-radius:11px;
-    padding:12px 14px;margin:6px 0 0;background:color-mix(in oklab,var(--acc) 7%,transparent);animation:v3-slide .22s cubic-bezier(.2,.9,.2,1);}
+    padding:12px 14px;margin:6px 0 0;background:color-mix(in oklab,var(--acc) 7%,transparent);animation:v3-slide .26s cubic-bezier(.2,.9,.2,1);}
   .whypanel p{font-size:13px;color:var(--muted);margin-top:6px;}
   .whyopt{color:var(--faint)!important;font-style:italic;}
   .whysrc{margin-top:9px;padding-top:8px;border-top:1px solid var(--line);
@@ -394,7 +394,7 @@
   /* bars grow into their real width. scaleX is used deliberately rather than animating
      width, so the inline width stays the true percentage — the number is never the animation. */
   .skbar i{display:block;height:100%;background:var(--acc);transform-origin:left center;
-    animation:v3-growX .5s cubic-bezier(.2,.9,.2,1);}
+    animation:v3-growX .45s cubic-bezier(.2,.9,.2,1);}
   .skbar i.bad{background:var(--bad);}
   .skpct{flex:0 0 auto;font-family:var(--fm);font-size:11px;color:var(--text);font-variant-numeric:tabular-nums;}
   .skopts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
@@ -406,7 +406,7 @@
   .lhname{flex:0 0 34%;min-width:0;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .lhbars{flex:1;display:flex;flex-direction:column;gap:3px;}
   .lhbars i{display:block;height:6px;border-radius:3px;transform-origin:left center;
-    animation:v3-growX .5s cubic-bezier(.2,.9,.2,1);}
+    animation:v3-growX .45s cubic-bezier(.2,.9,.2,1);}
   .lhbars i.was{background:var(--edge);}   /* the "before" bar, same 1.65:1 problem as .bfill */
   .lhbars i.now{background:var(--good);}
   .lhpct{flex:0 0 auto;font-family:var(--fm);font-size:11px;color:var(--text);font-variant-numeric:tabular-nums;}
@@ -530,13 +530,13 @@
 
   /* generating / reveal */
   .cstage{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:18px;}
-  .ring{width:74px;height:74px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--hero);display:grid;place-items:center;animation:spin 1s linear infinite;}
+  .ring{width:74px;height:74px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--hero);display:grid;place-items:center;animation:v3-spin 1s linear infinite;}
   .ring svg{width:30px;height:30px;color:var(--hero-ink);animation:none;}
   .blink{animation:lk-blink 1.1s steps(1) infinite;}
   .badge{width:88px;height:88px;border-radius:20px;background:var(--hero);color:var(--onhero);display:grid;place-items:center;position:relative;animation:lk-snap .45s cubic-bezier(.2,.9,.2,1);}
   .badge svg{width:44px;height:44px;}
   .ping{position:absolute;inset:0;border-radius:20px;border:2px solid var(--hero);animation:lk-ping .9s ease-out both;}
-  .rise{animation:lk-rise .5s .15s ease both;}
+  .rise{animation:lk-rise .45s .15s cubic-bezier(.2,.9,.2,1) both;}
   .diagcard{border-left:3px solid var(--hero);text-align:left;max-width:430px;width:100%;}
   .diagrow{display:flex;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);} .diagrow:last-child{border-bottom:0;}
   .diagrow .k{font-family:var(--fm);font-size:10.5px;letter-spacing:0.14em;color:var(--faint);flex:0 0 84px;padding-top:3px;}
@@ -635,7 +635,7 @@
   .calhd .nav button:hover{border-color:var(--hero);}
   .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
   .cal .ch{font-family:var(--fm);font-size:9px;color:var(--faint);text-align:center;text-transform:uppercase;letter-spacing:0.05em;}
-  .cell{animation:v3-cell .3s ease-out;aspect-ratio:1;border-radius:8px;background:var(--surface2);border:1px solid var(--line);display:grid;place-items:center;font-size:10.5px;color:var(--faint);font-family:var(--fm);}
+  .cell{animation:v3-cell .3s cubic-bezier(.2,.9,.2,1);aspect-ratio:1;border-radius:8px;background:var(--surface2);border:1px solid var(--line);display:grid;place-items:center;font-size:10.5px;color:var(--faint);font-family:var(--fm);}
   .cell.pad{background:transparent;border:0;}
   .cell.warm{background:color-mix(in oklab,var(--hero) 12%,transparent);border-color:var(--hero);color:var(--hero-ink);font-weight:700;}
   .cell.deep{background:var(--hero);border-color:var(--hero);color:var(--onhero);font-weight:700;}
@@ -915,15 +915,15 @@
     color:var(--faint);margin-top:8px;}
   #cele .scan{position:absolute;left:0;right:0;height:2px;background:var(--hero);opacity:.6;animation:lk-scan 1.1s ease-in-out both;}
   #cele .inner{text-align:center;}
-  #cele .ct1{font-family:var(--fd);font-weight:800;font-size:28px;text-transform:uppercase;letter-spacing:-0.02em;margin-top:18px;animation:lk-rise .5s .2s ease both;}
-  #cele .ct2{font-family:var(--fm);font-size:12px;letter-spacing:0.18em;color:var(--hero-ink);margin-top:8px;animation:lk-rise .5s .32s ease both;}
+  #cele .ct1{font-family:var(--fd);font-weight:800;font-size:28px;text-transform:uppercase;letter-spacing:-0.02em;margin-top:18px;animation:lk-rise .45s .2s cubic-bezier(.2,.9,.2,1) both;}
+  #cele .ct2{font-family:var(--fm);font-size:12px;letter-spacing:0.18em;color:var(--hero-ink);margin-top:8px;animation:lk-rise .45s .32s cubic-bezier(.2,.9,.2,1) both;}
 
   @keyframes lk-snap{from{transform:scale(1.55);opacity:0}to{transform:scale(1);opacity:1}}
   @keyframes lk-ping{from{transform:scale(.7);opacity:.8}to{transform:scale(2.1);opacity:0}}
   @keyframes lk-scan{from{top:0}to{top:100%}}
   @keyframes lk-rise{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
   @keyframes lk-blink{50%{opacity:.25}}
-  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes v3-spin{to{transform:rotate(360deg)}}
   /* v3 motion. Standard easing cubic-bezier(.2,.9,.2,1), durations 260–450ms.
      The two shards fly in along their own diagonals and meet — "the assemble". */
   @keyframes v3-shardA{0%{transform:translate(16px,-16px) rotate(7deg);opacity:0}100%{transform:translate(0,0);opacity:1}}
@@ -943,6 +943,23 @@
      animations may still fade from 0 — they are small, and blank costs little there. */
   @keyframes v3-cell{0%{transform:scale(.86)}100%{transform:scale(1)}}
   @keyframes v3-tick{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.18)}100%{transform:scale(1);opacity:1}}
+  /* ---------- touch targets ----------
+     Section 2: "44px minimum on any surface reachable by touch. 36px is permitted ONLY for
+     pointer-only desktop chrome. When a control renders in both frames it needs two style
+     variants, not one shared literal — this was a shipped bug." It was shipped again: at
+     375px nineteen control types sat under 44, the worst at 24-30px (.mchip x12, the copy
+     and delete buttons, the rest toggle). Desktop keeps its denser sizes because the
+     sidebar and card chrome there are pointer-only; this block is the second variant. */
+  @media (max-width:719px),(pointer:coarse){
+    .mchip,.rtoggle,.btncopy,.bftoggle,.fbtn,.gbtn,.pbtn,.startsession,.iconbtn,.lndel,
+    .picadd,.wsrecheck,.coachopt,.subtab,.moretog,.fullbtn,.pausebtn,.cbtn,.tbtn,
+    .segctl button,.cal nav button,[data-cal]{
+      min-height:44px;}
+    .iconbtn,.lndel{min-width:44px;width:44px;height:44px;}
+    .mchip{padding-top:0;padding-bottom:0;display:inline-flex;align-items:center;}
+    input[type="text"],input[type="number"],input[type="time"],input[type="date"],select,textarea{
+      min-height:44px;}
+  }
   /* Collapse motion to ~0 but KEEP end states and every numeric update intact. */
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;}}
 </style>
