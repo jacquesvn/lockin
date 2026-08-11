@@ -165,8 +165,15 @@
   /* Practice expands in place rather than hiding its two screens behind a click */
   .snsubs{display:flex;flex-direction:column;gap:2px;margin:2px 0 2px 30px;}
   .snav .snsub{padding:7px 10px;font-family:var(--fb);font-size:12px;letter-spacing:0;font-weight:600;text-transform:none;color:var(--faint);}
-  .snav .snsub.on{background:transparent;color:var(--accInk);}
-  .snav .snsub.on::before{display:none;}
+  /* a sub-item must still LOOK selected. This used to cancel both of the nav's selection
+     affordances — background:transparent killed the glass, ::before{display:none} killed the
+     tracer rail — which left a faint-to-accent TEXT COLOUR SHIFT as the only signal that you
+     were on Plan rather than Drills. At 12px on a dark rail that reads as nothing.
+     It keeps the same language as its parent, one step quieter: the rail is inset and short
+     rather than full-height, and it sits in the indent gutter so the nesting still reads. */
+  .snav .snsub.on{background:var(--glass);color:var(--accInk);}
+  .snav .snsub.on::before{display:block;left:-14px;top:50%;bottom:auto;height:14px;width:2px;
+    transform:translateY(-50%);background:var(--acc);border-radius:2px;}
   .snrule{display:flex;align-items:center;gap:8px;margin:14px 0 4px;}
   .snrule span{font-family:var(--fm);font-size:8px;letter-spacing:0.18em;color:var(--faint);}
   .snrule::after{content:"";flex:1;height:1px;background:var(--line);}

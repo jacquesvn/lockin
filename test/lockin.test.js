@@ -1633,6 +1633,29 @@ ok('--line2 never PAINTS anything — it is a ~1.6:1 divider, not a colour', (fu
   if (bad2.length) console.log('      --line2 painting: ' + bad2.join(' | '));
   return bad2.length === 0 && /--edge\s*:/.test(css);
 })());
+ok('a selected nav item is never signalled by text colour alone', (function () {
+  // .snav .snsub.on set background:transparent AND ::before{display:none}, cancelling BOTH
+  // affordances the nav uses for selection — so "you are on Plan, not Drills" came down to
+  // --faint vs --accInk at 12px on a dark rail, which reads as nothing. Colour alone is also
+  // the one signal a colour-blind user cannot use, so this is a real accessibility rule and
+  // not just taste. Every .on rule in the side nav must carry a structural signal too.
+  var bad = [];
+  var re = /(\.snav[^{}]*\.on[^{}]*)\{([^}]*)\}/g, m;
+  var sawSub = false;
+  while ((m = re.exec(css))) {
+    var sel = m[1].trim().replace(/\s+/g, ' '), body = m[2];
+    if (/\.snsub/.test(sel)) sawSub = true;
+    if (/::before/.test(sel) || /::after/.test(sel)) {
+      if (/display:\s*none/.test(body)) bad.push(sel + ' hides its own rail');
+      continue;
+    }
+    if (/background:\s*transparent/.test(body)) bad.push(sel + ' has no background');
+  }
+  if (bad.length) console.log('      colour-only selection: ' + bad.join(' | '));
+  // and the sub-item must actually be covered by this sweep, not silently absent
+  return bad.length === 0 && sawSub &&
+         /\.snav \.snsub\.on\{background:var\(--glass\)/.test(css);
+})());
 ok('the pre-v3 amber identity is gone from every shipped surface', (function () {
   // The redesign changed the tokens but left the hard-coded hexes behind, so the app was
   // violet while the taskbar icon, the favicon, the browser theme-colour and — worst — the
