@@ -230,11 +230,40 @@
     color:var(--muted);font-family:var(--fb);font-size:13px;cursor:pointer;margin-bottom:12px;}
   .fullbtn:hover{border-color:var(--muted);color:var(--text);}
   /* leak of the week — one claim, its evidence directly beneath it */
+  /* ---------- off-plan history ---------- */
+  .ofhist{margin:8px 0 2px;border-top:1px solid var(--line);}
+  .ofrow{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);}
+  .ofname{font-size:13px;font-weight:600;color:var(--text);margin-right:auto;}
+  .ofday{font-family:var(--fm);font-size:9.5px;letter-spacing:0.08em;color:var(--faint);}
+  .ofmore{padding-top:7px;font-family:var(--fm);font-size:9px;letter-spacing:0.1em;color:var(--faint);}
+  /* ---------- the plan in one screenshot ---------- */
+  .pshot{clip-path:var(--facet);}
+  .pstop{display:flex;align-items:center;gap:9px;padding-bottom:11px;border-bottom:1px solid var(--line);}
+  .psmark{width:20px;height:20px;color:var(--accInk);display:inline-block;--knock:var(--surface);}
+  .psmark svg{width:20px;height:20px;}
+  .psname{font-family:var(--fd);font-weight:800;font-size:15px;letter-spacing:-0.01em;color:var(--text);margin-right:auto;}
+  .psver{font-family:var(--fm);font-size:8.5px;letter-spacing:0.12em;color:var(--faint);}
+  .psgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:13px 0;}
+  .psk{font-family:var(--fm);font-size:8.5px;letter-spacing:0.14em;color:var(--faint);}
+  .psv{font-family:var(--fd);font-weight:800;font-size:22px;letter-spacing:-0.02em;color:var(--accInk);margin-top:3px;}
+  .psfoot{padding-top:11px;border-top:1px solid var(--line);font-size:13px;color:var(--text);}
+  .psfoot .psk{display:inline;margin-right:6px;}
+  .psarrow{color:var(--faint);}
+  @media (max-width:719px){ .psgrid{grid-template-columns:repeat(2,1fr);} .psv{font-size:19px;} }
   /* ---------- share card preview ---------- */
   .shareimg{display:block;width:100%;max-width:420px;height:auto;border-radius:10px;
     border:1px solid var(--line);margin-top:12px;}
   .sharebtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
   .sharebtns .pbtn{border-radius:0;}
+  /* ---------- gear tiles ---------- */
+  .gtiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;margin-top:4px;}
+  .gtile{background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:11px 13px;
+    clip-path:var(--facet);}
+  .gtl{display:flex;align-items:center;gap:8px;justify-content:space-between;}
+  .gtv{font-family:var(--fd);font-weight:800;font-size:17px;letter-spacing:-0.01em;color:var(--text);margin-top:7px;}
+  .gtile.empty .gtv{color:var(--faint);}
+  .gth{font-family:var(--fm);font-size:8.5px;letter-spacing:0.08em;color:var(--faint);margin-top:3px;}
+  @media (max-width:719px){ .gtiles{grid-template-columns:repeat(auto-fit,minmax(132px,1fr));} }
   /* ---------- settings audit rows ---------- */
   .sarow{padding:11px 0;border-bottom:1px solid var(--line);}
   .sarow:last-child{border-bottom:0;padding-bottom:0;}
@@ -439,6 +468,9 @@
   /* ---------- divider / section labels ---------- */
   .divi{display:flex;align-items:center;gap:10px;margin:20px 0 10px;}
   .divi .ml{color:var(--muted);} .divi::after{content:"";flex:1;height:1px;background:var(--line);}
+  /* a count that rides the divider rule, after the hairline rather than before it */
+  .divitag{order:3;flex:0 0 auto;font-family:var(--fm);font-size:9px;letter-spacing:0.12em;
+    text-transform:uppercase;color:var(--faint);}
 
   /* ---------- drill rows ---------- */
   .dlist{display:flex;flex-direction:column;gap:8px;}
@@ -815,6 +847,13 @@
   .stt{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px 12px;}
   .stt .v{font-family:var(--fd);font-weight:800;font-size:26px;line-height:1;letter-spacing:-0.02em;color:var(--hero-ink);font-variant-numeric:tabular-nums;}
   .stt .k{font-family:var(--fm);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint);margin-top:6px;}
+  /* the weekly target, drawn across the bars it judges */
+  .bchart{position:relative;}
+  .btarget{position:absolute;left:0;right:0;height:0;border-top:1px dashed var(--edge);pointer-events:none;}
+  /* sits ABOVE the rule rather than on it, so it needs no knockout background — which also
+     keeps it from reading as a chip to the shape guard, correctly: it is an axis label */
+  .btarget span{position:absolute;right:0;top:-12px;font-family:var(--fm);font-size:8.5px;
+    letter-spacing:0.1em;color:var(--faint);}
   /* ---------- twelve-week heatmap ---------- */
   /* fixed 12px cells, not flex-filled — stretched to the card width each cell became 63px
      and the "at a glance" grid became a 450px wall of squares */
@@ -1579,7 +1618,7 @@
       return '<div class="skrow"><span class="skname">'+esc(r.name)+'</span>'+
         '<span class="skbar"><i style="width:'+r.pct+'%"'+(r===s.worst?' class="bad"':'')+'></i></span>'+
         '<span class="skpct">'+r.pct+'%</span></div>';}).join("");
-    return '<div class="card skipcard"><div class="ml" style="color:var(--accInk);">THE DRILL YOU KEEP SKIPPING</div>'+
+    return '<div class="card skipcard"><div class="mrhead"><span class="ml" style="color:var(--accInk);">THE DRILL YOU KEEP SKIPPING</span>'+statusChip("cap","LAST '+DRIFT_DAYS+' DAYS")+'</div>'+
       '<div class="skwrap">'+bars+'</div>'+
       '<p class="mhow" style="margin:8px 0 0;">You have done <b style="color:var(--text);">'+esc(s.worst.name)+'</b> in '+s.worst.pct+'% of the sessions it was on, while everything else sits above '+s.restMin+'%. That is not laziness — a drill skipped this consistently is either too hard or wrong for you.</p>'+
       '<div class="skopts">'+
@@ -2914,7 +2953,14 @@
       }
       var deloadNote=deloadCard(st,F,plan,now);
       var quietNote=quiet?'<div class="quietnote">'+SHIELD+'<span><b>A lighter week back.</b> Just the core drills for '+quiet.left+' more day'+(quiet.left===1?'':'s')+' — returning to a full plan is exactly why people don’t return. It goes back to normal on its own.</span></div>':'';
-      body='<div class="divi"><span class="ml" role="heading" aria-level="2">'+(backfill?'YESTERDAY':'TODAY')+' ▸ '+esc(F.name).toUpperCase()+kx+'</span></div>'+
+      // The art carries a core-left count beside the drill heading. It goes ON the existing
+      // divider rather than in a second header of its own — the information is worth having,
+      // a duplicate title above the same list is not. It disappears once the core work is
+      // done, because "0 CORE LEFT" is a worse way of saying the day is finished.
+      var coreLeft=0;
+      for(var ci=0;ci<shown.length;ci++)if(shown[ci].d.core&&!dstate[shown[ci].i])coreLeft++;
+      var coreTag=coreLeft?'<span class="divitag">'+coreLeft+' CORE LEFT</span>':'';
+      body='<div class="divi"><span class="ml" role="heading" aria-level="2">'+(backfill?'YESTERDAY':'TODAY')+' ▸ '+esc(F.name).toUpperCase()+kx+'</span>'+coreTag+'</div>'+
         bfBanner+nmt+deloadNote+quietNote+sessRow+
         '<div class="cols"><div><div class="dlist">'+rows+'</div></div>'+
         '<div><div class="card"><div class="ml">HAND FEEL</div><div class="feelgrid">'+fbs+'</div>'+
@@ -3442,7 +3488,7 @@
     return hd+milestoneRail(st)+insightsCard(st)+
       bottleneckCard(st)+deathCard(st)+leakCard(st)+
       leakHistoryCard(st)+changedCard(st)+youVsYou()+proofCard(st)+mx+
-      cal+sharePreview(st)+milestonesCard(st)+glossary();
+      cal+planShot(st)+sharePreview(st)+milestonesCard(st)+glossary();
   }
   // These averages come from Premier/Leetify data. The skill bands transfer, but the numbers
   // aren't measured on FACEIT or ESEA — say so rather than passing them off as native.
@@ -3841,20 +3887,27 @@
     var any=false,i;
     for(i=0;i<vals.length;i++)if(vals[i]>0){any=true;break;}
     if(!any&&opts.emptyMsg)return '<div class="chempty">'+opts.emptyMsg+'</div>';
-    var max=opts.scale||Math.max.apply(null,vals)||1,cols="";
+    // a target on the axis turns "4 sessions" into "4 of the 5 you planned" — without it the
+    // bars are a shape with no pass mark, which is the thing the chart is actually about
+    var max=opts.scale||Math.max.apply(null,vals)||1;
+    if(opts.target>0)max=Math.max(max,opts.target);
+    var cols="";
     for(i=0;i<vals.length;i++){
       var v=vals[i],pct=v>0?Math.max(9,Math.round((v/max)*100)):0,last=(i===vals.length-1);
       cols+='<div class="bcol"><div class="btrack">'+
         (v>0?'<div class="bfill'+(last?" now":"")+'" style="height:'+pct+'%"></div>':'<div class="bzero"></div>')+
         '</div><div class="bval'+(v>0?"":" off")+'">'+v+'</div></div>';
     }
+    var tline=opts.target>0
+      ?'<div class="btarget" style="bottom:'+((opts.target/max)*100).toFixed(1)+'%" aria-hidden="true"><span>target '+opts.target+'</span></div>'
+      :'';
     // below ~4 bars the end labels are wider than the chart, so they would sit off
     // the bars they describe — the bar values alone are clear at that size
     var axis=(vals.length>=4&&(opts.from||opts.to))
       ?'<div class="baxis"><span>'+esc(opts.from||"")+'</span><span>'+esc(opts.to||"")+'</span></div>':'';
     // chart and axis share .binner so the end labels stay under the end bars
     return '<div class="bwrap">'+(opts.label?'<div class="bcap">'+esc(opts.label)+'</div>':'')+
-      '<div class="binner"><div class="bchart">'+cols+'</div>'+axis+'</div></div>';
+      '<div class="binner"><div class="bchart">'+cols+tline+'</div>'+axis+'</div></div>';
   }
   function insightsCard(st){
     var wds=warmDays(st),cur=curStreak(st),best=Math.max(bestStreak(st),cur);
@@ -3866,6 +3919,7 @@
       '<div class="stt"><div class="v">'+(avg?avg.toFixed(1):"—")+'</div><div class="k">Avg hand feel</div></div></div>';
     var recent=fs.slice(-8);
     var bars=barChart(weekCounts(st,8),{label:"Sessions each week",from:"8 weeks ago",to:"this week",
+      target:trainingDayCount(st.plan),
       emptyMsg:"No sessions logged yet — your first one shows up here."});
     // a trend over time is a LINE, not a row of bars — bars compare discrete buckets, a line
     // says "this is going somewhere". Counts stay bars; the felt-quality trend becomes a line.
@@ -3979,6 +4033,34 @@
      because the alternative is worse: without it, work you actually did is invisible, and
      anything reading adherence concludes you stopped training when you didn't. */
   var OFFPLAN=[["dm","Deathmatch"],["aim","Aim trainer"],["scrim","Scrim / team"],["prac","Map practice"],["other","Something else"]];
+  /* Work you did that the plan never asked for was recorded and then never shown back — the
+     card only ever displayed TODAY's pills, so a month of scrims and deathmatch was invisible
+     the moment the day rolled over, which defeats the whole point of logging it.
+     NOTE: we store the kind and the day, and nothing else. The reference art also shows a
+     duration per session ("42m") and a note ("queued with friends"); we do not capture
+     either, so they are absent rather than estimated. */
+  function offPlanRecent(st,dk,days){
+    var out=[],start=parseKey(dk)||new Date();
+    for(var i=1;i<=(days||14);i++){
+      var d=addDays(start,-i),k=dateKey(d),list=((st.offPlan||{})[k])||[];
+      for(var j=0;j<list.length;j++){
+        var label="";OFFPLAN.forEach(function(x){if(x[0]===list[j].k)label=x[1];});
+        out.push({k:list[j].k,label:label||list[j].k,date:d,
+          day:d.toLocaleDateString(undefined,{weekday:"short"})});
+      }
+    }
+    return out;
+  }
+  function offPlanHistory(st,dk){
+    var rows=offPlanRecent(st,dk,14);
+    if(!rows.length)return "";
+    return '<div class="ofhist">'+rows.slice(0,6).map(function(r){
+      return '<div class="ofrow"><span class="ofname">'+esc(r.label)+'</span>'+
+        '<span class="ofday">'+esc(r.day)+'</span></div>';
+    }).join("")+
+    (rows.length>6?'<div class="ofmore">+ '+(rows.length-6)+' more in the last fortnight</div>':'')+
+    '</div>';
+  }
   function offPlanCard(st,dk){
     var list=((st.offPlan||{})[dk])||[];
     var chips=OFFPLAN.map(function(o){
@@ -3991,6 +4073,7 @@
       : '';
     return '<div class="card offcard"><div class="oftop"><div class="ml">TRAINED OFF-PLAN?</div>'+
       statusChip("cap","Not counted against you")+'</div>'+
+      offPlanHistory(st,dk)+
       '<p class="mhow" style="margin:6px 0 10px;">Anything you did that the plan did not ask for. It is recorded so your effort is visible, and it never counts as a missed day or a completed one.</p>'+
       '<div class="mapchips">'+chips+'</div>'+logged+'</div>';
   }
@@ -4079,7 +4162,7 @@
         ' <span class="chdelta'+(m.delta>0?" up":m.delta<0?" down":"")+'">'+sign+m.delta+'</span></b></div>';
     });
     rows+='<div class="chrow"><span>Days trained</span><b>'+c.days+'</b></div>';
-    return '<div class="card chcard"><div class="ml" style="color:var(--accInk);">WHAT CHANGED SINCE YOU STARTED</div>'+
+    return '<div class="card chcard"><div class="mrhead"><span class="ml" style="color:var(--accInk);">WHAT CHANGED SINCE YOU STARTED</span>'+statusChip("cap","NO LEADERBOARDS")+'</div>'+
       '<div class="chwrap">'+rows+'</div>'+
       '<p class="mhow" style="margin:8px 0 0;">Checkpoint figures are the ones you entered from Leetify. Days trained is counted by the app.</p></div>';
   }
@@ -4247,7 +4330,7 @@
     var beforeAim=t.pos+t.info+t.trade;
     var pct=Math.round(beforeAim/total*100);
     if(pct<40)return "";                                    // the data agrees with them — say nothing
-    return '<div class="card bottleneck"><div class="ml" style="color:var(--accInk);">AIM IS NOT THE BOTTLENECK</div>'+
+    return '<div class="card bottleneck"><div class="mrhead"><span class="ml" style="color:var(--accInk);">AIM IS NOT THE BOTTLENECK</span>'+statusChip("warn","CONTRADICTS YOUR QUIZ")+'</div>'+
       '<p class="bnbig">You said aim. Your deaths say position.</p>'+
       '<p class="mhow" style="margin:6px 0 0;"><b style="color:var(--text);">'+pct+'%</b> of your logged deaths happen before aim decides anything — '+
       t.pos+' holding a losing angle, '+t.info+' with no information, '+t.trade+' with nobody to trade you, out of '+total+'. '+
@@ -4308,6 +4391,31 @@
       x.fillText("YOUR POCKET CS2 COACH", 392, 308);
       return c;
     }catch(e){return null;}
+  }
+  /* One block composed to be CROPPED, not exported. The PNG card is for posting a streak;
+     this is for the reply that asks "what are you actually doing?" — the whole plan, legible
+     at thumbnail size, with a rule marking exactly where to crop so a screenshot of it does
+     not trail off into the rest of the page. Every number is one the app already holds. */
+  function planShot(st){
+    var plan=st.plan;if(!plan||!plan.created)return "";
+    var now=new Date(),tag=playerTag(st),m=milestoneState(curStreak(st));
+    var wds=warmDays(st).length,pw=programWeek(plan,now);
+    var foc=FOCI[plan.keystone],next=null;
+    // the drill rotation names what comes next; no forecast, just the plan as written
+    (plan.used||[]).forEach(function(k){if(k!==plan.keystone&&!next&&FOCI[k])next=FOCI[k];});
+    var cells=[["STREAK",curStreak(st)],["WEEK",pw+" of 12"],
+               ["SESSIONS",wds],["TIER",m.reached?m.reached.t:"—"]];
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">THE PLAN IN ONE SCREENSHOT</span>'+
+      '<span class="divitag">CROP HERE ↓</span></div>'+
+      '<div class="card pshot"><div class="pstop">'+
+        '<span class="psmark">'+RET+'</span>'+
+        '<span class="psname">'+esc(tag?tag.toUpperCase():"LOCKED IN")+'</span>'+
+        '<span class="psver">FREE · NO ACCOUNT</span></div>'+
+      '<div class="psgrid">'+cells.map(function(c){
+        return '<div class="pscell"><div class="psk">'+c[0]+'</div><div class="psv">'+esc(String(c[1]))+'</div></div>';
+      }).join("")+'</div>'+
+      '<div class="psfoot"><span class="psk">FOCUS</span> '+esc(foc?foc.name:"—")+
+        (next?' <span class="psarrow">→</span> '+esc(next.name):'')+'</div></div>';
   }
   /* The card IS the distribution — this app spreads by being posted — and until now you
      clicked SAVE PNG blind, got a file, and then had to go find it and attach it. So:
@@ -4404,6 +4512,30 @@
      · A pro sensitivity range. The art says "Pros sit 700-1100". We have no source for that
        we can stand behind, so the verdict is about STABILITY — which we can defend — rather
        than about your number being right or wrong. */
+  /* The four-at-a-glance row above the audit. Each tile is either a real value or an honest
+     blank — a tile that says "—" and where to get it beats a tile that guesses. The source
+     chip on each says where the number came from, because "read from your config" and "you
+     typed this" are different kinds of true and the screen should not blur them. */
+  function gearTiles(st,lo,edpi){
+    var c=CSCFG||{};
+    function tile(k,label,val,src,go){
+      var has=!!val;
+      return '<div class="gtile'+(has?"":" empty")+'">'+
+        '<div class="gtl"><span class="ml">'+label+'</span>'+(src?statusChip("cap",src):'')+'</div>'+
+        '<div class="gtv">'+(has?esc(val):'—')+'</div>'+
+        (has?'':'<div class="gth">'+esc(go)+'</div>')+'</div>';
+    }
+    var sens=lo.sens?(lo.sens+(parseFloat(lo.dpi)>0?" @ "+parseFloat(lo.dpi):"")):"";
+    var xh=c.crosshair_style?((XHAIR_DYNAMIC[String(c.crosshair_style)]?"Dynamic":"Static")+" · "+c.crosshair_style):(lo.cross?"Saved code":"");
+    var res=(c.res_w&&c.res_h)?(c.res_w+"×"+c.res_h):"";
+    return '<div class="gtiles">'+
+      tile("sens","SENS",sens,lo.sens&&isNative?"FROM CFG":(lo.sens?"YOURS":""),"Add it below")+
+      tile("cross","CROSSHAIR",xh,c.crosshair_style?"FROM CFG":(lo.cross?"YOURS":""),"Paste your code below")+
+      tile("launch","LAUNCH",lo.launch?"Set":"",lo.launch&&isNative?"FROM CFG":(lo.launch?"YOURS":""),"Add them below")+
+      tile("res","RES",res,res?"FROM CFG":"",isNative?"Open CS2 once":"Desktop only")+
+      '</div>'+
+      (edpi?'<p class="mhow" style="margin:9px 0 0;">eDPI <b style="color:var(--text);">'+edpi+'</b> — the number that carries across mice and setups.</p>':'');
+  }
   var XHAIR_DYNAMIC={"0":1,"2":1,"3":1};   // 1/4/5 are the static styles
   function settingsAudit(st,lo,edpi){
     if(!isNative)return "";
@@ -4450,7 +4582,7 @@
     var lo=(st.settings&&st.settings.loadout)||{};
     var sn=parseFloat(lo.sens),dp=parseFloat(lo.dpi);
     var edpi=(sn>0&&dp>0)?Math.round(sn*dp):null;
-    return settingsAudit(st,lo,edpi)+
+    return gearTiles(st,lo,edpi)+settingsAudit(st,lo,edpi)+
       '<div class="divi"><span class="ml" role="heading" aria-level="2">LOADOUT</span></div><div class="card">'+
       (isNative?'<button class="gbtn tourbtn" data-cs-read="1" style="width:100%;margin-bottom:6px;"><span class="tourico">'+MOUSE+'</span>READ FROM CS2</button>'+
         (CSREAD?'<p class="help" style="margin:0 0 12px;'+(CSREAD.ok?'':'color:var(--bad);')+'">'+esc(CSREAD.msg)+'</p>':'<p class="help" style="margin:0 0 12px;">Pull your sensitivity and launch options straight from CS2.</p>'):'')+
@@ -5115,7 +5247,7 @@
   if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,lineChart:lineChart,heatmap:heatmap,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
     stateForBackup:stateForBackup,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER,
     picSlots:picSlots,picRole:picRole,PICROLE:PICROLE,DESTS:DESTS,destOf:destOf,subTabs:subTabs,dueCard:dueCard,todayCards:todayCards,todayStack:todayStack,
-    leakOfWeek:leakOfWeek,settingsAudit:settingsAudit,XHAIR_DYNAMIC:XHAIR_DYNAMIC,leakFocus:leakFocus,applyLeakFocus:applyLeakFocus,focusIsSet:focusIsSet,LEAK_DRILL:LEAK_DRILL,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou,
+    leakOfWeek:leakOfWeek,offPlanRecent:offPlanRecent,offPlanHistory:offPlanHistory,gearTiles:gearTiles,planShot:planShot,settingsAudit:settingsAudit,XHAIR_DYNAMIC:XHAIR_DYNAMIC,leakFocus:leakFocus,applyLeakFocus:applyLeakFocus,focusIsSet:focusIsSet,LEAK_DRILL:LEAK_DRILL,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou,
     STREAK_TIERS:STREAK_TIERS,milestoneState:milestoneState,milestoneRail:milestoneRail,autoDebrief:autoDebrief,
     lineupCount:lineupCount,lineupMaps:lineupMaps,recallCount:recallCount,
     streakDetail:streakDetail,pauseInfo:pauseInfo,isPausedOn:isPausedOn,isPaused:isPaused,planWeek:planWeek,

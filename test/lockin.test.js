@@ -50,6 +50,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, lineChart, heatmap, MAPS,
         leakFocus, applyLeakFocus, focusIsSet, LEAK_DRILL, settingsAudit, XHAIR_DYNAMIC,
+        offPlanRecent, offPlanHistory, gearTiles, planShot,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
         lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag,
         curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements,
@@ -1656,6 +1657,64 @@ ok('Progress card order: milestones open, achievements close, and the leak follo
          insights < badges && leak < badges &&   // trophies close, they do not interrupt
          share < badges &&                       // share card, then the badges, as in the art
          /Derived from the audit above/.test(script);
+})());
+ok('the core-left count reflects CORE drills only, and vanishes when the work is done', (function () {
+  // "0 CORE LEFT" is a worse way of saying the day is finished, so it must hide rather than
+  // render a zero — and it must not count the optional drill, which is the whole point.
+  var src = script.slice(script.indexOf('var coreLeft=0;'));
+  src = src.slice(0, src.indexOf('body=') + 400);
+  return /shown\[ci\]\.d\.core&&!dstate\[shown\[ci\]\.i\]/.test(src) &&   // core AND not done
+         /coreLeft\?'<span class="divitag">'\+coreLeft\+' CORE LEFT<\/span>':''/.test(src) &&
+         /\.divitag\{order:3/.test(css);       // rides the divider, after the hairline
+})());
+ok('off-plan work is shown BACK, and never invents a duration it did not record', (function () {
+  var st = { offPlan: {} }, now = new Date();
+  function k(d) { return dateKey(d); }
+  var d2 = new Date(now); d2.setDate(d2.getDate() - 2);
+  var d5 = new Date(now); d5.setDate(d5.getDate() - 5);
+  st.offPlan[k(d2)] = [{ k: 'dm' }];
+  st.offPlan[k(d5)] = [{ k: 'scrim' }];
+  var rows = offPlanRecent(st, dateKey(now), 14);
+  var labelled = rows.length === 2 && rows[0].label === 'Deathmatch' && rows[1].label === 'Scrim / team';
+  var dayNamed = rows.every(function (r) { return typeof r.day === 'string' && r.day.length > 0; });
+  // today is excluded — it is already shown as pills directly below
+  var excludesToday = (function () {
+    var s2 = { offPlan: {} }; s2.offPlan[k(now)] = [{ k: 'dm' }];
+    return offPlanRecent(s2, dateKey(now), 14).length === 0;
+  })();
+  // the art shows a duration per session; we do not capture one, so none is printed
+  var fn = script.slice(script.indexOf('function offPlanHistory('));
+  fn = fn.slice(0, fn.indexOf('\n  function ', 10));
+  var noFakeDuration = !/\bm<\/|minutes|mins/.test(fn);
+  return labelled && dayNamed && excludesToday && noFakeDuration;
+})());
+ok('a gear tile is a real value or an honest blank, never a guess', (function () {
+  var fn = script.slice(script.indexOf('function gearTiles('));
+  fn = fn.slice(0, fn.indexOf('\n  var XHAIR_DYNAMIC'));
+  // the em-dash placeholder plus a pointer to where the value comes from
+  var blanks = /\(has\?esc\(val\):'—'\)/.test(fn) && /has\?'':'<div class="gth">'/.test(fn);
+  // and the source chip distinguishes "read from your config" from "you typed this"
+  var sourced = /FROM CFG/.test(fn) && /YOURS/.test(fn);
+  return blanks && sourced && /\.gtile\{/.test(css) && /clip-path:var\(--facet\)/.test(css);
+})());
+ok('the plan-in-one-screenshot prints only numbers the app already holds', (function () {
+  var st = { sessions: {}, settings: {}, plan: { weekly: { 0: 'cstrafe' }, used: ['cstrafe', 'utility'],
+             keystone: 'cstrafe', created: dateKey(new Date()), targets: [] } };
+  var h = planShot(st);
+  var cells = (h.match(/class="pscell"/g) || []).length;
+  return cells === 4 && /CROP HERE/.test(h) &&
+         /class="psk">STREAK<\/div><div class="psv">0</.test(h) &&   // real streak, not a placeholder
+         /FOCUS<\/span> Counter-strafing/.test(h) &&
+         planShot({ settings: {} }) === '';        // no plan, no block
+})());
+ok('the sessions chart draws the weekly target it is judged against', (function () {
+  var withTarget = barChart([1, 2, 3, 4], { target: 5 });
+  var without = barChart([1, 2, 3, 4], {});
+  // the target must also lift the axis, or a target above every bar would sit off the chart
+  var lifted = /style="bottom:100.0%"/.test(withTarget);
+  return /class="btarget"/.test(withTarget) && /target 5/.test(withTarget) && lifted &&
+         without.indexOf('btarget') < 0 &&
+         /\.btarget\{[^}]*border-top:1px dashed var\(--edge\)/.test(css);
 })());
 ok('the share card is previewed before it is sent, and copy degrades honestly', (function () {
   // The app's own copy says it spreads by being posted. You used to click SAVE PNG blind,
