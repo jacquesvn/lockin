@@ -209,13 +209,26 @@ fn backup_delete(app: tauri::AppHandle) -> Result<(), String> {
 // ---- read a couple of settings straight from CS2's own files, so the Gear tab can
 // self-fill. Sensitivity is a plain "sensitivity" "x" line in the user convars; launch
 // options live in Steam's localconfig.vdf under app 730. DPI is a hardware setting CS2
-// never stores, and the crosshair *code* would need share-code generation, so both stay
-// manual. Reads only; fail-safe (every field is optional and absence is fine).
+// never stores, and generating a shareable crosshair CODE would need Valve's encoding, so
+// those two stay manual — but the crosshair CONVARS and the render resolution are both on
+// disk and are read here. Reads only; fail-safe (every field is optional and absence is fine).
 #[derive(serde::Serialize, Default)]
 struct CsConfig {
     found: bool,
     sensitivity: Option<String>,
     launch: Option<String>,
+    // Crosshair. Style is the coaching-relevant one: styles 2 and 3 are dynamic, and a
+    // dynamic crosshair hides the spray pattern from the player learning it.
+    crosshair_style: Option<String>,
+    crosshair_size: Option<String>,
+    crosshair_dot: Option<String>,
+    crosshair_outline: Option<String>,
+    // Resolution, from cs2_video.txt rather than the convars file.
+    res_w: Option<String>,
+    res_h: Option<String>,
+    fullscreen: Option<String>,
+    // NOTE: raw input is deliberately absent. `m_rawinput` no longer exists in CS2 — Valve
+    // removed the cvar and raw input is always on. Reporting it would be inventing a setting.
 }
 
 // The next quoted string after `key` — for `"sensitivity"   "1.15"` returns "1.15".
@@ -307,6 +320,18 @@ fn read_cs_config() -> CsConfig {
         out.found = true;
         if let Ok(text) = std::fs::read_to_string(&vcfg) {
             out.sensitivity = quoted_after(&text, "\"sensitivity\"");
+            out.crosshair_style = quoted_after(&text, "\"cl_crosshairstyle\"");
+            out.crosshair_size = quoted_after(&text, "\"cl_crosshairsize\"");
+            out.crosshair_dot = quoted_after(&text, "\"cl_crosshairdot\"");
+            out.crosshair_outline = quoted_after(&text, "\"cl_crosshair_drawoutline\"");
+        }
+        // Resolution lives in cs2_video.txt, a sibling of the convars file, NOT in the convars.
+        if let Some(dir) = vcfg.parent() {
+            if let Ok(text) = std::fs::read_to_string(dir.join("cs2_video.txt")) {
+                out.res_w = quoted_after(&text, "\"setting.defaultres\"");
+                out.res_h = quoted_after(&text, "\"setting.defaultresheight\"");
+                out.fullscreen = quoted_after(&text, "\"setting.fullscreen\"");
+            }
         }
         if let Ok(text) = std::fs::read_to_string(acc.join("config").join("localconfig.vdf")) {
             out.launch = launch_opts_730(&text);
@@ -464,7 +489,46 @@ fn write_gsi_config(token: String, port: u16) -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{gsi_config_body, gsi_result};
+    use super::{gsi_config_body, gsi_result, quoted_after};
+
+    // Sampled from a real cs2_user_convars_0_slot0.vcfg so the key names and the tab-quote
+    // shape are the ones CS2 actually writes, not ones I assumed.
+    const CONVARS: &str = "\t\t\"cl_crosshair_drawoutline\"\t\t\"true\"\n\
+                           \t\t\"cl_crosshair_dynamic_splitdist\"\t\t\"7\"\n\
+                           \t\t\"cl_crosshairdot\"\t\t\"true\"\n\
+                           \t\t\"cl_crosshairgap\"\t\t\"-3\"\n\
+                           \t\t\"cl_crosshairsize\"\t\t\"2\"\n\
+                           \t\t\"cl_crosshairstyle\"\t\t\"4\"\n\
+                           \t\t\"sensitivity\"\t\t\"1.28\"\n\
+                           \t\t\"zoom_sensitivity_ratio\"\t\t\"1\"\n";
+    const VIDEO: &str = "\t\"setting.defaultres\"\t\t\"1440\"\n\
+                         \t\"setting.defaultresheight\"\t\t\"1440\"\n\
+                         \t\"setting.fullscreen\"\t\t\"1\"\n";
+
+    #[test]
+    fn reads_the_convars_cs2_actually_writes() {
+        assert_eq!(quoted_after(CONVARS, "\"cl_crosshairstyle\""), Some("4".into()));
+        assert_eq!(quoted_after(CONVARS, "\"cl_crosshairsize\""), Some("2".into()));
+        assert_eq!(quoted_after(CONVARS, "\"cl_crosshairdot\""), Some("true".into()));
+        assert_eq!(quoted_after(CONVARS, "\"cl_crosshair_drawoutline\""), Some("true".into()));
+        // `sensitivity` must not be captured from `zoom_sensitivity_ratio`
+        assert_eq!(quoted_after(CONVARS, "\"sensitivity\""), Some("1.28".into()));
+        assert_eq!(quoted_after(CONVARS, "\"m_rawinput\""), None);
+    }
+
+    #[test]
+    fn defaultres_is_not_captured_from_defaultresheight() {
+        // both keys share a prefix; the quoted form is what keeps them apart
+        assert_eq!(quoted_after(VIDEO, "\"setting.defaultres\""), Some("1440".into()));
+        assert_eq!(quoted_after(VIDEO, "\"setting.defaultresheight\""), Some("1440".into()));
+        assert_eq!(quoted_after(VIDEO, "\"setting.fullscreen\""), Some("1".into()));
+    }
+
+    #[test]
+    fn a_missing_key_reads_as_absent_rather_than_empty() {
+        assert_eq!(quoted_after(VIDEO, "\"setting.nonexistent\""), None);
+        assert_eq!(quoted_after("", "\"sensitivity\""), None);
+    }
 
     #[test]
     fn gsi_result_covers_win_loss_tie_and_unknown() {

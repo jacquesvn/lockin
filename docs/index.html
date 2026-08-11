@@ -230,6 +230,14 @@
     color:var(--muted);font-family:var(--fb);font-size:13px;cursor:pointer;margin-bottom:12px;}
   .fullbtn:hover{border-color:var(--muted);color:var(--text);}
   /* leak of the week — one claim, its evidence directly beneath it */
+  /* ---------- settings audit rows ---------- */
+  .sarow{padding:11px 0;border-bottom:1px solid var(--line);}
+  .sarow:last-child{border-bottom:0;padding-bottom:0;}
+  .satop{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .san{font-weight:600;font-size:13.5px;color:var(--text);margin-right:auto;}
+  .sav{font-family:var(--fm);font-size:11px;letter-spacing:0.04em;color:var(--muted);}
+  .sawhy{margin:4px 0 0;font-size:12.5px;color:var(--faint);line-height:1.5;max-width:70ch;}
+  @media (max-width:719px){ .san{margin-right:0;flex:1 0 100%;} }
   .leakcard{margin-bottom:10px;}
   /* the leak reads as a SENTENCE: what killed you, an arrow, what you train because of it,
      and the control that commits to it — all on one line so the causation is the layout */
@@ -2019,17 +2027,23 @@
   function setAutostart(on){ if(isNative)TAURI.core.invoke("set_autostart",{enabled:!!on}).catch(function(){}); }
   // desktop: pull sensitivity + launch options straight from CS2's own files into Gear.
   var CSREAD=null;   // {ok,msg} of the last read, shown in the loadout card
+  var CSCFG=null;    // the raw read: crosshair + resolution, reported but never stored
   function readCsConfig(){
     if(!isNative)return;
     CSREAD={ok:true,msg:"Reading CS2…"};render();
     TAURI.core.invoke("read_cs_config").then(function(r){
-      if(r&&r.found&&(r.sensitivity||r.launch)){
+      if(r&&r.found&&(r.sensitivity||r.launch||r.crosshair_style||r.res_w)){
         var st=load();st.settings.loadout=st.settings.loadout||{};
         var got=[];
         if(r.sensitivity){st.settings.loadout.sens=r.sensitivity;got.push("sensitivity");}
         if(r.launch){st.settings.loadout.launch=r.launch;got.push("launch options");}
         save(st);
-        CSREAD={ok:true,msg:"Filled "+got.join(" and ")+" from CS2. Add your mouse DPI for eDPI."};
+        // crosshair + resolution are held in memory only, not written into the loadout — they
+        // are things CS2 owns and we report, not things the user keeps here.
+        CSCFG=r;
+        if(r.crosshair_style)got.push("crosshair");
+        if(r.res_w)got.push("resolution");
+        CSREAD={ok:true,msg:"Read "+got.join(", ")+" from CS2."+(st.settings.loadout.dpi?"":" Add your mouse DPI for eDPI.")};
       }else CSREAD={ok:false,msg:"Couldn’t find your CS2 config — enter it by hand below."};
       render();
     },function(){CSREAD={ok:false,msg:"Couldn’t read your CS2 config — enter it by hand below."};render();});
@@ -4314,12 +4328,64 @@
       auto+stop+'</div>';
   }
 
+  /* ---------- the settings audit ----------
+     Reports what CS2 has on disk and says what each one costs you. Every row is gated on a
+     value we ACTUALLY read — nothing is shown as a default or a guess.
+     Two deliberate absences:
+     · Raw input. The reference art has a "Raw input — Off — TURN IT ON" row. `m_rawinput`
+       no longer exists in CS2; Valve removed the cvar and raw input is always on. Shipping
+       that row would be advice about a setting the game does not have.
+     · A pro sensitivity range. The art says "Pros sit 700-1100". We have no source for that
+       we can stand behind, so the verdict is about STABILITY — which we can defend — rather
+       than about your number being right or wrong. */
+  var XHAIR_DYNAMIC={"0":1,"2":1,"3":1};   // 1/4/5 are the static styles
+  function settingsAudit(st,lo,edpi){
+    if(!isNative)return "";
+    var c=CSCFG||{},rows=[];
+    var dp=parseFloat(lo.dpi);
+    if(lo.sens){
+      rows.push({n:"Sensitivity",
+        v:esc(lo.sens)+(dp>0?" @ "+dp+" DPI":"")+(edpi?" · "+edpi+" eDPI":""),
+        role:"cap",tag:"KEEP IT FIXED",
+        why:dp>0
+          ? "Changing it mid-plan resets the muscle memory you are building. Nothing here says your number is wrong — only that moving it costs you the weeks behind it."
+          : "Add your mouse DPI in the loadout below and this becomes eDPI, which is the number that actually carries across setups."});
+    }
+    if(c.crosshair_style){
+      var dyn=!!XHAIR_DYNAMIC[String(c.crosshair_style)];
+      rows.push({n:"Crosshair",
+        v:(dyn?"Dynamic":"Static")+" · style "+esc(c.crosshair_style)+
+          (c.crosshair_size?" · size "+esc(c.crosshair_size):""),
+        role:dyn?"due":"live",tag:dyn?"WORTH CHANGING":"GOOD AS IS",
+        why:dyn
+          ? "A dynamic crosshair expands as you move and fire, which hides the spray pattern your drills are teaching you to read. cl_crosshairstyle 4 makes it static."
+          : "Static, so it never hides the spray pattern while you are drilling it. Nothing to do."});
+    }
+    if(c.res_w&&c.res_h){
+      rows.push({n:"Resolution",
+        v:esc(c.res_w)+" × "+esc(c.res_h)+(c.fullscreen==="1"?" · fullscreen":""),
+        role:"cap",tag:"YOUR CALL",
+        why:"Genuinely a preference — but never change it mid-plan, for the same reason as sensitivity."});
+    }
+    if(!rows.length)return "";
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">THE SETTINGS YOU NEVER CHANGED</span></div>'+
+      '<div class="card"><div class="mrhead" style="margin-bottom:8px;">'+
+        '<span class="ml" style="color:var(--faint);">READ FROM YOUR CS2 CONFIG</span>'+
+        statusChip("cap","DESKTOP ONLY")+'</div>'+
+      rows.map(function(r){
+        return '<div class="sarow">'+
+          '<div class="satop"><span class="san">'+r.n+'</span>'+
+            '<span class="sav">'+r.v+'</span>'+statusChip(r.role,r.tag)+'</div>'+
+          '<p class="sawhy">'+r.why+'</p></div>';
+      }).join("")+'</div>';
+  }
   /* ---------- v0.7: loadout vault ---------- */
   function loadoutSec(st){
     var lo=(st.settings&&st.settings.loadout)||{};
     var sn=parseFloat(lo.sens),dp=parseFloat(lo.dpi);
     var edpi=(sn>0&&dp>0)?Math.round(sn*dp):null;
-    return '<div class="divi"><span class="ml" role="heading" aria-level="2">LOADOUT</span></div><div class="card">'+
+    return settingsAudit(st,lo,edpi)+
+      '<div class="divi"><span class="ml" role="heading" aria-level="2">LOADOUT</span></div><div class="card">'+
       (isNative?'<button class="gbtn tourbtn" data-cs-read="1" style="width:100%;margin-bottom:6px;"><span class="tourico">'+MOUSE+'</span>READ FROM CS2</button>'+
         (CSREAD?'<p class="help" style="margin:0 0 12px;'+(CSREAD.ok?'':'color:var(--bad);')+'">'+esc(CSREAD.msg)+'</p>':'<p class="help" style="margin:0 0 12px;">Pull your sensitivity and launch options straight from CS2.</p>'):'')+
       '<div class="lo-grid">'+
@@ -4981,7 +5047,7 @@
   if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,lineChart:lineChart,heatmap:heatmap,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
     stateForBackup:stateForBackup,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER,
     picSlots:picSlots,picRole:picRole,PICROLE:PICROLE,DESTS:DESTS,destOf:destOf,subTabs:subTabs,dueCard:dueCard,todayCards:todayCards,todayStack:todayStack,
-    leakOfWeek:leakOfWeek,leakFocus:leakFocus,applyLeakFocus:applyLeakFocus,focusIsSet:focusIsSet,LEAK_DRILL:LEAK_DRILL,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou,
+    leakOfWeek:leakOfWeek,settingsAudit:settingsAudit,XHAIR_DYNAMIC:XHAIR_DYNAMIC,leakFocus:leakFocus,applyLeakFocus:applyLeakFocus,focusIsSet:focusIsSet,LEAK_DRILL:LEAK_DRILL,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou,
     STREAK_TIERS:STREAK_TIERS,milestoneState:milestoneState,milestoneRail:milestoneRail,autoDebrief:autoDebrief,
     lineupCount:lineupCount,lineupMaps:lineupMaps,recallCount:recallCount,
     streakDetail:streakDetail,pauseInfo:pauseInfo,isPausedOn:isPausedOn,isPaused:isPaused,planWeek:planWeek,

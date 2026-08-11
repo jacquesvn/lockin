@@ -49,7 +49,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, lineChart, heatmap, MAPS,
-        leakFocus, applyLeakFocus, focusIsSet, LEAK_DRILL,
+        leakFocus, applyLeakFocus, focusIsSet, LEAK_DRILL, settingsAudit, XHAIR_DYNAMIC,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
         lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag,
         curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements,
@@ -1633,6 +1633,37 @@ ok('--line2 never PAINTS anything — it is a ~1.6:1 divider, not a colour', (fu
   var bad2 = (css.match(/(?:background(?:-color)?|border(?:-color)?)\s*:[^;}]*var\(--line2\)/g) || []);
   if (bad2.length) console.log('      --line2 painting: ' + bad2.join(' | '));
   return bad2.length === 0 && /--edge\s*:/.test(css);
+})());
+ok('the settings audit never invents a setting CS2 does not have', (function () {
+  // The reference art carries a "Raw input — Off — TURN IT ON" row. `m_rawinput` was removed
+  // from CS2; raw input is always on and the cvar is absent from every config file on disk
+  // (verified against a real cs2_user_convars_0_slot0.vcfg). Shipping that row would be
+  // advice about a setting the game does not have — the same class of mistake as the radar
+  // view-cone claim. Nor do we assert a "pros sit 700-1100" range we cannot source.
+  // Scope to what is RENDERED, not to the source — the comment above settingsAudit explains
+  // the absence and names the cvar, and a whole-file search flagged the explanation itself.
+  var fn = script.slice(script.indexOf('function settingsAudit('));
+  fn = fn.slice(0, fn.indexOf('\n  /* ---------- v0.7: loadout vault'));
+  var body = fn.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  // match raw_input / rawinput / "raw input" — the first version of this guard checked only
+  // the unseparated spelling and sailed past a `raw_input: Option<String>` added back to the
+  // Rust struct. Caught by falsifying it, which is the only reason I know.
+  var RAW = /raw[_\s-]?input/i;
+  var noFakeRow = !RAW.test(body);
+  var noUnsourcedRange = !/700\s*[-–]\s*1100/.test(body);
+  // and the Rust side must not carry the field either, or it would drift back in
+  var rust = fs.readFileSync(path.join(__dirname, '..', 'src-tauri', 'src', 'lib.rs'), 'utf8');
+  var rustStruct = (rust.match(/struct CsConfig \{[\s\S]*?\n\}/) || [''])[0].replace(/\/\/.*$/gm, '');
+  var noRustField = !RAW.test(rustStruct);
+  return noFakeRow && noUnsourcedRange && noRustField;
+})());
+ok('the audit only reports values it actually read, and reads dynamic vs static right', (function () {
+  // styles 0/2/3 are dynamic, 1/4/5 static — the distinction the coaching hangs on
+  var dyn = ['0', '2', '3'].every(function (s) { return !!XHAIR_DYNAMIC[s]; });
+  var stat = ['1', '4', '5'].every(function (s) { return !XHAIR_DYNAMIC[s]; });
+  // and with nothing read, the whole card is absent rather than showing defaults
+  var empty = settingsAudit({ settings: {} }, {}, null);
+  return dyn && stat && empty === '';
 })());
 ok('SET FOCUS is only offered where a drill focus HONESTLY addresses the leak', (function () {
   // FOCI.placement is CROSSHAIR placement, an aim mechanic. Pointing a "you died out of
