@@ -52,6 +52,7 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag,
         curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements,
         weeklyRecap, recapCard, debriefCard, applyGsiMatch, DESTS, destOf, subTabs,
+        dueCard, todayCards, todayStack,
         LSRS, srsAnswer, dueLineups, lineupIsDue, lineupReviewCard,
         stateForBackup, takeBackupImages, picStrip, IMGS, IMG_PER,
         picSlots, picRole, PICROLE } = sandbox.module.exports;
@@ -1239,8 +1240,8 @@ ok('it is a reappraisal script, not a calm-down instruction', (function () {
   var h = reappraisalCard().toLowerCase();
   return /do not need to calm down/.test(h) && /getting ready|body/.test(h);
 })());
-ok('it only renders on match nights, before the gate checklist',
-  /focusKey==="match"&&!backfill\)\?\(reappraisalCard\(\)\+gateCard/.test(html));
+ok('it only renders on match nights, and still BEFORE the gate checklist (the study order)',
+  /if\(focusKey==="match"&&!backfill\)\{\s*tierGate=reappraisalCard\(\)\+gateCard/.test(html));
 
 // --- v0.26: CS2 auto-tracking via Game State Integration ---
 ok('match log is part of the state, blank and defaulted on load', (function () {
@@ -1393,12 +1394,59 @@ ok('the review card is recall-first: throw hidden until revealed, then a self-gr
          shown.indexOf('antenna') >= 0 && shown.indexOf('data-lrok') >= 0 && shown.indexOf('data-lrno') >= 0 &&
          shown.indexOf('A EXECUTES') >= 0;
 })());
-ok('nothing due → no review card, and Today only points at Maps when something is due', (function () {
+// --- v3 Today tier system: rank by how fast the moment passes ---
+ok('the gate (T1) OUTRANKS a lapse (T2) — queueing is the only trigger with a real expiry', (function () {
+  var st = { lineups: {}, sessions: {} };
+  var cards = todayCards(st, new Date(), { gate: '<div id="G"></div>', lapse: { days: 5 }, pr: null, lnDue: 0 });
+  var gate = cards.filter(function (c) { return c.k === 'gate'; })[0];
+  var lapse = cards.filter(function (c) { return c.k === 'lapse'; })[0];
+  if (!gate || !lapse) return false;
+  var out = todayStack(cards);
+  // both are non-T3, so only the gate surfaces; the lapse falls behind the expander
+  return gate.tier === 1 && lapse.tier === 2 &&
+         out.indexOf('id="G"') >= 0 && /1 MORE WAITING/.test(out);
+})());
+ok('at most ONE non-T3 card shows, and T3 always shows alongside it', (function () {
+  var st = { lineups: {}, sessions: {} };
+  var cards = todayCards(st, new Date(), {
+    gate: '<div id="G"></div>', lapse: { days: 5 }, pr: { week: 4 }, lnDue: 2,
+    recap: null, debrief: '<div id="D"></div>'
+  });
+  var out = todayStack(cards);
+  var shownNonT3 = ['id="G"', 'id="D"', 'lapsecard'].filter(function (m) { return out.indexOf(m) >= 0; });
+  return out.indexOf('id="G"') >= 0 &&            // the T1 wins the single slot
+         out.indexOf('duecard') >= 0 &&           // T3 shows regardless
+         shownNonT3.length === 1 &&               // and nothing else non-T3 is up
+         /2 MORE WAITING/.test(out);              // lapse + debrief held back
+})());
+ok('the expander is a real 44px control and reveals exactly what was held back', (function () {
+  return /\.moretog\{[^}]*min-height:44px/.test(html) &&
+         /data-morecards="1"/.test(script) && /data-morecards="0"/.test(script) &&
+         /moreCards\s*\?/.test(script);
+})());
+ok('a quiet day shows no stack at all — the system adds nothing when nothing is true', (function () {
+  var st = { lineups: {}, sessions: {} };
+  return todayStack(todayCards(st, new Date(), { gate: '', lapse: null, pr: null, lnDue: 0 })) === '';
+})());
+ok('nothing due → no review card anywhere, and no empty DUE card on Today', (function () {
   var st = { lineups: {} };
   st.lineups[MAPS[0].id] = [{ n: 'a', t: '', srs: { s: 1, due: '2099-01-01' } }];
-  return lineupReviewCard(st, false) === '' &&
-         /var lnDue=dueLineups\(st,now\)\.length/.test(script) &&
-         /lnDue\?'<button class="card ptrcard" data-go="maps"/.test(script);
+  return lineupReviewCard(st, false) === '' &&          // the Maps recall deck
+         dueCard(st, null, 0) === '' &&                 // the Today DUE card
+         /var lnDue=dueLineups\(st,now\)\.length/.test(script);
+})());
+ok('a due plan review and due lineup recalls MERGE into one DUE card, never two competing', (function () {
+  var st = { lineups: {} };
+  var both = dueCard(st, { week: 4 }, 3);
+  var onlyPlan = dueCard(st, { week: 4 }, 0);
+  var onlyLineups = dueCard(st, null, 3);
+  var oneCard = (both.match(/class="card duecard"/g) || []).length === 1;
+  return oneCard &&
+         (both.match(/class="duerow"/g) || []).length === 2 &&      // two rows, one card
+         /Plan review/.test(both) && /Lineup recall/.test(both) && /3 throws/.test(both) &&
+         (onlyPlan.match(/class="duerow"/g) || []).length === 1 &&
+         (onlyLineups.match(/class="duerow"/g) || []).length === 1 &&
+         /1 throw ready/.test(dueCard(st, null, 1));                // singular, not "1 throws"
 })());
 ok('adding a lineup stores its optional group; the vault clusters by group', (function () {
   return /push\(\{n:n,t:t,g:g\}\)/.test(script) && script.indexOf('data-lngroup') >= 0 && /hasGroups/.test(script);

@@ -182,6 +182,21 @@
   .shrow:last-of-type{border-bottom:0;}
   .shrow svg{width:19px;height:19px;color:var(--accInk);flex:0 0 auto;}
   .shrow small{display:block;color:var(--faint);font-size:12px;margin-top:2px;}
+  /* the merged DUE card — scheduled things list together instead of competing as cards */
+  .duecard{margin-bottom:11px;}
+  .duerow{display:flex;align-items:center;gap:11px;width:100%;min-height:44px;background:transparent;border:none;
+    border-top:1px solid var(--line);color:var(--text);font-size:14px;text-align:left;cursor:pointer;padding:9px 0;}
+  .duerow:first-of-type{border-top:0;}
+  .duerow svg{width:17px;height:17px;color:var(--accInk);flex:0 0 auto;}
+  .duerow>span:nth-child(2){flex:1;min-width:0;}
+  .duerow small{display:block;color:var(--faint);font-size:12px;margin-top:2px;}
+  .duerow .ptrchev{color:var(--faint);font-size:18px;}
+  /* everything the stack held back, behind one 44px control */
+  .moretog{width:100%;min-height:44px;background:transparent;border:1px dashed var(--edge);border-radius:11px;
+    color:var(--muted);font-family:var(--fm);font-size:10px;letter-spacing:0.14em;font-weight:700;
+    cursor:pointer;margin-bottom:11px;}
+  .moretog:hover{border-color:var(--acc);color:var(--text);}
+  .morewrap{animation:v3-slide .26s cubic-bezier(.2,.9,.2,1);}
   .smini{margin-top:auto;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:14px;}
 
   /* ---------- brand ---------- */
@@ -709,7 +724,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.34.0";
+  var VERSION="0.35.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -1225,6 +1240,55 @@
     var sum=0,top=null;for(var k in leaks){sum+=leaks[k];if(top===null||leaks[k]>leaks[top])top=k;}
     return {thisKey:thisKey,weekOf:lastMon,trained:trained,planned:planned,
       feel:feelN?Math.round((feelSum/feelN)*10)/10:null,leakTop:sum>0?top:null};
+  }
+  /* ---------- v3: the Today tier system ----------
+     Today ranks its cards by HOW FAST THE MOMENT PASSES, not by abstract importance.
+       T1 · expires today, unrecoverable   (the match-night gate)
+       T2 · this week                      (a lapse, a stalled plan)
+       T3 · scheduled                      (things that are due)
+       T4 · passive                        (recap, auto-debrief)
+     At most ONE non-T3 card shows, plus T3; everything else collapses behind an expander,
+     so Today can never become a wall of advice.
+
+     Two deliberate calls:
+     · The gate OUTRANKS a lapse card. Queueing is the only trigger with a real expiry —
+       once you've queued the moment is gone, whereas "welcome back" is just as true
+       tomorrow.
+     · A due plan review and due lineup recalls MERGE into one DUE card instead of
+       competing for the same slot as two separate scheduled nags. */
+  var moreCards=false, showReview=false;
+  function dueCard(st,pr,lnDue){
+    if(!pr&&!lnDue)return "";
+    var rows="";
+    if(pr)rows+='<button class="duerow" data-duego="review"><span>'+LIST+'</span><span>Plan review<small>Week '+esc(String(pr.week||""))+' — see what your own log says</small></span><span class="ptrchev">›</span></button>';
+    if(lnDue)rows+='<button class="duerow" data-duego="maps"><span>'+MAPICON+'</span><span>Lineup recall<small>'+lnDue+' throw'+(lnDue===1?"":"s")+' ready for a quick check</small></span><span class="ptrchev">›</span></button>';
+    return '<div class="card duecard"><div class="ml" style="color:var(--accInk);">DUE</div>'+rows+'</div>';
+  }
+  // Build every candidate card with its tier, then let todayStack decide what surfaces.
+  function todayCards(st,now,ctx){
+    var out=[];
+    if(ctx.gate)out.push({tier:1,k:"gate",label:"Match-night gate",html:ctx.gate});
+    if(ctx.lapse)out.push({tier:2,k:"lapse",label:"Welcome back",html:lapseCard(ctx.lapse)});
+    var due=dueCard(st,ctx.pr,ctx.lnDue);
+    if(due)out.push({tier:3,k:"due",label:"Due",html:due});
+    if(ctx.debrief)out.push({tier:4,k:"debrief",label:"Match debrief",html:ctx.debrief});
+    if(ctx.recap)out.push({tier:4,k:"recap",label:"Last week",html:recapCard(st,ctx.recap)});
+    return out.filter(function(c){return c.html;});
+  }
+  function todayStack(cards){
+    cards=cards.slice().sort(function(a,b){return a.tier-b.tier;});
+    var t3=cards.filter(function(c){return c.tier===3;});
+    var rest=cards.filter(function(c){return c.tier!==3;});
+    var shown=rest.slice(0,1).concat(t3);          // one non-T3, plus everything scheduled
+    var hidden=rest.slice(1);
+    var html=shown.map(function(c){return c.html;}).join("");
+    if(hidden.length){
+      html+=moreCards
+        ? '<div class="morewrap">'+hidden.map(function(c){return c.html;}).join("")+
+          '<button class="moretog" data-morecards="0">HIDE</button></div>'
+        : '<button class="moretog" data-morecards="1">'+hidden.length+' MORE WAITING</button>';
+    }
+    return html;
   }
   function recapCard(st,rc){
     if(!rc)return "";
@@ -2017,7 +2081,7 @@
     // telling-off on top of a lapse
     var lapse=lapseInfo(st,now);
     var nmt=(ydMissed&&!todayDone&&!backfill&&!lapse&&isTrainingDay(plan,now))?'<div class="warnbanner">⚠ You missed yesterday — <b>never miss twice.</b> Today is non-negotiable: tick one drill.</div>':'';
-    var body;
+    var body,tierGate="",tierDebrief="";
     if(focusKey==="rest"){
       body='<div class="divi"><span class="ml" role="heading" aria-level="2">'+(backfill?'YESTERDAY':'TODAY')+' ▸ REST</span></div>'+nmt+
         '<div class="card" style="text-align:center;padding:26px;"><div class="dsp" style="font-size:18px;">REST DAY</div>'+
@@ -2051,9 +2115,14 @@
          '<button class="quickbtn" data-quickstart="1">⚡ 5 MIN</button></div>'
         :'';
       // the reappraisal script is read BEFORE the gate checklist, as in the study
-      var gate=(focusKey==="match"&&!backfill)?(reappraisalCard()+gateCard(sess)+debriefCard(st,actK)):"";
+      // the gate (T1) and the debrief (T4) are CONDITION CARDS now — they rise into the
+      // tier stack above the day's work rather than sitting inside it
+      if(focusKey==="match"&&!backfill){
+        tierGate=reappraisalCard()+gateCard(sess);
+        tierDebrief=debriefCard(st,actK);
+      }
       body='<div class="divi"><span class="ml" role="heading" aria-level="2">'+(backfill?'YESTERDAY':'TODAY')+' ▸ '+esc(F.name).toUpperCase()+kx+'</span></div>'+
-        bfBanner+nmt+gate+sessRow+
+        bfBanner+nmt+sessRow+
         '<div class="cols"><div><div class="dlist">'+rows+'</div></div>'+
         '<div><div class="card"><div class="ml">HAND FEEL</div><div class="feelgrid">'+fbs+'</div>'+
         '<div class="fword" style="color:'+fcol+';">'+(sess.feel?fw[sess.feel]:"LOG IT AFTER YOUR REPS")+'</div></div>'+
@@ -2062,13 +2131,18 @@
     }
     // one milestone card at a time, so Today never piles up: a returning user gets the
     // welcome-back; otherwise a due plan-review; otherwise the weekly recap.
+    // The tier system decides what surfaces — no hand-tuned "show at most one of these"
+    // conditionals any more. Each card declares how fast its moment passes and the stack
+    // sorts it out, so a new condition can be added without re-deriving the whole ladder.
     var pr=planReview(st,now);
-    var recap=(!lapse&&!pr)?weeklyRecap(st,now):null;
-    // only lineup users ever see this — invisible until something is actually due
     var lnDue=dueLineups(st,now).length;
-    var lnrev=lnDue?'<button class="card ptrcard" data-go="maps" style="margin-bottom:12px;"><div><div class="ml" style="color:var(--hero-ink);">LINEUP REVIEW · '+lnDue+' DUE ▸</div>'+
-      '<p class="mhow" style="margin:4px 0 0;">A quick recall check on your saved throws — on the <b style="color:var(--text);">Maps</b> tab.</p></div><span class="ptrchev">›</span></button>':'';
-    return hd+hero+lapseCard(lapse)+reviewCard(st,pr)+recapCard(st,recap)+cuebar+lnrev+body+'<div class="motto">LOCKIN · TEN FOCUSED MINUTES BEATS A SKIPPED HOUR</div>';
+    var stack=todayStack(todayCards(st,now,{
+      gate:tierGate, lapse:lapse, pr:pr, lnDue:lnDue,
+      recap:weeklyRecap(st,now), debrief:tierDebrief
+    }));
+    // the plan review's full card (with its Apply flow) opens from the DUE row
+    var reviewOpen=showReview&&pr?reviewCard(st,pr):"";
+    return hd+hero+stack+reviewOpen+cuebar+body+'<div class="motto">LOCKIN · TEN FOCUSED MINUTES BEATS A SKIPPED HOUR</div>';
   }
 
   /* ---------- PLAN ---------- */
@@ -3029,6 +3103,13 @@
     for(var i=0;i<gos.length;i++)(function(b){b.onclick=function(){go(b.getAttribute("data-go"));};})(gos[i]);
     var dst=root.querySelectorAll("[data-dest]");
     for(var di=0;di<dst.length;di++)(function(b){b.onclick=function(){goDest(b.getAttribute("data-dest"));};})(dst[di]);
+    var mct=root.querySelector("[data-morecards]");
+    if(mct)mct.onclick=function(){moreCards=mct.getAttribute("data-morecards")==="1";render();};
+    var dgo=root.querySelectorAll("[data-duego]");
+    for(var dgi=0;dgi<dgo.length;dgi++)(function(b){b.onclick=function(){
+      var k=b.getAttribute("data-duego");
+      if(k==="maps")go("maps");
+      else{showReview=true;render();}};})(dgo[dgi]);
     var th=root.querySelectorAll("[data-theme-set]");
     for(var t=0;t<th.length;t++)(function(b){b.onclick=function(){setTheme(b.getAttribute("data-theme-set"));};})(th[t]);
     var rk=root.querySelectorAll('[data-act="retake"]');
@@ -3469,7 +3550,7 @@
   }
   if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
     stateForBackup:stateForBackup,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER,
-    picSlots:picSlots,picRole:picRole,PICROLE:PICROLE,DESTS:DESTS,destOf:destOf,subTabs:subTabs};
+    picSlots:picSlots,picRole:picRole,PICROLE:PICROLE,DESTS:DESTS,destOf:destOf,subTabs:subTabs,dueCard:dueCard,todayCards:todayCards,todayStack:todayStack};
 })();
 </script>
 </body>
