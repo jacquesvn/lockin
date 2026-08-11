@@ -1633,6 +1633,25 @@ ok('--line2 never PAINTS anything — it is a ~1.6:1 divider, not a colour', (fu
   if (bad2.length) console.log('      --line2 painting: ' + bad2.join(' | '));
   return bad2.length === 0 && /--edge\s*:/.test(css);
 })());
+ok('the two micro-label roles are distinct and both sit inside the spec type scale', (function () {
+  // One .ml class was doing the work of two roles at 11px/0.14em — above the size range of
+  // either and below the kicker's tracking. ~50 visible labels carried it, which is most of
+  // why the app read chunkier than the prototype without any single label looking wrong.
+  //   Data / stat label   --fm  8-10px   400/600  0.12-0.14em
+  //   Section kicker      --fm  8-8.5px  400      0.18em
+  var base = (css.match(/\.ml\{[^}]*\}/) || [''])[0];
+  var kick = (css.match(/\.divi \.ml,\.ml\.kicker\{[^}]*\}/) || [''])[0];
+  function px(r) { var m = r.match(/font-size:([\d.]+)px/); return m ? +m[1] : null; }
+  function em(r) { var m = r.match(/letter-spacing:([-\d.]+)em/); return m ? +m[1] : null; }
+  function wt(r) { var m = r.match(/font-weight:(\d+)/); return m ? +m[1] : null; }
+  var statOk = px(base) >= 8 && px(base) <= 10 && em(base) >= 0.12 && em(base) <= 0.14;
+  var kickOk = px(kick) >= 8 && px(kick) <= 8.5 && em(kick) === 0.18 && wt(kick) === 400;
+  // and the hero numeral is the TOP of the display range, not merely inside it
+  var big = (css.match(/\.big-n\{[^}]*\}/) || [''])[0];
+  var bigOk = px(big) === 68 && em(big) === -0.045;
+  if (!statOk || !kickOk || !bigOk) console.log('      base=' + base + '\n      kicker=' + kick + '\n      big=' + big);
+  return statOk && kickOk && bigOk && base !== kick;
+})());
 ok('a selected nav item is never signalled by text colour alone', (function () {
   // .snav .snsub.on set background:transparent AND ::before{display:none}, cancelling BOTH
   // affordances the nav uses for selection — so "you are on Plan, not Drills" came down to

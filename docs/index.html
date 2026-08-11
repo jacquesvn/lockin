@@ -85,7 +85,14 @@
   body{background:var(--bg);color:var(--text);font-family:var(--fb);line-height:1.5;-webkit-font-smoothing:antialiased;}
   button{font-family:var(--fb);}
   .dsp{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;overflow-wrap:anywhere;}
-  .ml{font-family:var(--fm);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--faint);font-weight:600;}
+  /* The spec's type table has TWO micro-label roles and we shipped one class doing both, at
+     11px/0.14em — above the size range of either and below the kicker's tracking. Across ~50
+     visible labels that is most of why the app read chunkier and less precise than the
+     prototype, without any single label looking wrong.
+       Data / stat label  --fm  8-10px  400/600  0.12-0.14em   ("CURRENT STREAK", "THE RULE")
+       Section kicker     --fm  8-8.5px  400     0.18em        ("DRILL LIBRARY", "INSIGHTS")  */
+  .ml{font-family:var(--fm);font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--faint);font-weight:600;}
+  .divi .ml,.ml.kicker{font-size:8.5px;font-weight:400;letter-spacing:0.18em;}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;}
   /* a card that's also a button — the Plan → Maps pointer */
   .ptrcard{width:100%;text-align:left;cursor:pointer;display:flex;align-items:center;gap:12px;color:inherit;font:inherit;}
@@ -248,7 +255,9 @@
   .hero-card{position:relative;overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;}
   .hero-card::after{content:"";position:absolute;top:-50px;right:-50px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,var(--hero),transparent 68%);opacity:.10;pointer-events:none;}
   .hero-row{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;}
-  .big-n{font-family:var(--fd);font-weight:800;font-size:64px;line-height:.95;letter-spacing:-0.03em;color:var(--hero-ink);}
+  /* the hero numeral: section 5.1 puts the streak at the TOP of the display range, 68px and
+     -0.045em. We were at 64/-0.03, which is a legal display size but not the headline one. */
+  .big-n{font-family:var(--fd);font-weight:800;font-size:68px;line-height:.95;letter-spacing:-0.045em;color:var(--hero-ink);}
   .frz{display:flex;align-items:center;gap:8px;margin-top:8px;font-family:var(--fm);font-size:9.5px;letter-spacing:0.1em;color:var(--accInk);}
   .frzrow{display:inline-flex;gap:3px;}
   .frzs{width:14px;height:14px;color:var(--accInk);display:inline-block;}
@@ -2640,7 +2649,8 @@
     var ydTrainable=plan.weekly[addDays(now,-1).getDay()]!=="rest";
     var bfToggle=backfill?'<button class="bftoggle on" data-backfill="1">◂ BACK TO TODAY</button>':(ydTrainable?'<button class="bftoggle" data-backfill="1">LOG YESTERDAY</button>':'');
     var tag=playerTag(st);
-    var hd='<div class="hd"><div><div class="ml">'+(tag?'HEY '+esc(tag.toUpperCase())+' · ':'')+dstr.toUpperCase()+' · WK '+programWeek(plan,now)+'/12</div><h1 class="dsp">TODAY</h1></div>'+
+    // section 5.1 item 1 names the crumb explicitly: --fm 8.5px, 0.18em, --faint
+    var hd='<div class="hd"><div><div class="ml kicker">'+(tag?'HEY '+esc(tag.toUpperCase())+' · ':'')+dstr.toUpperCase()+' · WK '+programWeek(plan,now)+'/12</div><h1 class="dsp">TODAY</h1></div>'+
       '<div style="display:flex;gap:8px;align-items:center;">'+bfToggle+'<button class="iconbtn" data-go="setup" aria-label="Setup">'+GEAR+'</button></div></div>';
     var hero='<div class="hero-card" data-tour="today"><div class="hero-row">'+
       '<div><div class="ml">CURRENT STREAK</div><div class="big-n">'+streak+'</div><div class="ml" style="color:var(--muted);">DAYS LOCKED IN</div>'+
