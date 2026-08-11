@@ -1988,8 +1988,22 @@
   // can't cost a streak. localStorage stays authoritative; this is read back only when
   // localStorage comes up empty (see the boot restore). No-op on web.
   var _mirrorT=null;
+  var _bootDone=false;
+  // Boot has finished deciding what the state IS. Until this flips, nothing may be mirrored:
+  // on a wiped WebView cache the init path save()s a BLANK state twice before the restore
+  // lands (the version stamp, then the GSI token), and mirrorBackup's 800ms debounce would
+  // carry that blank state straight over lockin-state.json — destroying the only surviving
+  // copy at the exact moment it was being used to recover. The restore itself is fast (~ms),
+  // so the write always lost the race. Flip the flag and mirror once, deliberately, at the
+  // end of every boot branch instead.
+  function bootSettled(){
+    if(_bootDone)return;
+    _bootDone=true;
+    mirrorBackup(load());
+  }
   function mirrorBackup(st){
     if(!isNative)return;
+    if(!_bootDone)return;      // see bootSettled: pre-restore state must never reach the file
     if(_mirrorT)clearTimeout(_mirrorT);
     _mirrorT=setTimeout(function(){try{TAURI.core.invoke("backup_write",{json:JSON.stringify(stateForBackup(st))}).catch(function(){});}catch(_){}},800);
   }
@@ -5400,20 +5414,20 @@
     imgLoadAll().then(function(){
       try{var a=document.getElementById("app");if(a&&a.style.display!=="none"&&load().plan)render();}catch(_){}
     });
-    if(st.plan){boot("today");return;}
+    if(st.plan){bootSettled();boot("today");return;}
     // No plan here. On desktop, the auto-backup file is what lets someone pick up where
     // they left off after a wiped cache or a reinstall — try it before showing the quiz.
     if(isNative){
       try{
         TAURI.core.invoke("backup_read").then(function(json){
           // strip the pictures back out into IndexedDB — they must never enter localStorage
-          try{if(json){var o=JSON.parse(json);if(o&&o.plan&&validBackup(o)){takeBackupImages(o);localStorage.setItem(KEY,JSON.stringify(o));applyTheme(curTheme(load()));boot("today");return;}}}catch(_){}
-          renderOnboard();
-        },function(){renderOnboard();});
+          try{if(json){var o=JSON.parse(json);if(o&&o.plan&&validBackup(o)){takeBackupImages(o);bootSettled();save(o);applyTheme(curTheme(load()));boot("today");return;}}}catch(_){}
+          bootSettled();renderOnboard();
+        },function(){bootSettled();renderOnboard();});
         return;
       }catch(_){}
     }
-    renderOnboard();
+    bootSettled();renderOnboard();
   })();
   if(isNative||("Notification" in window))setInterval(reminderTick,30000);
   // quiet auto-check shortly after launch; failures stay silent (offline is normal, not an error)

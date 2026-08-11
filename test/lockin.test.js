@@ -911,9 +911,29 @@ ok('desktop mirrors state to a file and restores it when localStorage is empty',
 })());
 ok('the backup restore only fires when there is no local plan (localStorage stays authoritative)', (function () {
   // in the init: restore is inside the `if(st.plan){...return}` else-path, gated on isNative
-  return /if\(st\.plan\)\{boot\("today"\);return;\}/.test(script) &&
-         // pictures are pulled back out to IndexedDB before the state hits localStorage
-         /backup_read[\s\S]*?takeBackupImages\(o\);localStorage\.setItem\(KEY,JSON\.stringify\(o\)\)/.test(script);
+  return /if\(st\.plan\)\{bootSettled\(\);boot\("today"\);return;\}/.test(script) &&
+         // pictures are pulled back out to IndexedDB before the state reaches localStorage
+         /backup_read[\s\S]*?takeBackupImages\(o\);bootSettled\(\);save\(o\)/.test(script);
+})());
+ok('no boot-time save can mirror pre-restore state over the backup file', (function () {
+  // The bug this exists for: on a wiped WebView cache the init path save()s a BLANK state
+  // twice before the restore lands (version stamp, then GSI token). mirrorBackup's 800ms
+  // debounce carried that blank state over lockin-state.json — so opening the app destroyed
+  // the only surviving copy at the exact moment it was being used to recover, and a second
+  // cache wipe meant total silent loss. Three independent audit agents reproduced it.
+  var mb = (script.match(/function mirrorBackup\(st\)\{[\s\S]*?\n  \}/) || [''])[0];
+  var gated = /if\(!_bootDone\)return;/.test(mb);
+  // and the flag must actually be flipped on EVERY terminal branch of init, or a boot that
+  // ends down an unsettled path silently stops backing up for the whole session
+  var init = script.slice(script.lastIndexOf('/* ---------- init ---------- */'));
+  var exits = (init.match(/renderOnboard\(\)|boot\("today"\)/g) || []).length;
+  var settles = (init.match(/bootSettled\(\)/g) || []).length;
+  // restore uses save(), not a raw setItem, so `mem` is set and the mirror re-arms correctly
+  var savesNotSetItem = init.indexOf('localStorage.setItem(KEY,JSON.stringify(o))') < 0;
+  if (!gated || settles < exits || !savesNotSetItem)
+    console.log('      gated=' + gated + ' exits=' + exits + ' settles=' + settles + ' savesNotSetItem=' + savesNotSetItem);
+  return gated && settles >= exits && savesNotSetItem &&
+         /function bootSettled\(\)\{[\s\S]*?mirrorBackup\(load\(\)\)/.test(script);
 })());
 ok('web asks the browser to keep storage persistent', (function () {
   return script.indexOf('navigator.storage') >= 0 && script.indexOf('.persist(') >= 0;
