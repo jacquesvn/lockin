@@ -3424,8 +3424,22 @@
     // the contradiction sits directly UNDER the audit that produced it, so the evidence is adjacent
     // evidence sits after the audit that feeds it: what closed, what changed, and the case
     // you could actually make to someone who doesn't believe you
-    return hd+youVsYou()+insightsCard(st)+milestoneRail(st)+milestonesCard(st)+cal+leakCard(st)+deathCard(st)+bottleneckCard(st)+
-      leakHistoryCard(st)+changedCard(st)+proofCard(st)+mx+glossary();
+    /* Order matters here and ours was wrong in three ways.
+       · The reference art opens on STREAK MILESTONES — it is the "where am I" anchor, and we
+         had it eighth, below the charts.
+       · ACHIEVEMENTS closes the screen in the art; we had it in the middle, so the evidence
+         cards read as an afterthought tacked on after the trophies.
+       · leakCard says "Derived from the audit above" and rendered ABOVE the audit. That was
+         not a layout preference, it was the copy telling a lie about the page.
+       The bottleneck card ("you said aim, your deaths say position") introduces the audit, so
+       it leads into it rather than trailing it, and youVsYou — the you-against-your-own-past
+       line — now sits with the comparison it is about instead of floating at the top. */
+    return hd+milestoneRail(st)+insightsCard(st)+
+      bottleneckCard(st)+deathCard(st)+leakCard(st)+
+      leakHistoryCard(st)+changedCard(st)+youVsYou()+proofCard(st)+mx+
+      cal+milestonesCard(st)+
+      '<button class="btncopy" data-sharecard="1" style="margin-top:10px;">⬇ SAVE PROGRESS CARD (PNG)</button>'+
+      glossary();
   }
   // These averages come from Premier/Leetify data. The skill bands transfer, but the numbers
   // aren't measured on FACEIT or ESEA — say so rather than passing them off as native.
@@ -3858,9 +3872,11 @@
       '<div class="sparkrow"><div class="sl"><b>Sessions / week</b><span>last 8 weeks</span></div>'+bars+'</div>'+
       '<div class="sparkrow"><div class="sl"><b>Hand feel</b><span>'+(recent.length?"out of 5":"1–5 scale")+'</span></div>'+
         (feel||'<div class="chempty">Rate your hand feel after a session and it charts here.</div>')+'</div></div>';
+    // charts first, then the twelve-week grid — the heatmap is the zoom-out, so it reads as
+    // "and here is all of it" rather than interrupting the tiles before the detail arrives.
+    // The share button used to sit here, stranded mid-screen; it now closes the page.
     return '<div class="divi"><span class="ml" role="heading" aria-level="2">INSIGHTS</span></div>'+tiles+
-      heatmap(st,12)+rows+
-      '<button class="btncopy" data-sharecard="1" style="margin-top:10px;">⬇ SAVE PROGRESS CARD (PNG)</button>';
+      rows+heatmap(st,12);
   }
 
   /* ---------- v0.7: death audit (demo review) ---------- */

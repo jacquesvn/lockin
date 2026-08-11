@@ -1462,8 +1462,13 @@ ok('it reads a 7-day window, not all time', (function () {
 })());
 ok('Progress states you-vs-you and the app has no leaderboard anywhere', (function () {
   var y = youVsYou();
-  return /no leaderboard/i.test(y) && /own past/i.test(y) &&
-         html.indexOf('youVsYou()+insightsCard') >= 0 &&
+  // this used to pin the source adjacency `youVsYou()+insightsCard`, which broke the moment
+  // the cards were reordered even though the claim was still rendered. Assert that it is IN
+  // the Progress assembly, not who it happens to sit next to.
+  var assembly = script.slice(script.indexOf('function htmlProgress('));
+  assembly = assembly.slice(0, assembly.indexOf('\n  function ', 10));
+  var rendered = /return hd\+[\s\S]*?youVsYou\(\)/.test(assembly);
+  return /no leaderboard/i.test(y) && /own past/i.test(y) && rendered &&
          !/leaderboard/i.test(html.replace(/no leaderboard/ig, ''));   // only ever mentioned to deny it
 })());
 ok('the privacy card states all four claims and the line only a free app can write', (function () {
@@ -1633,6 +1638,32 @@ ok('--line2 never PAINTS anything — it is a ~1.6:1 divider, not a colour', (fu
   var bad2 = (css.match(/(?:background(?:-color)?|border(?:-color)?)\s*:[^;}]*var\(--line2\)/g) || []);
   if (bad2.length) console.log('      --line2 painting: ' + bad2.join(' | '));
   return bad2.length === 0 && /--edge\s*:/.test(css);
+})());
+ok('Progress card order: milestones open, achievements close, and the leak follows its audit', (function () {
+  // "Derived from the audit above" was rendering ABOVE the audit — the copy was telling a lie
+  // about the page, which is an ordering bug with a factual consequence, not a taste one.
+  var a = script.slice(script.indexOf('function htmlProgress('));
+  a = a.slice(0, a.indexOf('\n  function ', 10));
+  var ret = (a.match(/return hd\+[\s\S]*?glossary\(\);/) || [''])[0];
+  function at(name) { return ret.indexOf(name); }
+  var milestones = at('milestoneRail('), insights = at('insightsCard('),
+      audit = at('deathCard('), leak = at('leakCard('),
+      badges = at('milestonesCard('), share = at('data-sharecard');
+  var found = [milestones, insights, audit, leak, badges, share].every(function (i) { return i >= 0; });
+  if (!found) { console.log('      missing from the assembly: ' + JSON.stringify({ milestones: milestones, insights: insights, audit: audit, leak: leak, badges: badges, share: share })); return false; }
+  return milestones < insights &&        // the "where am I" anchor opens the screen
+         audit < leak &&                 // the leak is derived from the audit ABOVE it
+         insights < badges && leak < badges &&   // trophies close, they do not interrupt
+         badges <= share &&                      // and the share button closes with them
+         /Derived from the audit above/.test(script);
+})());
+ok('the twelve-week grid is the zoom-OUT: it follows the charts, never precedes them', (function () {
+  var fn = script.slice(script.indexOf('function insightsCard('));
+  fn = fn.slice(0, fn.indexOf('\n  function ', 10));
+  var ret = (fn.match(/return '<div class="divi">[\s\S]*?;/) || [''])[0];
+  return ret.indexOf('rows') >= 0 && ret.indexOf('heatmap(') >= 0 &&
+         ret.indexOf('rows') < ret.indexOf('heatmap(') &&
+         ret.indexOf('data-sharecard') < 0;      // the share button no longer strands mid-screen
 })());
 ok('the settings audit never invents a setting CS2 does not have', (function () {
   // The reference art carries a "Raw input — Off — TURN IT ON" row. `m_rawinput` was removed
