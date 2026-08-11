@@ -1458,11 +1458,71 @@ ok('state-carrying borders use --edge (>=3:1), never decorative --line2 (~2:1)',
     return re.test(html);
   }) && /--edge:oklch/.test(html);
 })());
-ok('light --hero-ink clears AA on surface2 (where chips sit), not just on white', (function () {
-  // 0.52 passed on white (5.47) but failed on --surface2 (4.41); 0.49 gives 6.21 / 5.01
-  var m = html.match(/--hero-ink:oklch\(([\d.]+)/g) || [];
-  var light = m[m.length - 1];
-  return light && parseFloat(light.replace(/[^\d.]/g, '')) <= 0.49;
+// Contrast is MEASURED here, not assumed from a token pair — tinted grounds shift every
+// ratio, and alpha tokens (--glass2) must be composited before they mean anything.
+function oklchToRgb(L, C, H) {
+  var h = H * Math.PI / 180, a = C * Math.cos(h), b = C * Math.sin(h);
+  var l_ = L + 0.3963377774 * a + 0.2158037573 * b, m_ = L - 0.1055613458 * a - 0.0638541728 * b, s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+  var l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+  var R = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+  var G = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+  var B = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+  function g(x) { x = x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(Math.max(x, 0), 1 / 2.4) - 0.055; return Math.min(1, Math.max(0, x)); }
+  return [g(R), g(G), g(B)];
+}
+function over(fg, alpha, bg) { return [0, 1, 2].map(function (i) { return fg[i] * alpha + bg[i] * (1 - alpha); }); }
+function lin(v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+function lumOf(c) { return 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]); }
+function cr(f, b) { var A = lumOf(f), B = lumOf(b); return (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05); }
+// pull a token's oklch triple straight out of the shipped stylesheet, per theme
+function tok(name, theme) {
+  var scope = theme === 'light'
+    ? (html.match(/\[data-theme="light"\]\{([\s\S]*?)\n  \}/) || [])[1]
+    : (html.match(/:root\{([\s\S]*?)\n  \}/) || [])[1];
+  var m = (scope || '').match(new RegExp('--' + name + ':oklch\\(([\\d.]+)\\s+([\\d.]+)\\s+([\\d.]+)'));
+  return m ? oklchToRgb(+m[1], +m[2], +m[3]) : null;
+}
+ok('v3 accent-as-TEXT clears AA on every ground it lands on, in BOTH themes', (function () {
+  var bad = [];
+  ['dark', 'light'].forEach(function (t) {
+    var ink = tok('accInk', t), surf = tok('surface', t), bg = tok('bg', t), s2 = tok('surface2', t);
+    if (!ink || !surf || !bg || !s2) { bad.push(t + ':missing'); return; }
+    [['surface', surf], ['bg', bg], ['surface2', s2]].forEach(function (p) {
+      var r = cr(ink, p[1]);
+      if (r < 4.5) bad.push(t + ' accInk on ' + p[0] + ' = ' + r.toFixed(2));
+    });
+  });
+  if (bad.length) console.log('      ' + bad.join('; '));
+  return bad.length === 0;
+})());
+ok('--faint on --glass2 (the tightest pair in the system) clears AA once composited', (function () {
+  var bad = [];
+  ['dark', 'light'].forEach(function (t) {
+    var faint = tok('faint', t), surf = tok('surface', t);
+    // --glass2 is an alpha token: white .085 in dark, plum .075 in light
+    var g2 = t === 'dark' ? over([1, 1, 1], 0.085, surf) : over(oklchToRgb(0.30, 0.06, 303), 0.075, surf);
+    var r = cr(faint, g2);
+    if (r < 4.5) bad.push(t + ' faint on glass2 = ' + r.toFixed(2));
+  });
+  if (bad.length) console.log('      ' + bad.join('; '));
+  return bad.length === 0;
+})());
+ok('--edge clears the 3:1 non-text minimum on both grounds, both themes', (function () {
+  var bad = [];
+  ['dark', 'light'].forEach(function (t) {
+    var e = tok('edge', t);
+    [['surface', tok('surface', t)], ['bg', tok('bg', t)]].forEach(function (p) {
+      var r = cr(e, p[1]);
+      if (r < 3) bad.push(t + ' edge on ' + p[0] + ' = ' + r.toFixed(2));
+    });
+  });
+  if (bad.length) console.log('      ' + bad.join('; '));
+  return bad.length === 0;
+})());
+ok('the accent split is real: --acc is fill-only, --accInk is the text/icon accent', (function () {
+  // in light theme using --acc as a text colour fails AA — the split must not collapse
+  var accL = tok('acc', 'light'), inkL = tok('accInk', 'light'), surf = tok('surface', 'light');
+  return accL && inkL && cr(inkL, surf) >= 4.5 && cr(accL, surf) < cr(inkL, surf);
 })());
 
 // --- v0.31: verified movement + damage mechanics ---

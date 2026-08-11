@@ -17,37 +17,59 @@
 </head>
 <body>
 <style>
+  /* ---------- v3 "Oblivion" identity ----------
+     Colours are sampled from the player's own emblem: plum-black grounds and one violet
+     lifted from the shard's brightest facet. Hue is LOCKED between 303 and 318 so the
+     palette can never drift toward blue.
+
+     Two hard rules, both of which were bugs before:
+     · --acc is the FILL accent (buttons, filled cells, bars) with --onAcc text on top.
+       --accInk is the accent used as TEXT or an ICON. In light theme --accInk is much
+       darker than --acc; using --acc as a text colour fails AA there.
+     · --line2 is DECORATIVE only (~2:1). Any border that CARRIES MEANING — an unchecked
+       drill circle, a gate checkbox, a dashed rest-day cell — uses --edge, which clears
+       the 3:1 non-text minimum in both themes.
+     The --hero* names below are aliases kept so existing rules keep working; new code
+     should use the --acc* names. */
   :root{
-    --stage:oklch(0.128 0.004 100);--bg:oklch(0.168 0.004 100);
-    --surface:oklch(0.205 0.005 100);--surface2:oklch(0.248 0.006 100);
-    --line:oklch(0.315 0.006 100);--line2:oklch(0.40 0.008 100);
-    /* --line2 is DECORATIVE only (1.95:1 dark / 2.04:1 light — below the 3:1 non-text
-       minimum). Any border that CARRIES MEANING — an unchecked drill circle, a gate
-       checkbox, a dashed rest-day cell — uses --edge, measured ≥3:1 on both surface and bg
-       in both themes (dark 3.54/3.79, light 4.22/3.40). */
-    --edge:oklch(0.54 0.006 100);
-    --text:oklch(0.965 0.004 100);--muted:oklch(0.665 0.006 100);--faint:oklch(0.625 0.006 100);
-    --hero:oklch(0.865 0.165 96);--hero2:oklch(0.80 0.16 96);--onhero:oklch(0.20 0.03 96);--hero-ink:oklch(0.865 0.165 96);
-    --good:oklch(0.805 0.15 152);--bad:oklch(0.685 0.19 27);--info:oklch(0.78 0.085 225);
+    --stage:oklch(0.098 0.026 303);--bg:oklch(0.132 0.032 303);
+    --surface:oklch(0.185 0.042 303);--surface2:oklch(0.238 0.050 303);
+    --glass:oklch(1 0 0 / .045);--glass2:oklch(1 0 0 / .085);
+    --line:oklch(1 0 0 / .10);--line2:oklch(1 0 0 / .17);
+    --edge:oklch(0.55 0.020 303);
+    --text:oklch(0.975 0.006 303);--muted:oklch(0.735 0.028 303);--faint:oklch(0.652 0.030 303);
+    --acc:oklch(0.575 0.235 318);--accH:oklch(0.635 0.235 318);--accInk:oklch(0.775 0.175 318);
+    --accGhost:oklch(0.575 0.235 318 / .38);--onAcc:oklch(0.99 0.004 318);
+    --bloom:oklch(0.62 0.26 316);
+    --good:oklch(0.815 0.145 165);--bad:oklch(0.695 0.195 16);
+    --good-ink:oklch(0.815 0.145 165);--bad-ink:oklch(0.695 0.195 16);
+    --info:oklch(0.775 0.175 318);
+    --dock:oklch(0.205 0.045 303 / .86);--scrim:oklch(0.09 0.026 303 / .72);
+    /* legacy aliases — one edit flips every existing rule onto the new palette */
+    --hero:var(--acc);--hero2:var(--accH);--onhero:var(--onAcc);--hero-ink:var(--accInk);
     --fd:'Helvetica Neue',Helvetica,Arial,sans-serif;
     --fb:system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif;
     --fm:ui-monospace,'SF Mono','Cascadia Mono',Menlo,Consolas,monospace;
+    /* the facet: a 15px chamfer cut at the shard's angle, the design's default gesture */
+    --facet:polygon(0 0,calc(100% - 15px) 0,100% 15px,100% 100%,15px 100%,0 calc(100% - 15px));
   }
   [data-theme="light"]{
-    --stage:oklch(0.90 0.005 95);--bg:oklch(0.948 0.004 95);
-    --surface:oklch(0.995 0.003 95);--surface2:oklch(0.922 0.006 95);
-    --line:oklch(0.855 0.006 95);--line2:oklch(0.77 0.008 95);
-    --edge:oklch(0.58 0.006 95);
-    --text:oklch(0.205 0.006 95);--muted:oklch(0.44 0.006 95);--faint:oklch(0.495 0.006 95);
-    --hero:oklch(0.845 0.17 91);--hero2:oklch(0.79 0.16 91);--onhero:oklch(0.18 0.035 91);
-    /* --hero-ink is the TEXT gold (foreground); --hero stays the fill gold. Darkened
-       from 0.585 → 0.52 so gold text clears WCAG AA (4.5:1) on cards and page bg in
-       light mode — the bright fill gold as text was ~1.5:1, effectively invisible.
-       Then 0.52 → 0.49: 0.52 cleared white cards (5.47) but FAILED on --surface2
-       (4.41), which is exactly where chips sit. 0.49 gives 6.21 / 5.01. */
-    --hero-ink:oklch(0.49 0.13 84);
-    --good:oklch(0.50 0.14 152);--bad:oklch(0.53 0.20 27);   /* good darkened 0.55→0.50 so green status text clears AA on light cards */
+    --stage:oklch(0.930 0.016 303);--bg:oklch(0.972 0.010 303);
+    --surface:oklch(1 0 0);--surface2:oklch(0.945 0.016 303);
+    --glass:oklch(0.30 0.06 303 / .04);--glass2:oklch(0.30 0.06 303 / .075);
+    --line:oklch(0.28 0.05 303 / .13);--line2:oklch(0.28 0.05 303 / .22);
+    --edge:oklch(0.585 0.020 303);
+    --text:oklch(0.185 0.040 303);--muted:oklch(0.435 0.035 303);--faint:oklch(0.470 0.032 303);
+    --acc:oklch(0.505 0.245 318);--accH:oklch(0.455 0.235 318);--accInk:oklch(0.455 0.230 318);
+    --accGhost:oklch(0.505 0.245 318 / .34);--onAcc:oklch(0.995 0.003 318);
+    --bloom:oklch(0.60 0.24 316);
+    --good:oklch(0.47 0.13 152);--bad:oklch(0.505 0.19 27);
+    --good-ink:oklch(0.47 0.13 152);--bad-ink:oklch(0.505 0.19 27);
+    --info:oklch(0.455 0.230 318);
+    --dock:oklch(1 0 0 / .88);--scrim:oklch(0.30 0.05 303 / .38);
   }
+  /* the facet, applied. Small chips and circular elements keep normal radii. */
+  .facet{clip-path:var(--facet);}
   *{box-sizing:border-box;margin:0;}
   html,body{height:100%;}
   /* reserve the scrollbar always, or short screens (Today) sit 15px wider than
@@ -97,7 +119,7 @@
   .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:transparent;border:none;border-radius:10px;padding:7px 4px;cursor:pointer;color:var(--faint);}
   .tab svg{width:19px;height:19px;}
   .tab span{font-family:var(--fm);font-size:9px;letter-spacing:0.04em;font-weight:700;white-space:nowrap;}
-  .tab.on{color:var(--hero-ink);background:color-mix(in oklab,var(--hero) 10%, transparent);}
+  .tab.on{color:var(--hero-ink);background:color-mix(in oklab,var(--hero) 10%, transparent);--knock:color-mix(in oklab,var(--acc) 10%,var(--surface));}
   /* seven sections fit the bottom bar as icons (labels live in the desktop sidebar) */
   #tabbar .tab span{display:none;} #tabbar .tab{padding:11px 2px;} #tabbar .tab svg{width:22px;height:22px;}
   .scr{display:none;} .scr.show{display:block;animation:lk-rise .22s ease;}
@@ -112,12 +134,12 @@
   }
   .snav{display:flex;flex-direction:column;gap:4px;}
   .snav button{display:flex;align-items:center;gap:10px;background:transparent;border:none;border-radius:10px;padding:10px 12px;cursor:pointer;color:var(--muted);font-family:var(--fm);font-size:12px;font-weight:700;letter-spacing:0.1em;text-align:left;}
-  .snav button.on{background:var(--hero);color:var(--onhero);}
+  .snav button.on{background:var(--hero);color:var(--onhero);--knock:var(--acc);}
   .snav button svg{width:16px;height:16px;}
   .smini{margin-top:auto;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:14px;}
 
   /* ---------- brand ---------- */
-  .brand{display:flex;align-items:center;gap:9px;}
+  .brand{display:flex;align-items:center;gap:9px;--knock:var(--surface);}
   .brand svg{width:22px;height:22px;color:var(--hero-ink);}
   .wordmark{font-family:var(--fd);font-weight:800;font-size:17px;letter-spacing:-0.02em;}
   .wordmark b{color:var(--hero-ink);}
@@ -608,7 +630,18 @@
   @keyframes lk-rise{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
   @keyframes lk-blink{50%{opacity:.25}}
   @keyframes spin{to{transform:rotate(360deg)}}
-  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;}}
+  /* v3 motion. Standard easing cubic-bezier(.2,.9,.2,1), durations 260–450ms.
+     The two shards fly in along their own diagonals and meet — "the assemble". */
+  @keyframes v3-shardA{0%{transform:translate(16px,-16px) rotate(7deg);opacity:0}100%{transform:translate(0,0);opacity:1}}
+  @keyframes v3-shardB{0%{transform:translate(-16px,16px) rotate(-7deg);opacity:0}100%{transform:translate(0,0);opacity:1}}
+  @keyframes v3-bloom{0%{transform:scale(.5);opacity:0}45%{opacity:.95}100%{transform:scale(1.06);opacity:.45}}
+  @keyframes v3-ping{0%{transform:scale(.7);opacity:.85}100%{transform:scale(2.1);opacity:0}}
+  @keyframes v3-rise{0%{transform:translateY(12px);opacity:0}100%{transform:translateY(0);opacity:1}}
+  @keyframes v3-roll{0%{transform:translateY(40%) scale(.84);opacity:0}100%{transform:translateY(0) scale(1);opacity:1}}
+  @keyframes v3-pop{0%{transform:scale(.6);opacity:0}62%{transform:scale(1.14)}100%{transform:scale(1);opacity:1}}
+  @keyframes v3-slide{0%{transform:translateY(16px);opacity:0}100%{transform:translateY(0);opacity:1}}
+  /* Collapse motion to ~0 but KEEP end states and every numeric update intact. */
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;}}
 </style>
 
 <div id="onboard"></div>
@@ -629,11 +662,28 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.32.0";
+  var VERSION="0.33.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
-  var RET='<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 9V3h6M23 3h6v6M3 23v6h6M29 23v6h-6"/><path d="M16 8.5v3.5M16 20v3.5M8.5 16h3.5M20 16h3.5"/><circle cx="16" cy="16" r="1.9" fill="currentColor" stroke="none"/></svg>';
+  // The v3 mark: the player's own two-shard emblem with a FULL-BLEED crosshair knocked out
+  // over it. The knockout lines are stroked in the CONTAINER'S OWN background, so each call
+  // site passes its background in — `bg` — or the cut renders as a visible line instead of a
+  // hole. Stroke scales with size (size/22, clamped 1.1–2.6) so the cut stays proportional.
+  // Never place a knockout line where it falls inside the emblem's negative space: there it
+  // paints background over a hole and simply disappears.
+  var EMBLEM_A="M31.25 0.88L31.31 1.31L29.81 6.5L23.81 26.19L16.38 30.88L10.13 27.31L10.19 27.13L16.5 23.5L17.5 22.75L18.31 21.56L20.5 14.38L20.69 12.38L20.13 11.13L19.63 10.63L16.5 8.81L16.5 8.63L22.44 5.19L31.25 0.94Z";
+  var EMBLEM_B="M15.88 1.06L21.63 4.44L21.88 4.75L15.31 8.69L14.44 9.44L13.69 10.56L11.69 17.06L11.31 19.31L11.63 20.31L12.25 21.19L15.5 23.31L9.5 26.81L0.63 31.13L1.19 28.81L8.19 6L15.88 1.13Z";
+  function emblem(size,bg){
+    var s=Math.max(1.1,Math.min(2.6,(size||32)/22));
+    return '<svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">'+
+      '<path d="'+EMBLEM_A+'"/><path d="'+EMBLEM_B+'"/>'+
+      '<g stroke="'+(bg||"var(--knock,var(--bg))")+'" stroke-width="'+s.toFixed(2)+'" stroke-linecap="butt">'+
+        '<path d="M16 0V32"/><path d="M0 16H32"/>'+
+      '</g></svg>';
+  }
+  var RET=emblem(32,"var(--bg)");
+  var RET_OLD='<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 9V3h6M23 3h6v6M3 23v6h6M29 23v6h-6"/><path d="M16 8.5v3.5M16 20v3.5M8.5 16h3.5M20 16h3.5"/><circle cx="16" cy="16" r="1.9" fill="currentColor" stroke="none"/></svg>';
   var CHK='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" aria-hidden="true"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>';
   var GEAR='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1"/></svg>';
   var LIST='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.5M3 12h.5M3 18h.5"/></svg>';
