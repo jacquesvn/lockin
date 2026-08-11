@@ -374,6 +374,32 @@
   .skpct{flex:0 0 auto;font-family:var(--fm);font-size:11px;color:var(--text);font-variant-numeric:tabular-nums;}
   .skopts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
   .skopts .gbtn{flex:1;min-width:104px;}
+  /* Group D: evidence */
+  .lhcard,.chcard,.prcard{margin-top:10px;}
+  .lhwrap{display:flex;flex-direction:column;gap:9px;margin-top:10px;}
+  .lhrow{display:flex;align-items:center;gap:9px;font-size:12.5px;}
+  .lhname{flex:0 0 34%;min-width:0;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .lhbars{flex:1;display:flex;flex-direction:column;gap:3px;}
+  .lhbars i{display:block;height:6px;border-radius:3px;}
+  .lhbars i.was{background:var(--line2);}
+  .lhbars i.now{background:var(--good);}
+  .lhpct{flex:0 0 auto;font-family:var(--fm);font-size:11px;color:var(--text);font-variant-numeric:tabular-nums;}
+  .chwrap{margin-top:8px;}
+  .chrow{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:13px;color:var(--muted);}
+  .chrow:first-child{border-top:0;}
+  .chrow b{color:var(--text);text-align:right;}
+  .chdelta{font-family:var(--fm);font-size:11px;color:var(--faint);}
+  .chdelta.up{color:var(--good-ink);} .chdelta.down{color:var(--bad-ink);}
+  .prwrap{margin-top:8px;}
+  .prrow{padding:9px 0;border-top:1px solid var(--line);}
+  .prrow:first-child{border-top:0;}
+  .prtop{display:flex;justify-content:space-between;gap:12px;font-size:13px;color:var(--muted);}
+  .prtop b{color:var(--text);text-align:right;font-family:var(--fm);font-variant-numeric:tabular-nums;}
+  .prsrc{font-size:11.5px;color:var(--faint);margin-top:3px;}
+  .prlimit{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);}
+  .prlimit b{color:var(--text);}
+  .hxpre{white-space:pre-wrap;word-break:break-word;font-family:var(--fm);font-size:11px;line-height:1.6;
+    color:var(--muted);background:var(--glass2);border-radius:9px;padding:12px;max-height:260px;overflow:auto;}
   .dbox{width:26px;height:26px;border-radius:7px;flex:0 0 auto;display:grid;place-items:center;border:1.5px solid var(--edge);background:transparent;transition:all .15s;margin-top:1px;}
   .drow.done .dbox{background:var(--hero);border-color:var(--hero);}
   .dbox svg{width:14px;height:14px;color:var(--onhero);opacity:0;} .drow.done .dbox svg{opacity:1;}
@@ -3098,7 +3124,10 @@
     // the leak sits directly ABOVE the audit that produced it, so the claim and its
     // evidence are adjacent and you can check the one against the other
     // the contradiction sits directly UNDER the audit that produced it, so the evidence is adjacent
-    return hd+youVsYou()+insightsCard(st)+milestoneRail(st)+milestonesCard(st)+cal+leakCard(st)+deathCard(st)+bottleneckCard(st)+mx+glossary();
+    // evidence sits after the audit that feeds it: what closed, what changed, and the case
+    // you could actually make to someone who doesn't believe you
+    return hd+youVsYou()+insightsCard(st)+milestoneRail(st)+milestonesCard(st)+cal+leakCard(st)+deathCard(st)+bottleneckCard(st)+
+      leakHistoryCard(st)+changedCard(st)+proofCard(st)+mx+glossary();
   }
   // These averages come from Premier/Leetify data. The skill bands transfer, but the numbers
   // aren't measured on FACEIT or ESEA — say so rather than passing them off as native.
@@ -3533,6 +3562,151 @@
       '<button class="pbtn" data-quickstart="1">DO THE TEN INSTEAD</button>'+
       '<button class="gbtn" data-tiltdismiss="1">QUEUE ANYWAY</button></div></div>';
   }
+  /* ---------- Group D: evidence ----------
+     Everything here is a receipt. The rule throughout: every number names where it came
+     from, and anything the app cannot actually measure is not claimed. */
+  function reviewRange(st,now,fromDaysAgo,toDaysAgo){
+    var t={aim:0,pos:0,util:0,info:0,trade:0},total=0;
+    for(var i=toDaysAgo;i<=fromDaysAgo;i++){
+      var r=(st.reviews||{})[dateKey(addDays(now||new Date(),-i))];
+      if(!r)continue;
+      for(var c in t){if(r[c]){t[c]+=r[c];total+=r[c];}}
+    }
+    return {t:t,total:total};
+  }
+  // A leak is "closed" when its SHARE of your deaths fell between an early window and a
+  // recent one. Shares, not counts — logging more deaths overall must not read as a leak.
+  function leakHistory(st,now){
+    now=now||new Date();
+    var early=reviewRange(st,now,60,31),recent=reviewRange(st,now,30,0);
+    if(early.total<10||recent.total<10)return [];      // not enough either side to compare
+    var out=[];
+    CAUSES.forEach(function(c){
+      var was=Math.round(early.t[c[0]]/early.total*100),nowPct=Math.round(recent.t[c[0]]/recent.total*100);
+      if(was<15||nowPct>=was-5)return;                 // must have mattered, and actually fallen
+      out.push({k:c[0],label:c[1],was:was,now:nowPct,drop:was-nowPct});
+    });
+    out.sort(function(a,b){return b.drop-a.drop;});
+    return out;
+  }
+  function leakHistoryCard(st,now){
+    var rows=leakHistory(st,now);
+    if(!rows.length)return "";
+    var html=rows.map(function(r){
+      // the bar widths ARE the percentages — never a decorative fixed width
+      return '<div class="lhrow"><span class="lhname">'+esc(r.label)+'</span>'+
+        '<span class="lhbars"><i class="was" style="width:'+r.was+'%"></i><i class="now" style="width:'+r.now+'%"></i></span>'+
+        '<span class="lhpct">'+r.was+'% → '+r.now+'%</span></div>';
+    }).join("");
+    return '<div class="card lhcard"><div class="ml" style="color:var(--good-ink);">LEAKS CLOSED</div>'+
+      '<div class="lhwrap">'+html+'</div>'+
+      '<p class="mhow" style="margin:8px 0 0;">Share of your logged deaths, last 30 days against the 30 before that. Counted from the deaths you tagged yourself.</p></div>';
+  }
+  // What changed since you started: the weakness you named in the quiz, against whatever
+  // that metric reads now. Only rows where the player entered a base AND a checkpoint —
+  // no base, no claim.
+  var WEAK_LABEL={consistency:"Inconsistent night to night",spray:"Spray / recoil control",
+    cstrafe:"Moving when I shoot",placement:"Crosshair placement",movement:"Movement / air-strafing",
+    utility:"Utility (smokes/flashes)",positioning:"Positioning / game sense",
+    clutch:"Clutching under pressure",entry:"Getting opening kills"};
+  function changedSince(st){
+    var plan=st.plan;if(!plan)return null;
+    var weak=[].concat(plan.profile&&plan.profile.weak||[]).filter(Boolean);
+    var moved=[],ms=st.metrics||{};
+    (plan.targets||[]).forEach(function(t){
+      var m=ms[tkey(t.n)];if(!m||m.base==null)return;
+      var latest=null,at=null;
+      ["w12","w8","w4"].forEach(function(p){if(latest===null&&m[p]!=null){latest=m[p];at=p;}});
+      if(latest===null)return;
+      moved.push({n:t.n,base:+m.base,now:+latest,at:at,delta:+((+latest)-(+m.base)).toFixed(1)});
+    });
+    if(!weak.length&&!moved.length)return null;
+    return {weak:weak.map(function(w){return WEAK_LABEL[w]||w;}),moved:moved,days:warmDays(st).length};
+  }
+  function changedCard(st){
+    var c=changedSince(st);if(!c)return "";
+    var rows="";
+    if(c.weak.length)
+      rows+='<div class="chrow"><span>You said your weakest area was</span><b>'+esc(c.weak.join(", "))+'</b></div>';
+    c.moved.forEach(function(m){
+      var sign=m.delta>0?"+":"";
+      rows+='<div class="chrow"><span>'+esc(m.n)+'</span><b>'+m.base+' → '+m.now+
+        ' <span class="chdelta'+(m.delta>0?" up":m.delta<0?" down":"")+'">'+sign+m.delta+'</span></b></div>';
+    });
+    rows+='<div class="chrow"><span>Days trained</span><b>'+c.days+'</b></div>';
+    return '<div class="card chcard"><div class="ml" style="color:var(--accInk);">WHAT CHANGED SINCE YOU STARTED</div>'+
+      '<div class="chwrap">'+rows+'</div>'+
+      '<p class="mhow" style="margin:8px 0 0;">Checkpoint figures are the ones you entered from Leetify. Days trained is counted by the app.</p></div>';
+  }
+  /* Proof for a sceptic. Every row names its SOURCE, and the sources are the real ones:
+     our checkpoint figures are entered by the player from Leetify, not measured by an
+     instrument, so the card says exactly that rather than borrowing credibility it hasn't
+     earned. Then it states what it does NOT prove — understating it is what makes it
+     usable in an argument. */
+  function proofRows(st,now){
+    var rows=[],c=changedSince(st),a=adherence(st,now,DRIFT_DAYS);
+    if(c)c.moved.forEach(function(m){
+      if(m.delta===0)return;
+      rows.push({label:m.n,val:m.base+" → "+m.now+" ("+(m.delta>0?"+":"")+m.delta+")",
+                 src:"you entered this from Leetify — not measured by Lockin"});
+    });
+    leakHistory(st,now).forEach(function(l){
+      rows.push({label:l.label+" deaths",val:l.was+"% → "+l.now+"% of your deaths",
+                 src:"from the deaths you tagged yourself"});
+    });
+    if(a.planned)rows.push({label:"Days trained",val:a.trained+" of "+a.planned+" planned",
+                            src:"counted by the app — the only input you controlled"});
+    return rows;
+  }
+  function proofCard(st,now){
+    var rows=proofRows(st,now);
+    if(rows.length<2)return "";                        // one row is an anecdote, not a case
+    var html=rows.map(function(r){
+      return '<div class="prrow"><div class="prtop"><span>'+esc(r.label)+'</span><b>'+esc(r.val)+'</b></div>'+
+        '<div class="prsrc">'+esc(r.src)+'</div></div>';}).join("");
+    return '<div class="card prcard"><div class="ml" style="color:var(--accInk);">PROOF FOR A SCEPTIC</div>'+
+      '<div class="prwrap">'+html+'</div>'+
+      '<p class="prlimit"><b>What this does not prove:</b> your rank. Rank moves for reasons a drill cannot reach, and this window is short. The honest claim is narrower — these measures moved while you kept showing up.</p></div>';
+  }
+  /* The honest export. A backup file is only useful to the app — this is the same progress
+     written so a person can read it, paste it into Discord, and have it still mean something.
+     Built from the same functions the screens use, so it can't drift from what you see. */
+  function honestExport(st,now){
+    now=now||new Date();
+    var L=[],plan=st.plan;
+    var m=milestoneState(curStreak(st,now)),a=adherence(st,now,DRIFT_DAYS);
+    var tag=playerTag(st);
+    L.push("LOCKIN — "+(tag?tag+"'s ":"")+"progress, "+dateKey(now));
+    L.push("");
+    if(plan){
+      L.push("Plan: "+(plan.keystoneName||plan.keystone||"—")+" focus, week "+planWeek(st,now)+" of 12");
+    }
+    L.push("Streak: "+curStreak(st,now)+" days"+(m.reached?" ("+m.reached.t+" tier)":""));
+    L.push("Days trained: "+warmDays(st).length+" total; "+a.trained+" of "+a.planned+" planned in the last 21 days");
+    var c=changedSince(st);
+    if(c&&c.weak.length)L.push("Started out saying: "+c.weak.join(", "));
+    if(c&&c.moved.length){
+      L.push("");
+      L.push("Checkpoints (entered from Leetify, not measured by Lockin):");
+      c.moved.forEach(function(x){L.push("  "+x.n+": "+x.base+" -> "+x.now+" ("+(x.delta>0?"+":"")+x.delta+")");});
+    }
+    var lh=leakHistory(st,now);
+    if(lh.length){
+      L.push("");
+      L.push("Leaks closed (share of deaths you tagged, last 30d vs the 30 before):");
+      lh.forEach(function(x){L.push("  "+x.label+": "+x.was+"% -> "+x.now+"%");});
+    }
+    L.push("");
+    L.push("What this does not prove: rank. These are the measures that moved while I kept showing up.");
+    L.push("Built free with Lockin — no account, no server. jacquesvn.github.io/lockin");
+    return L.join("\n");
+  }
+  function honestExportCard(st){
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">THE HONEST EXPORT</span></div>'+
+      '<div class="card"><p class="mhow" style="margin:0 0 10px;">A backup file is only useful to the app. This is the same progress written so a person can read it — paste it anywhere and it still means something.</p>'+
+      '<pre class="hxpre" id="hxpre">'+esc(honestExport(st))+'</pre>'+
+      '<button class="gbtn" data-hxcopy="1" style="width:100%;margin-top:10px;">COPY IT</button></div>';
+  }
   function bottleneckCard(st){
     var t=reviewTotals(st,30),total=0;
     for(var k in t)total+=t[k];
@@ -3748,7 +3922,7 @@
       '<button class="datarow" data-act="reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span>Erase all data<small>Delete everything and start over — can’t be undone</small></span></button>'+
       '<input type="file" id="impF" accept="application/json" style="display:none;"></div>'+
       (storageOk?'':'<div class="ml" style="color:var(--bad);margin-top:8px;">⚠ STORAGE BLOCKED — EXPORT TO KEEP YOUR DATA</div>');
-    return hd+prof+tagSec+cueSec+pauseSection(st)+app+remSec+gsiSec+updateSec()+privacy+data+feedbackSec()+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
+    return hd+prof+tagSec+cueSec+pauseSection(st)+app+remSec+gsiSec+updateSec()+privacy+honestExportCard(st)+data+feedbackSec()+'<div class="foot">LOCKIN · FREE FOREVER · NO ACCOUNT · v'+VERSION+'</div>';
   }
   // GEAR — your sens/DPI/eDPI, crosshair code and launch options. Its own tab so you can
   // pull it up mid-game to copy a crosshair or double-check your eDPI.
@@ -3764,6 +3938,8 @@
     for(var i=0;i<gos.length;i++)(function(b){b.onclick=function(){go(b.getAttribute("data-go"));};})(gos[i]);
     var dst=root.querySelectorAll("[data-dest]");
     for(var di=0;di<dst.length;di++)(function(b){b.onclick=function(){goDest(b.getAttribute("data-dest"));};})(dst[di]);
+    var hx=root.querySelector("[data-hxcopy]");
+    if(hx)hx.onclick=function(){var p=document.getElementById("hxpre");if(p)copyText(p.textContent,hx);};
     var sk=root.querySelectorAll("[data-skip]");
     for(var ski=0;ski<sk.length;ski++)(function(b){b.onclick=function(){
       var k=b.getAttribute("data-skip");
@@ -4295,7 +4471,9 @@
     offPlanCard:offPlanCard,OFFPLAN:OFFPLAN,
     adherence:adherence,metricMove:metricMove,driftCheck:driftCheck,driftCard:driftCard,
     coachAsk:coachAsk,coachCard:coachCard,applyCoachAnswer:applyCoachAnswer,COACH_ANSWERS:COACH_ANSWERS,
-    drillAdherence:drillAdherence,skippedDrill:skippedDrill,skippedCard:skippedCard};
+    drillAdherence:drillAdherence,skippedDrill:skippedDrill,skippedCard:skippedCard,
+    leakHistory:leakHistory,leakHistoryCard:leakHistoryCard,changedSince:changedSince,changedCard:changedCard,
+    proofRows:proofRows,proofCard:proofCard,honestExport:honestExport};
 })();
 </script>
 </body>

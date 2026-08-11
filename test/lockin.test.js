@@ -60,6 +60,7 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         bottleneckCard, tiltCard, offPlanCard, OFFPLAN,
         adherence, metricMove, driftCheck, driftCard, coachAsk, coachCard, applyCoachAnswer,
         COACH_ANSWERS, drillAdherence, skippedDrill, skippedCard,
+        leakHistory, leakHistoryCard, changedSince, changedCard, proofRows, proofCard, honestExport,
         LSRS, srsAnswer, dueLineups, lineupIsDue, lineupReviewCard,
         stateForBackup, takeBackupImages, picStrip, IMGS, IMG_PER,
         picSlots, picRole, PICROLE } = sandbox.module.exports;
@@ -1559,6 +1560,80 @@ ok('the privacy card states all four claims and the line only a free app can wri
            /Deathmatch/.test(full) && /Scrim/.test(full) &&
            (full.match(/data-offdel=/g) || []).length === 2 &&
            /never counts as a missed day or a completed one/.test(empty);
+  })());
+})();
+
+// --- v3 Group D: evidence ---
+(function () {
+  function dk(n) { var d = new Date(); d.setDate(d.getDate() - n); return dateKey(d); }
+  function mkPlanD() {
+    var created = new Date(); created.setDate(created.getDate() - 60);
+    return { weekly:{0:'rest',1:'cstrafe',2:'cstrafe',3:'cstrafe',4:'cstrafe',5:'match',6:'match'},
+             keystone:'cstrafe', keystoneName:'Counter-strafing', used:['cstrafe'],
+             profile:{ weak:['spray'], time:'30' }, created: dateKey(created),
+             targets:[{n:'Counter-strafing %', h:'Leetify'}] };
+  }
+  ok('leaks closed compares SHARES, so logging more deaths never reads as a leak closing', (function () {
+    var st = { plan: mkPlanD(), sessions:{}, settings:{}, reviews:{}, metrics:{} };
+    // early window: aim is 50% of 20. recent: aim is 20% of 40 — MORE aim deaths, smaller share
+    st.reviews[dk(45)] = { aim:10, pos:5, util:5 };
+    st.reviews[dk(10)] = { aim:8, pos:16, util:16 };
+    var rows = leakHistory(st, new Date());
+    var aim = rows.filter(function (r) { return r.k === 'aim'; })[0];
+    return aim && aim.was === 50 && aim.now === 20 && aim.drop === 30;
+  })());
+  ok('the leak bars ARE the percentages, not decorative widths', (function () {
+    var st = { plan: mkPlanD(), sessions:{}, settings:{}, reviews:{}, metrics:{} };
+    st.reviews[dk(45)] = { aim:10, pos:5, util:5 };
+    st.reviews[dk(10)] = { aim:8, pos:16, util:16 };
+    var h = leakHistoryCard(st, new Date());
+    return h.indexOf('width:50%') >= 0 && h.indexOf('width:20%') >= 0 &&
+           /deaths you tagged yourself/.test(h);        // and it says where the numbers came from
+  })());
+  ok('leaks closed stays silent without enough on BOTH sides of the comparison', (function () {
+    var st = { plan: mkPlanD(), sessions:{}, settings:{}, reviews:{}, metrics:{} };
+    st.reviews[dk(10)] = { aim:20, pos:20 };          // recent only, nothing to compare to
+    return leakHistory(st, new Date()).length === 0 && leakHistoryCard(st, new Date()) === '';
+  })());
+  ok('what-changed reports the quiz answer and only checkpoints the player actually entered', (function () {
+    var st = { plan: mkPlanD(), sessions:{}, settings:{}, reviews:{}, metrics:{} };
+    var noMetrics = changedSince(st);
+    st.metrics[tkey('Counter-strafing %')] = { base:70, w4:78 };
+    var withMetric = changedSince(st);
+    var h = changedCard(st);
+    return noMetrics && noMetrics.moved.length === 0 &&
+           withMetric.moved.length === 1 && withMetric.moved[0].delta === 8 &&
+           /Spray \/ recoil control/.test(h) && /70 → 78/.test(h) && /\+8/.test(h) &&
+           /you entered from Leetify/.test(h);          // sourcing is stated
+  })());
+  ok('proof names a real source per row and never claims Lockin measured the metric', (function () {
+    var st = { plan: mkPlanD(), sessions:{}, settings:{}, reviews:{}, metrics:{} };
+    st.metrics[tkey('Counter-strafing %')] = { base:70, w4:78 };
+    for (var i = 0; i < 21; i++) { var d = new Date(); d.setDate(d.getDate() - i);
+      if (!isTrainingDay(st.plan, d)) continue;
+      st.sessions[dateKey(d)] = { warm:true, drills:{0:true}, fk:'cstrafe' }; }
+    var rows = proofRows(st, new Date()), h = proofCard(st, new Date());
+    var metricRow = rows.filter(function (r) { return /Counter-strafing/.test(r.label); })[0];
+    var daysRow = rows.filter(function (r) { return /Days trained/.test(r.label); })[0];
+    return metricRow && /not measured by Lockin/.test(metricRow.src) &&
+           daysRow && /counted by the app/.test(daysRow.src) &&
+           /What this does not prove:<\/b> your rank/.test(h) &&
+           !/measured in Recoil Master/.test(h);         // the spec's example claim we cannot make
+  })());
+  ok('proof refuses to make a case from a single row', (function () {
+    var st = { plan: mkPlanD(), sessions:{}, settings:{}, reviews:{}, metrics:{} };
+    return proofCard(st, new Date()) === '';            // no metrics, no leaks, no days
+  })());
+  ok('the honest export is human-readable, sourced, and states its own limit', (function () {
+    var st = { plan: mkPlanD(), sessions:{}, settings:{ tag:'van_' }, reviews:{}, metrics:{} };
+    st.metrics[tkey('Counter-strafing %')] = { base:70, w4:78 };
+    st.sessions[dateKey(new Date())] = { warm:true, drills:{0:true}, fk:'cstrafe' };
+    var t = honestExport(st, new Date());
+    return t.indexOf('<') < 0 && t.indexOf('{') < 0 &&           // prose, not JSON or markup
+           /LOCKIN — van_'s progress/.test(t) &&
+           /entered from Leetify, not measured by Lockin/.test(t) &&
+           /What this does not prove: rank/.test(t) &&
+           /Counter-strafing %: 70 -> 78 \(\+8\)/.test(t);
   })());
 })();
 
