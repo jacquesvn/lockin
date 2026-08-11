@@ -1648,14 +1648,41 @@ ok('Progress card order: milestones open, achievements close, and the leak follo
   function at(name) { return ret.indexOf(name); }
   var milestones = at('milestoneRail('), insights = at('insightsCard('),
       audit = at('deathCard('), leak = at('leakCard('),
-      badges = at('milestonesCard('), share = at('data-sharecard');
+      badges = at('milestonesCard('), share = at('sharePreview(');
   var found = [milestones, insights, audit, leak, badges, share].every(function (i) { return i >= 0; });
   if (!found) { console.log('      missing from the assembly: ' + JSON.stringify({ milestones: milestones, insights: insights, audit: audit, leak: leak, badges: badges, share: share })); return false; }
   return milestones < insights &&        // the "where am I" anchor opens the screen
          audit < leak &&                 // the leak is derived from the audit ABOVE it
          insights < badges && leak < badges &&   // trophies close, they do not interrupt
-         badges <= share &&                      // and the share button closes with them
+         share < badges &&                       // share card, then the badges, as in the art
          /Derived from the audit above/.test(script);
+})());
+ok('the share card is previewed before it is sent, and copy degrades honestly', (function () {
+  // The app's own copy says it spreads by being posted. You used to click SAVE PNG blind,
+  // get a file, then go find it and attach it. The preview renders the SAME canvas the
+  // buttons produce, so what you see is what you send.
+  var fn = script.slice(script.indexOf('function sharePreview('));
+  fn = fn.slice(0, fn.indexOf('\n  function ', 10));
+  var sameCanvas = /var c=shareCard\(st\)/.test(fn) && /src="'\+c\.toDataURL/.test(fn);
+  // shareCard now RETURNS the canvas instead of downloading it — that split is the feature
+  var gen = script.slice(script.indexOf('function shareCard('));
+  gen = gen.slice(0, gen.indexOf('\n  function ', 10));
+  var pureGen = /return c;/.test(gen) && gen.indexOf('a.download') < 0 && gen.indexOf('.click()') < 0;
+  // ClipboardItem is absent on older webviews and any non-secure origin. The button must be
+  // HIDDEN there rather than offered and failing, and the failure paths must say what to do.
+  var guarded = /window\.ClipboardItem&&navigator\.clipboard&&navigator\.clipboard\.write/.test(fn);
+  var cp = script.slice(script.indexOf('function shareCardCopy('));
+  cp = cp.slice(0, cp.indexOf('\n  // the preview'));
+  var tellsYouWhy = /can’t copy images/.test(cp) && /Clipboard was blocked/.test(cp) &&
+                    /use SAVE PNG instead/.test(cp);
+  // toBlob and the clipboard promise can both hang forever on a throttled or unfocused
+  // webview — I hit exactly that trying to verify this. A button that does nothing AND says
+  // nothing is the worst of the three outcomes, so every path must settle exactly once.
+  var cannotHang = /var settled=false/.test(cp) && /if\(settled\)return; settled=true/.test(cp) &&
+                   /setTimeout\(function\(\)\{finish\(false,"Copying timed out/.test(cp);
+  if (!cannotHang) console.log('      the copy path can hang silently');
+  return sameCanvas && pureGen && guarded && tellsYouWhy && cannotHang &&
+         /data-sharecopy/.test(fn) && /data-sharecard/.test(fn);
 })());
 ok('the twelve-week grid is the zoom-OUT: it follows the charts, never precedes them', (function () {
   var fn = script.slice(script.indexOf('function insightsCard('));

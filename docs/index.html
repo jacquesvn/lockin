@@ -230,6 +230,11 @@
     color:var(--muted);font-family:var(--fb);font-size:13px;cursor:pointer;margin-bottom:12px;}
   .fullbtn:hover{border-color:var(--muted);color:var(--text);}
   /* leak of the week — one claim, its evidence directly beneath it */
+  /* ---------- share card preview ---------- */
+  .shareimg{display:block;width:100%;max-width:420px;height:auto;border-radius:10px;
+    border:1px solid var(--line);margin-top:12px;}
+  .sharebtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+  .sharebtns .pbtn{border-radius:0;}
   /* ---------- settings audit rows ---------- */
   .sarow{padding:11px 0;border-bottom:1px solid var(--line);}
   .sarow:last-child{border-bottom:0;padding-bottom:0;}
@@ -3437,9 +3442,7 @@
     return hd+milestoneRail(st)+insightsCard(st)+
       bottleneckCard(st)+deathCard(st)+leakCard(st)+
       leakHistoryCard(st)+changedCard(st)+youVsYou()+proofCard(st)+mx+
-      cal+milestonesCard(st)+
-      '<button class="btncopy" data-sharecard="1" style="margin-top:10px;">⬇ SAVE PROGRESS CARD (PNG)</button>'+
-      glossary();
+      cal+sharePreview(st)+milestonesCard(st)+glossary();
   }
   // These averages come from Premier/Leetify data. The skill bands transfer, but the numbers
   // aren't measured on FACEIT or ESEA — say so rather than passing them off as native.
@@ -4303,9 +4306,56 @@
         if(x.roundRect){x.beginPath();x.roundRect(bx,182,22,22,5);x.fill();}else x.fillRect(bx,182,22,22);}
       x.fillStyle="#928D99";x.font="600 11px ui-monospace,Consolas,monospace";
       x.fillText("YOUR POCKET CS2 COACH", 392, 308);
-      var a=document.createElement("a");a.href=c.toDataURL("image/png");
-      a.download="lockin-streak-"+dateKey(new Date())+".png";a.click();
-    }catch(e){alert("Couldn't create the image on this browser.");}
+      return c;
+    }catch(e){return null;}
+  }
+  /* The card IS the distribution — this app spreads by being posted — and until now you
+     clicked SAVE PNG blind, got a file, and then had to go find it and attach it. So:
+     see it before you send it, and paste it straight into Discord instead of attaching. */
+  var SHARESTATE=null;   // {ok,msg} of the last copy attempt
+  function shareCardDownload(st){
+    var c=shareCard(st);
+    if(!c){SHARESTATE={ok:false,msg:"Couldn’t create the image on this browser."};render();return;}
+    var a=document.createElement("a");a.href=c.toDataURL("image/png");
+    a.download="lockin-streak-"+dateKey(new Date())+".png";a.click();
+  }
+  function shareCardCopy(st){
+    var c=shareCard(st);
+    if(!c){SHARESTATE={ok:false,msg:"Couldn’t create the image on this browser."};render();return;}
+    // ClipboardItem is the only way to put a PNG on the clipboard, and it is absent on
+    // older webviews and on any non-secure origin. Say so rather than failing silently.
+    if(!(window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write)){
+      SHARESTATE={ok:false,msg:"This browser can’t copy images — use SAVE PNG instead."};render();return;
+    }
+    // Every branch below is asynchronous, and a webview that is throttled or unfocused can
+    // leave toBlob or the clipboard promise hanging forever. Without this the button would
+    // simply do nothing and say nothing, which is the worst outcome of the three.
+    var settled=false;
+    function finish(ok,msg){ if(settled)return; settled=true; SHARESTATE={ok:ok,msg:msg}; render(); }
+    setTimeout(function(){finish(false,"Copying timed out — use SAVE PNG instead.");},4000);
+    c.toBlob(function(blob){
+      if(!blob){finish(false,"Couldn’t create the image.");return;}
+      navigator.clipboard.write([new ClipboardItem({"image/png":blob})]).then(function(){
+        finish(true,"Copied — paste it straight into Discord.");
+      },function(){
+        finish(false,"Clipboard was blocked — use SAVE PNG instead.");
+      });
+    },"image/png");
+  }
+  // the preview is the same canvas the buttons produce, so what you see is what you send
+  function sharePreview(st){
+    var c=shareCard(st);
+    if(!c)return "";
+    var canCopy=!!(window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write);
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">SHARE CARD</span></div>'+
+      '<div class="card"><p class="mhow" style="margin-top:0;">Composed to be posted. One streak, one tier, one real stat, and the mark — nothing that needs explaining, and no number that flatters you.</p>'+
+      '<img class="shareimg" alt="Your progress card: streak, focus and week" src="'+c.toDataURL("image/png")+'">'+
+      '<div class="sharebtns">'+
+        (canCopy?'<button class="pbtn facet" data-sharecopy="1">COPY IMAGE</button>':'')+
+        '<button class="btncopy" data-sharecard="1">SAVE PNG</button>'+
+      '</div>'+
+      (SHARESTATE?'<p class="mhow" style="margin:9px 0 0;'+(SHARESTATE.ok?'':'color:var(--bad-ink);')+'">'+esc(SHARESTATE.msg)+'</p>':'')+
+      '</div>';
   }
 
   /* ---------- v0.7: match-night gate + stop-loss ---------- */
@@ -4671,7 +4721,9 @@
     var gsb=root.querySelector("[data-gsi-setup]");
     if(gsb)gsb.onclick=function(){writeGsiConfig();};
     var shc=root.querySelector("[data-sharecard]");
-    if(shc)shc.onclick=function(){shareCard(load());};
+    if(shc)shc.onclick=function(){shareCardDownload(load());};
+    var shcp=root.querySelector("[data-sharecopy]");
+    if(shcp)shcp.onclick=function(){shareCardCopy(load());};
     var uck=root.querySelector("[data-updcheck]");
     if(uck)uck.onclick=function(){checkUpdate(true);};
     var uin=root.querySelector("[data-updinstall]");
