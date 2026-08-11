@@ -53,6 +53,7 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements,
         weeklyRecap, recapCard, debriefCard, applyGsiMatch, DESTS, destOf, subTabs,
         dueCard, todayCards, todayStack, leakOfWeek, leakCard, tenList, tenMins, youVsYou,
+        STREAK_TIERS, milestoneState, milestoneRail, autoDebrief, lineupCount, lineupMaps, recallCount,
         LSRS, srsAnswer, dueLineups, lineupIsDue, lineupReviewCard,
         stateForBackup, takeBackupImages, picStrip, IMGS, IMG_PER,
         picSlots, picRole, PICROLE } = sandbox.module.exports;
@@ -173,9 +174,10 @@ ok('milestones unlock from real state, and the first check never retro-spams', (
            sessions:{ '2026-06-02':{ warm:true, drills:{0:true} } }, settings:{} };
   var earned0 = achState(st).filter(function(a){return a.earned;}).map(function(a){return a.id;});
   var firstCall = checkAchievements(st);                    // baseline pass — must not celebrate
-  return earned0.indexOf('first')>=0 && earned0.indexOf('warm')>=0 &&
+  return earned0.indexOf('first')>=0 &&                       // one drill ticked -> First Blood
+         earned0.indexOf('wk1')<0 &&                          // but four days not trained yet
          firstCall === null && st.settings.seenAch && st.settings.seenAch.first === 1 &&
-         ACHIEVEMENTS.length >= 10;
+         ACHIEVEMENTS.length === 12;                          // the spec calls for twelve
 })());
 
 // --- programWeek is 1..12 and starts at week 1 ---
@@ -1452,6 +1454,60 @@ ok('the privacy card states all four claims and the line only a free app can wri
   return /No account/.test(s) && /No server/.test(s) && /No telemetry/.test(s) &&
          /Backups are yours and manual/.test(s) &&
          /Paid coaching apps cannot say this/.test(s);
+})());
+
+// --- v3 Group A part 2: milestone rail, badges, auto-debrief ---
+ok('the milestone ladder reports the tier reached and the honest distance to the next', (function () {
+  var a = milestoneState(0), b = milestoneState(7), c = milestoneState(9), d = milestoneState(100);
+  return a.reached === null && a.next.n === 3 && a.toGo === 3 &&
+         b.reached.t === 'SILVER' && b.next.n === 14 && b.toGo === 7 &&
+         c.reached.t === 'SILVER' && c.toGo === 5 &&
+         d.reached.t === 'GLOBAL' && d.next === null && d.toGo === 0;
+})());
+ok('the rail marks reached rungs and flags exactly one as next', (function () {
+  var st = { sessions: {}, plan: { weekly: {}, created: dateKey(new Date()) }, settings: {} };
+  var h = milestoneRail(st);
+  return (h.match(/class="mrcell next"/g) || []).length === 1 &&
+         STREAK_TIERS.length === 6 && />3<\/b> days to BRONZE/.test(h);
+})());
+ok('the rail and the Fortnight badge agree — 14 is a rung on both', (function () {
+  var onRail = STREAK_TIERS.some(function (t) { return t.n === 14; });
+  var badge = ACHIEVEMENTS.filter(function (a) { return a.id === 'fortnight'; })[0];
+  return onRail && badge && badge.goal === 14;
+})());
+ok('badges: twelve, earned reads accent and locked reads outline (not a dimmed control)', (function () {
+  return ACHIEVEMENTS.length === 12 &&
+         /\.ach\{[^}]*border:1px solid var\(--edge\)/.test(html) &&
+         /\.ach\.on\{[^}]*border-color:var\(--acc\)/.test(html) &&
+         !/\.ach\{[^}]*opacity:\.5/.test(html) &&
+         /minmax\(88px,1fr\)/.test(html);          // three per row on a phone
+})());
+ok('the vault badges count real saved lineups, maps and passed recalls', (function () {
+  var st = { lineups: {}, settings: { recalls: 7 } };
+  st.lineups[MAPS[0].id] = [{ n: 'a' }, { n: 'b' }];
+  st.lineups[MAPS[1].id] = [{ n: 'c' }];
+  st.lineups[MAPS[2].id] = [];                                  // empty map doesn't count
+  return lineupCount(st) === 3 && lineupMaps(st) === 2 && recallCount(st) === 7 &&
+         recallCount({}) === 0;
+})());
+ok('only a PASSED recall increments the counter — "passed 25 checks" has to mean it', (function () {
+  return /if\(ok\)\{s2\.settings=s2\.settings\|\|\{\};s2\.settings\.recalls=\(s2\.settings\.recalls\|\|0\)\+1;\}/.test(script);
+})());
+ok('no badge claims something we cannot honestly compute (no per-focus attribution)', (function () {
+  var names = ACHIEVEMENTS.map(function (a) { return a.t.toLowerCase(); }).join(' ');
+  return !/spray tamer|prefire|clutch/.test(names) &&
+         ACHIEVEMENTS.every(function (a) { return typeof a.val === 'function' && a.goal > 0; });
+})());
+ok('auto-debrief states the matches GSI already recorded, and nothing when it never ran', (function () {
+  var st = { matches: {} };
+  st.matches['D'] = [{ result: 'loss', ct: 13, t: 16, map: 'de_mirage' },
+                     { result: 'win', ct: 16, t: 9, map: 'de_nuke' }];
+  var h = autoDebrief(st, 'D');
+  return /Auto-logged/.test(h) && /Lost/.test(h) && /Won/.test(h) &&
+         /mirage/.test(h) && !/de_mirage/.test(h) &&          // the de_ prefix is stripped
+         /13–16/.test(h) && /2 matches recorded/.test(h) &&
+         autoDebrief({ matches: {} }, 'D') === '' &&           // GSI never ran -> silent
+         autoDebrief({}, 'D') === '';
 })());
 
 // --- v3 Today tier system: rank by how fast the moment passes ---

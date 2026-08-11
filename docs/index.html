@@ -238,8 +238,31 @@
   .frz svg{width:12px;height:12px;}
   /* milestones / achievements */
   .achgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;}
-  .ach{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:var(--surface2);opacity:.5;}
-  .ach.on{opacity:1;border-color:color-mix(in oklab,var(--hero) 40%,transparent);}
+  /* three per row on a phone, with the labels still legible */
+  @media (max-width:719px){ .achgrid{grid-template-columns:repeat(auto-fit,minmax(88px,1fr));}
+    .ach{flex-direction:column;gap:6px;padding:10px 8px;} .achd{display:none;} .acht{font-size:11.5px;} }
+  /* streak milestone rail — one source of truth, shared with the tier name */
+  .mrail{margin-bottom:10px;}
+  .mrrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(52px,1fr));gap:6px;margin-top:10px;}
+  .mrcell{border:1px solid var(--edge);border-radius:9px;padding:8px 4px;text-align:center;}
+  .mrcell.on{border-color:var(--acc);background:color-mix(in oklab,var(--acc) 14%,transparent);}
+  .mrcell.next{border-color:var(--acc);border-style:dashed;}
+  .mrn{font-family:var(--fd);font-weight:800;font-size:17px;color:var(--text);}
+  .mrcell.on .mrn{color:var(--accInk);}
+  .mrt{font-family:var(--fm);font-size:7.5px;letter-spacing:0.1em;color:var(--faint);margin-top:2px;}
+  /* auto-logged match summary */
+  .adcard{margin-bottom:10px;}
+  .adtop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
+  .adchip{background:color-mix(in oklab,var(--acc) 16%,transparent);color:var(--accInk);border:1px solid var(--accGhost);}
+  .adrow{display:flex;align-items:center;gap:9px;padding:6px 0;border-top:1px solid var(--line);font-size:13.5px;}
+  .adrow:first-of-type{border-top:0;}
+  .adrow b{min-width:44px;color:var(--text);}
+  .adrow span{color:var(--muted);}
+  .adsc{margin-left:auto;font-family:var(--fm);font-variant-numeric:tabular-nums;color:var(--text);}
+  /* earned reads as accent, locked as a plain outline. Locked is NOT dimmed to .5 any more —
+     a locked badge is a target you can read, not a disabled control. */
+  .ach{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--edge);border-radius:12px;padding:11px 12px;background:transparent;}
+  .ach.on{border-color:var(--acc);background:color-mix(in oklab,var(--acc) 12%,transparent);}
   .achico{flex:none;width:26px;height:26px;color:var(--faint);} .ach.on .achico{color:var(--hero-ink);} .achico svg{width:26px;height:26px;}
   .acht{font-weight:600;font-size:13px;color:var(--text);} .achd{font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:2px;}
   .achp{font-family:var(--fm);font-size:9.5px;letter-spacing:0.08em;color:var(--faint);margin-top:4px;}
@@ -1225,6 +1248,26 @@
      The debrief turns a match into one honest data point (a leak, a win, how you felt);
      the recap rolls the week up on the next Monday and points at next week's focus. */
   var MOODS=[["fried","Fried"],["flat","Flat"],["fine","Fine"],["good","Good"],["locked","Locked in"]];
+  /* Auto-logged match summary. GSI has been recording the result all along and never showed
+     it back — this reads the matches already stored for the day and states them plainly, so
+     the debrief starts from what happened rather than from memory. Nothing is invented: if
+     GSI never ran, there are no matches and this renders nothing. */
+  function autoDebrief(st,dk){
+    var ms=((st.matches||{})[dk])||[];
+    if(!ms.length)return "";
+    var rows=ms.slice(-3).map(function(m){
+      var score=(m.ct!=null&&m.t!=null)?(m.ct+"–"+m.t):"";
+      var word=m.result==="win"?"Won":m.result==="loss"?"Lost":m.result==="tie"?"Tied":"Played";
+      var map=m.map?String(m.map).replace(/^de_/,""):"";
+      return '<div class="adrow"><b>'+esc(word)+'</b>'+
+        (map?'<span>'+esc(map)+'</span>':'')+
+        (score?'<span class="adsc">'+esc(score)+'</span>':'')+'</div>';
+    }).join("");
+    var n=ms.length;
+    return '<div class="card adcard"><div class="adtop"><div class="ml" style="color:var(--accInk);">TONIGHT</div>'+
+      '<span class="chip adchip">Auto-logged</span></div>'+rows+
+      '<p class="mhow" style="margin:8px 0 0;">'+n+' match'+(n===1?"":"es")+' recorded by CS2 auto-tracking. Nothing to confirm — it already counted.</p></div>';
+  }
   function debriefCard(st,dk){
     var db=(st.debriefs||{})[dk]||{};
     var leakChips=CAUSES.map(function(c){
@@ -2139,7 +2182,7 @@
       // tier stack above the day's work rather than sitting inside it
       if(focusKey==="match"&&!backfill){
         tierGate=reappraisalCard()+gateCard(sess);
-        tierDebrief=debriefCard(st,actK);
+        tierDebrief=autoDebrief(st,actK)+debriefCard(st,actK);
       }
       body='<div class="divi"><span class="ml" role="heading" aria-level="2">'+(backfill?'YESTERDAY':'TODAY')+' ▸ '+esc(F.name).toUpperCase()+kx+'</span></div>'+
         bfBanner+nmt+sessRow+
@@ -2641,7 +2684,7 @@
     mx+='</div>';
     // the leak sits directly ABOVE the audit that produced it, so the claim and its
     // evidence are adjacent and you can check the one against the other
-    return hd+youVsYou()+insightsCard(st)+milestonesCard(st)+cal+leakCard(st)+deathCard(st)+mx+glossary();
+    return hd+youVsYou()+insightsCard(st)+milestoneRail(st)+milestonesCard(st)+cal+leakCard(st)+deathCard(st)+mx+glossary();
   }
   // These averages come from Premier/Leetify data. The skill bands transfer, but the numbers
   // aren't measured on FACEIT or ESEA — say so rather than passing them off as native.
@@ -2819,21 +2862,32 @@
   /* ---------- milestones / achievements (all derived from existing state) ---------- */
   function drillsTicked(st){var n=0;for(var k in st.sessions){var dr=st.sessions[k]&&st.sessions[k].drills;if(dr)for(var i in dr)if(dr[i])n++;}return n;}
   function feel5Count(st){var n=0;for(var k in st.sessions){if(st.sessions[k]&&st.sessions[k].feel===5)n++;}return n;}
+  // lineup-derived counts — these reward the vault and the recall deck, which nothing did before
+  function lineupCount(st){var n=0,l=st.lineups||{};for(var m in l)n+=(l[m]||[]).length;return n;}
+  function lineupMaps(st){var n=0,l=st.lineups||{};for(var m in l)if((l[m]||[]).length)n++;return n;}
+  function recallCount(st){return (st.settings&&st.settings.recalls)||0;}
   function hadComeback(st){var w=warmDays(st);for(var i=1;i<w.length;i++){if(Math.round((parseKey(w[i])-parseKey(w[i-1]))/86400000)>=5)return true;}return false;}
   function progWeek(st){return st.plan?programWeek(st.plan,new Date()):1;}
+  /* Twelve badges. Names follow the v3 spec wherever the condition is something we can
+     honestly compute; the spec's "Spray tamer", "Prefire" and "Clutch" are deliberately NOT
+     here, because attributing a ticked drill to a focus after the fact is guesswork once the
+     weekly rotation has been edited — a badge that might be lying is worse than no badge.
+     Streak rungs beyond 14/30 belong to the milestone rail, not here, so the two don't
+     duplicate each other. */
   var ACHIEVEMENTS=[
-    {id:"first",t:"First Rep",d:"Tick your first drill.",goal:1,val:drillsTicked},
-    {id:"warm",t:"Warmed Up",d:"Log your first session.",goal:1,val:function(st){return warmDays(st).length;}},
+    {id:"first",t:"First Blood",d:"Tick your first drill.",goal:1,val:drillsTicked},
     {id:"wk1",t:"Week One",d:"Train four days.",goal:4,val:function(st){return warmDays(st).length;}},
-    {id:"streak7",t:"On A Roll",d:"Reach a 7-day streak.",goal:7,val:function(st){return Math.max(bestStreak(st),curStreak(st));}},
-    {id:"days25",t:"Committed",d:"25 training days in total.",goal:25,val:function(st){return warmDays(st).length;}},
-    {id:"drills100",t:"Grinder",d:"Tick 100 drills.",goal:100,val:drillsTicked},
+    {id:"fortnight",t:"Fortnight",d:"Reach a 14-day streak.",goal:14,val:function(st){return Math.max(bestStreak(st),curStreak(st));}},
     {id:"streak30",t:"Locked In",d:"Reach a 30-day streak.",goal:30,val:function(st){return Math.max(bestStreak(st),curStreak(st));}},
+    {id:"drills100",t:"Grinder",d:"Tick 100 drills.",goal:100,val:drillsTicked},
+    // these three reward the vault and the recall deck — nothing did before
+    {id:"vault",t:"Vault Keeper",d:"Save ten lineups of your own.",goal:10,val:lineupCount},
+    {id:"cartographer",t:"Cartographer",d:"Save lineups on five different maps.",goal:5,val:lineupMaps},
+    {id:"recall",t:"Recall",d:"Pass twenty-five lineup recall checks.",goal:25,val:recallCount},
     {id:"comeback",t:"Comeback",d:"Come back and train after a break.",goal:1,val:function(st){return hadComeback(st)?1:0;}},
-    {id:"halfway",t:"Halfway",d:"Reach week 6 of your program.",goal:6,val:progWeek},
-    {id:"dialled",t:"Dialled In",d:"Log a 5/5 hand-feel five times.",goal:5,val:feel5Count},
+    {id:"dialled",t:"Iron Hands",d:"Log a 5/5 hand-feel five times.",goal:5,val:feel5Count},
     {id:"days100",t:"Century",d:"100 training days in total.",goal:100,val:function(st){return warmDays(st).length;}},
-    {id:"graduate",t:"Graduate",d:"Reach week 12 — the whole program.",goal:12,val:progWeek}
+    {id:"graduate",t:"Global",d:"Reach week 12 — the whole program.",goal:12,val:progWeek}
   ];
   function achState(st){return ACHIEVEMENTS.map(function(a){var cur=a.val(st)||0;return {id:a.id,t:a.t,d:a.d,cur:cur,goal:a.goal,earned:cur>=a.goal};});}
   // returns the newest just-unlocked achievement to celebrate, or null. The FIRST call
@@ -2844,6 +2898,35 @@
     achState(st).forEach(function(a){if(a.earned&&!seen[a.id]){seen[a.id]=1;if(!first)fresh=a;}});
     if(fresh||first)save(st);
     return fresh;
+  }
+  /* ---------- streak milestones: ONE source ----------
+     The rail, the tier name and the share card all read this, so they can never disagree
+     about what you've reached — three places quoting three different numbers is exactly
+     how a progress screen stops being believable. */
+  var STREAK_TIERS=[{n:3,t:"BRONZE"},{n:7,t:"SILVER"},{n:14,t:"GOLD"},
+                    {n:30,t:"PLATINUM"},{n:60,t:"DIAMOND"},{n:100,t:"GLOBAL"}];
+  function milestoneState(streak){
+    var reached=null,next=null;
+    for(var i=0;i<STREAK_TIERS.length;i++){
+      if(streak>=STREAK_TIERS[i].n)reached=STREAK_TIERS[i];
+      else{next=STREAK_TIERS[i];break;}
+    }
+    return {streak:streak,reached:reached,next:next,toGo:next?next.n-streak:0,tiers:STREAK_TIERS};
+  }
+  function milestoneRail(st){
+    var m=milestoneState(curStreak(st));
+    var cells=STREAK_TIERS.map(function(T){
+      var done=m.streak>=T.n,isNext=m.next&&m.next.n===T.n;
+      return '<div class="mrcell'+(done?" on":"")+(isNext?" next":"")+'">'+
+        '<div class="mrn">'+T.n+'</div><div class="mrt">'+T.t+'</div></div>';
+    }).join("");
+    var read=m.next
+      ? '<b>'+m.toGo+'</b> day'+(m.toGo===1?"":"s")+' to '+m.next.t
+      : 'Every milestone reached — '+m.streak+' days and counting.';
+    return '<div class="card mrail"><div class="ml" style="color:var(--accInk);">STREAK MILESTONES'+
+      (m.reached?' · '+m.reached.t:'')+'</div>'+
+      '<div class="mrrow">'+cells+'</div>'+
+      '<p class="mhow" style="margin:8px 0 0;">'+read+'</p></div>';
   }
   function milestonesCard(st){
     var list=achState(st),earned=list.filter(function(a){return a.earned;}).length;
@@ -3345,6 +3428,8 @@
     function lrAnswer(ok){
       var s2=load(),due=dueLineups(s2);if(!due.length)return;
       var cur=due[0];srsAnswer(s2.lineups[cur.map.id][cur.idx],ok,new Date());
+      // count only the ones you actually got right — "passed 25 recall checks" has to mean it
+      if(ok){s2.settings=s2.settings||{};s2.settings.recalls=(s2.settings.recalls||0)+1;}
       save(s2);LREV=false;render();
     }
     var lro=root.querySelector("[data-lrok]");
@@ -3627,7 +3712,9 @@
   if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
     stateForBackup:stateForBackup,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER,
     picSlots:picSlots,picRole:picRole,PICROLE:PICROLE,DESTS:DESTS,destOf:destOf,subTabs:subTabs,dueCard:dueCard,todayCards:todayCards,todayStack:todayStack,
-    leakOfWeek:leakOfWeek,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou};
+    leakOfWeek:leakOfWeek,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou,
+    STREAK_TIERS:STREAK_TIERS,milestoneState:milestoneState,milestoneRail:milestoneRail,autoDebrief:autoDebrief,
+    lineupCount:lineupCount,lineupMaps:lineupMaps,recallCount:recallCount};
 })();
 </script>
 </body>
