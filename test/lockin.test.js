@@ -49,6 +49,7 @@ vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 
 const { generatePlan, computeStreak, richText, validBackup, programWeek,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, lineChart, heatmap, MAPS,
+        leakFocus, applyLeakFocus, focusIsSet, LEAK_DRILL,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
         lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag,
         curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements,
@@ -1632,6 +1633,54 @@ ok('--line2 never PAINTS anything — it is a ~1.6:1 divider, not a colour', (fu
   var bad2 = (css.match(/(?:background(?:-color)?|border(?:-color)?)\s*:[^;}]*var\(--line2\)/g) || []);
   if (bad2.length) console.log('      --line2 painting: ' + bad2.join(' | '));
   return bad2.length === 0 && /--edge\s*:/.test(css);
+})());
+ok('SET FOCUS is only offered where a drill focus HONESTLY addresses the leak', (function () {
+  // FOCI.placement is CROSSHAIR placement, an aim mechanic. Pointing a "you died out of
+  // position" leak at it would look helpful and train the wrong thing, and there is no
+  // positional focus in the library. So pos/info/trade must get NO button rather than a
+  // plausible one — this guard exists to stop someone filling the gap to make the UI tidy.
+  var mapped = Object.keys(LEAK_DRILL);
+  var everyMappedIsReal = mapped.length > 0 && mapped.every(function (k) { return !!leakFocus(k); });
+  var noFakePositional = !leakFocus('pos') && !leakFocus('info') && !leakFocus('trade');
+  // and nothing may map to crosshair placement to paper over the gap
+  var noPlacementFallback = mapped.every(function (k) { return LEAK_DRILL[k] !== 'placement'; });
+  return everyMappedIsReal && noFakePositional && noPlacementFallback &&
+         leakFocus('util') === 'utility' && leakFocus('aim') === 'spray';
+})());
+ok('SET FOCUS lands on the LAST training day and never clobbers tomorrow', (function () {
+  var st = { plan: { weekly: { 0: 'cstrafe', 1: 'rest', 2: 'cstrafe', 3: 'match', 4: 'cstrafe', 5: 'rest', 6: 'rest' }, used: ['cstrafe'] }, settings: {} };
+  var before = focusIsSet(st, 'util');
+  applyLeakFocus(st, 'util');
+  var landed = st.plan.weekly[4] === 'utility' && st.plan.weekly[0] === 'cstrafe' &&
+               st.plan.weekly[3] === 'match' && st.plan.weekly[1] === 'rest';
+  var tracked = (st.plan.used || []).indexOf('utility') >= 0;
+  // an unmapped or unknown cause must not silently corrupt the plan
+  var snapshot = JSON.stringify(st.plan.weekly);
+  applyLeakFocus(st, 'pos');
+  applyLeakFocus(st, 'nonsense');
+  return !before && focusIsSet(st, 'util') && landed && tracked &&
+         JSON.stringify(st.plan.weekly) === snapshot;
+})());
+ok('the leak card reads as a sentence: cause, arrow, focus, and the control', (function () {
+  var st = { sessions: {}, settings: {}, plan: { weekly: { 0: 'cstrafe', 1: 'cstrafe' }, used: ['cstrafe'] }, reviews: {} };
+  st.reviews[dateKey(new Date())] = { util: 4, aim: 1, pos: 1 };   // utility dominant — it maps
+  var h = leakCard(st);
+  if (!h) { console.log('      leak card did not render'); return false; }
+  var sentence = /KILLED YOU MOST/.test(h) && /NEXT WEEK/.test(h) &&
+    /class="lwarrow"/.test(h) && /class="leakbig lwfoc">Utility</.test(h) &&
+    /data-setfocus="util"/.test(h) &&
+    /67% of the deaths you logged — 4 of 6/.test(h) &&       // the raw counts, not just a %
+    /Derived from the audit above, not from a fixed syllabus/.test(h);
+  applyLeakFocus(st, 'util');
+  var h2 = leakCard(st);
+  var settled = h2.indexOf('data-setfocus') < 0 && /class="st live"/.test(h2);
+  // and an UNMAPPED leak still shows the leak and its written fix, just no button
+  var st2 = { sessions: {}, settings: {}, plan: { weekly: { 0: 'cstrafe' }, used: ['cstrafe'] }, reviews: {} };
+  st2.reviews[dateKey(new Date())] = { pos: 5, aim: 1 };
+  var h3 = leakCard(st2);
+  var honest = /KILLED YOU MOST/.test(h3) && h3.indexOf('data-setfocus') < 0 &&
+               h3.indexOf('NEXT WEEK') < 0 && /Where you stand is the fix/.test(h3);
+  return sentence && settled && honest;
 })());
 ok('the milestone rungs sit evenly, not at their day value', (function () {
   // 3/7/14/30/60/100 placed linearly crams four of six into the left third and leaves a long

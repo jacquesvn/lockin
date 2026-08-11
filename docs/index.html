@@ -231,6 +231,20 @@
   .fullbtn:hover{border-color:var(--muted);color:var(--text);}
   /* leak of the week — one claim, its evidence directly beneath it */
   .leakcard{margin-bottom:10px;}
+  /* the leak reads as a SENTENCE: what killed you, an arrow, what you train because of it,
+     and the control that commits to it — all on one line so the causation is the layout */
+  .lwrow{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-top:10px;}
+  .lwcol{min-width:0;}
+  .lwarrow{font-size:19px;color:var(--faint);line-height:1;padding-bottom:6px;flex:0 0 auto;}
+  .lwpct{font-family:var(--fm);font-size:9px;letter-spacing:0.08em;color:var(--bad-ink);margin-top:3px;}
+  .lwfoc{color:var(--accInk);}
+  .lwbtn{margin-left:auto;min-height:44px;padding:0 20px;background:var(--acc);color:var(--onAcc);
+    border:none;border-radius:0;cursor:pointer;flex:0 0 auto;
+    font-family:var(--fm);font-size:11px;font-weight:800;letter-spacing:0.12em;}
+  .lwbtn:hover{background:var(--accH);}
+  .lwset{margin-left:auto;flex:0 0 auto;padding-bottom:4px;}
+  @media (max-width:719px){ .lwrow{gap:10px;} .lwarrow{display:none;}
+    .lwbtn,.lwset{margin-left:0;width:100%;} .lwbtn{width:100%;} }
   .leakbig{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.01em;
     font-size:26px;color:var(--accInk);margin-top:6px;}
   .yvy{font-size:13px;color:var(--muted);margin-bottom:12px;}
@@ -3865,12 +3879,57 @@
   function youVsYou(){
     return '<p class="yvy">Everything here is <b>you against your own past</b>. There is no leaderboard, no ranking against other players, and nothing here is shared.</p>';
   }
+  /* Each way of dying points at the focus that trains it. This is the whole argument of the
+     card: the plan is derived from how you actually died, not from a fixed syllabus, so the
+     mapping has to be explicit and small enough to check by eye. */
+  /* Only two causes have an honest answer in the drill library. FOCI.placement is CROSSHAIR
+     placement — an aim mechanic — so pointing a "you died out of position" leak at it would
+     be a mapping that looks helpful and trains the wrong thing. There is no positional focus
+     in the library, and inventing one to fill the button would be worse than not offering it.
+     pos / info / trade therefore get the leak and the written fix, and no SET FOCUS. */
+  var LEAK_DRILL={aim:"spray",util:"utility"};
+  function leakFocus(k){var f=LEAK_DRILL[k];return f&&FOCI[f]?f:null;}
+  function focusIsSet(st,k){
+    var f=leakFocus(k);
+    if(!f||!st.plan||!st.plan.weekly)return false;
+    for(var d=0;d<7;d++)if(st.plan.weekly[d]===f)return true;
+    return false;
+  }
+  // Same machinery the weekly coaching question uses: the new work lands on the LAST training
+  // day of the week rather than displacing tomorrow, so nothing you already planned is lost.
+  function applyLeakFocus(st,k){
+    var f=leakFocus(k);
+    if(!f||!st.plan||!st.plan.weekly)return st;
+    var slot=null;
+    for(var d=0;d<7;d++){var x=st.plan.weekly[d];if(x&&x!=="rest"&&x!=="match")slot=d;}
+    if(slot!==null){
+      st.plan.weekly[slot]=f;
+      st.plan.used=uniq((st.plan.used||[]).concat([f]));
+    }
+    return st;
+  }
   function leakCard(st){
     var L=leakOfWeek(st);
     if(!L)return "";
+    var f=leakFocus(L.k),fname=f?FOCI[f].name:"",set=f&&focusIsSet(st,L.k);
     return '<div class="card leakcard"><div class="ml" style="color:var(--accInk);">LEAK OF THE WEEK</div>'+
-      '<div class="leakbig">'+esc(L.label)+'</div>'+
-      '<p class="mhow" style="margin:6px 0 0;"><b style="color:var(--text);">'+L.pct+'%</b> of the deaths you logged this week — '+L.n+' of '+L.total+'. '+esc(L.fix)+'</p></div>';
+      '<div class="lwrow">'+
+        '<div class="lwcol">'+
+          '<div class="ml">KILLED YOU MOST</div>'+
+          '<div class="leakbig">'+esc(L.label)+'</div>'+
+          // keep the raw counts, not just the percentage — "70%" of an unstated total is the
+          // kind of number this app is supposed to refuse to print
+          '<div class="lwpct">'+L.pct+'% of the deaths you logged — '+L.n+' of '+L.total+'</div>'+
+        '</div>'+
+        (f?'<span class="lwarrow" aria-hidden="true">→</span>'+
+        '<div class="lwcol">'+
+          '<div class="ml">NEXT WEEK&rsquo;S FOCUS</div>'+
+          '<div class="leakbig lwfoc">'+esc(fname)+'</div>'+
+        '</div>'+
+        (set?'<span class="lwset">'+statusChip("live","FOCUS SET")+'</span>'
+           :'<button class="lwbtn facet" data-setfocus="'+esc(L.k)+'">SET FOCUS</button>'):'')+
+      '</div>'+
+      '<p class="mhow" style="margin:10px 0 0;">Derived from the audit above, not from a fixed syllabus — so the plan reacts to how you actually died. '+esc(L.fix)+'</p></div>';
   }
   /* "You said aim. Your deaths say position." Re-reads the audit's OWN rows rather than
      introducing a number of its own: the share of deaths that happen before aim is the
@@ -4397,6 +4456,9 @@
     var ca=root.querySelectorAll("[data-coach]");
     for(var cai=0;cai<ca.length;cai++)(function(b){b.onclick=function(){
       var s2=load();applyCoachAnswer(s2,b.getAttribute("data-coach"),new Date());save(s2);render();};})(ca[cai]);
+    var sf=root.querySelectorAll("[data-setfocus]");
+    for(var sfi=0;sfi<sf.length;sfi++)(function(b){b.onclick=function(){
+      var s2=load();applyLeakFocus(s2,b.getAttribute("data-setfocus"));save(s2);render();};})(sf[sfi]);
     var op=root.querySelectorAll("[data-offplan]");
     for(var opi=0;opi<op.length;opi++)(function(b){b.onclick=function(){
       var s2=load(),dk=dateKey(actDate());
@@ -4919,7 +4981,7 @@
   if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,lineChart:lineChart,heatmap:heatmap,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
     stateForBackup:stateForBackup,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER,
     picSlots:picSlots,picRole:picRole,PICROLE:PICROLE,DESTS:DESTS,destOf:destOf,subTabs:subTabs,dueCard:dueCard,todayCards:todayCards,todayStack:todayStack,
-    leakOfWeek:leakOfWeek,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou,
+    leakOfWeek:leakOfWeek,leakFocus:leakFocus,applyLeakFocus:applyLeakFocus,focusIsSet:focusIsSet,LEAK_DRILL:LEAK_DRILL,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou,
     STREAK_TIERS:STREAK_TIERS,milestoneState:milestoneState,milestoneRail:milestoneRail,autoDebrief:autoDebrief,
     lineupCount:lineupCount,lineupMaps:lineupMaps,recallCount:recallCount,
     streakDetail:streakDetail,pauseInfo:pauseInfo,isPausedOn:isPausedOn,isPaused:isPaused,planWeek:planWeek,
