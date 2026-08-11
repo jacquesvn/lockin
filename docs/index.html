@@ -400,6 +400,21 @@
   .prlimit b{color:var(--text);}
   .hxpre{white-space:pre-wrap;word-break:break-word;font-family:var(--fm);font-size:11px;line-height:1.6;
     color:var(--muted);background:var(--glass2);border-radius:9px;padding:12px;max-height:260px;overflow:auto;}
+  /* Group E: lifecycle */
+  .firstcard,.gradcard{margin-bottom:11px;}
+  .firstbig,.gradbig{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.01em;
+    font-size:21px;color:var(--accInk);margin-top:6px;}
+  .gradopts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .gradopts .gbtn{flex:1;min-width:112px;}      /* three EQUAL choices — no primary among them */
+  .altwrap{display:flex;flex-direction:column;gap:8px;}
+  .altrow{border:1px solid var(--line);border-radius:11px;padding:11px 12px;}
+  .altrow.picked{border-color:var(--acc);background:color-mix(in oklab,var(--acc) 9%,transparent);}
+  .altk{display:flex;align-items:center;gap:8px;font-family:var(--fd);font-weight:800;font-size:13px;text-transform:uppercase;}
+  .altd{font-size:12.5px;color:var(--text);margin-top:4px;}
+  .altw{font-size:12px;color:var(--faint);margin-top:3px;}
+  .advecho{margin-top:12px;padding:11px 12px;border-left:3px solid var(--acc);border-radius:9px;
+    background:color-mix(in oklab,var(--acc) 8%,transparent);}
+  .advecho p{font-size:13.5px;color:var(--text);margin-top:5px;}
   .dbox{width:26px;height:26px;border-radius:7px;flex:0 0 auto;display:grid;place-items:center;border:1.5px solid var(--edge);background:transparent;transition:all .15s;margin-top:1px;}
   .drow.done .dbox{background:var(--hero);border-color:var(--hero);}
   .dbox svg{width:14px;height:14px;color:var(--onhero);opacity:0;} .drow.done .dbox svg{opacity:1;}
@@ -1632,6 +1647,11 @@
     if(pc)out.push({tier:1,k:"paused",label:"Paused",html:pc});
     // T1: the only trigger whose cost can't be taken back once you've queued
     if(!tiltDismissed){var tc=tiltCard(st,now);if(tc)out.push({tier:1,k:"tilt",label:"Stop-loss",html:tc});}
+    // T1: the two ends of the lifecycle — the emptiest week, and the finished one
+    var fw=firstWeekCard(st,now);
+    if(fw)out.push({tier:1,k:"dayOne",label:"First week",html:fw});
+    var gc=graduateCard(st,now);
+    if(gc)out.push({tier:1,k:"graduate",label:"Twelve weeks",html:gc});
     if(ctx.gate)out.push({tier:1,k:"gate",label:"Match-night gate",html:ctx.gate});
     if(ctx.lapse)out.push({tier:2,k:"lapse",label:"Welcome back",html:lapseCard(ctx.lapse)});
     var due=dueCard(st,ctx.pr,ctx.lnDue);
@@ -2684,7 +2704,9 @@
       '<p class="mhow" style="margin:4px 0 0;">Every drill for your focus, how to measure each one, and the coach-built session — on the <b style="color:var(--text);">Drills</b> tab.</p></div><span class="ptrchev">›</span></button>';
     var mapsPointer='<button class="card ptrcard" data-go="maps" style="margin-top:10px;"><div><div class="ml" style="color:var(--hero-ink);">MAP PREP &amp; DOWNLOADS ▸</div>'+
       '<p class="mhow" style="margin:4px 0 0;">Utility jobs and prefire routes for all seven maps, one-click Workshop downloads, and your practice config — on the <b style="color:var(--text);">Maps</b> tab.</p></div><span class="ptrchev">›</span></button>';
-    return hd+diag+'<div class="plan-cols"><div>'+ph+'</div><div>'+rotc+'</div></div>'+drillsPointer+mapsPointer;
+    // the fork that produced this plan sits with the plan itself, so it reads as authored
+    return hd+diag+'<div class="plan-cols"><div>'+ph+'</div><div>'+rotc+'</div></div>'+
+      altCard(st)+adviceCard(st,new Date())+drillsPointer+mapsPointer;
   }
   // DRILLS — the drill library, how to measure each metric, and the coach-built protocol.
   // The library runs long, so it flows full-width rather than stacking in one column.
@@ -3707,6 +3729,90 @@
       '<pre class="hxpre" id="hxpre">'+esc(honestExport(st))+'</pre>'+
       '<button class="gbtn" data-hxcopy="1" style="width:100%;margin-top:10px;">COPY IT</button></div>';
   }
+  /* ---------- Group E: lifecycle ----------
+     The emptiest version of the app is the one everyone meets first, and the finished
+     version is one almost nobody is allowed to reach gracefully. Both get said out loud. */
+  function firstWeekCard(st,now){
+    if(!st.plan)return "";
+    var days=warmDays(st).length;
+    if(days>=7)return "";                                  // past it — the streak speaks for itself
+    var left=7-days;
+    return '<div class="card firstcard"><div class="ml" style="color:var(--accInk);">THE FIRST SEVEN DAYS</div>'+
+      '<p class="firstbig">'+(days===0?"Day one.":"Day "+(days+1)+".")+'</p>'+
+      '<p class="mhow" style="margin:6px 0 0;">There is no streak to defend yet and nothing to compare you against. For the first week the only target is showing up — '+
+      left+' more day'+(left===1?"":"s")+' and the app starts having something to tell you.</p></div>';
+  }
+  /* Being finished is a legitimate outcome, not churn. The three options are presented as
+     EQUALS — stopping is not framed as failure and continuing is not framed as the default. */
+  function graduateCard(st,now){
+    if(!st.plan)return "";
+    if(planWeek(st,now)<12)return "";
+    if(st.settings&&st.settings.gradAck)return "";
+    var sessions=warmDays(st).length,leaks=leakHistory(st,now).length;
+    return '<div class="card gradcard"><div class="ml" style="color:var(--accInk);">WHEN TO STOP</div>'+
+      '<p class="gradbig">Twelve weeks. '+sessions+' session'+(sessions===1?"":"s")+
+      (leaks?', '+leaks+' leak'+(leaks===1?"":"s")+' closed':'')+'.</p>'+
+      '<p class="mhow" style="margin:6px 0 0;">This plan has taken you as far as it was built to. What you keep is yours — the next twelve weeks are a choice, not a continuation.</p>'+
+      '<div class="gradopts">'+
+      '<button class="gbtn" data-grad="maintain">KEEP MAINTAINING</button>'+
+      '<button class="gbtn" data-act="retake">BUILD A NEW PLAN</button>'+
+      '<button class="gbtn" data-grad="stop">STOP HERE</button></div></div>';
+  }
+  /* The plan you did not pick. The alternatives are generated by the REAL generator from the
+     real quiz answers, not written by hand — so each branch is what you would actually have
+     been given, and each is described on its own terms rather than made to look wrong. */
+  var ALT_CASE={utility:"Slower to show on a scoreboard, but it wins rounds before the duel starts.",
+    positioning:"The slowest to show numbers, and the highest ceiling of the three.",
+    spray:"The most visible improvement week to week, and the easiest to measure.",
+    placement:"Quietly raises every duel you take, without feeling like progress at first.",
+    cstrafe:"The fastest mechanical win available to most players.",
+    clutch:"Narrow, but it decides the rounds you remember.",
+    entry:"High variance, and it changes how your whole team's round opens."};
+  function altPlans(st){
+    var plan=st.plan;if(!plan||!plan.profile)return [];
+    var picked=plan.keystone,out=[];
+    var pool=["cstrafe","spray","placement","utility","positioning"].filter(function(k){return FOCI[k];});
+    pool.forEach(function(k){
+      if(out.length>=3)return;
+      if(k===picked)return;
+      var p2=null;try{p2=generatePlan(plan.profile||{},k);}catch(_){return;}
+      if(!p2||!FOCI[p2.keystone])return;
+      var first=drillList(FOCI[p2.keystone],p2)[0];
+      out.push({k:p2.keystone,name:p2.keystoneName||FOCI[p2.keystone].name,
+                first:first?first.d.t:"",dur:first?(first.d.dur||0):0,
+                why:ALT_CASE[p2.keystone]||FOCI[p2.keystone].why||""});
+    });
+    return out;
+  }
+  function altCard(st){
+    var alts=altPlans(st);if(!alts.length)return "";
+    var plan=st.plan;
+    var mine=drillList(FOCI[plan.keystone]||FOCI[Object.keys(FOCI)[0]],plan)[0];
+    var rows='<div class="altrow picked"><div class="altk">'+esc(plan.keystoneName||plan.keystone)+
+      '<span class="chip">YOURS</span></div><div class="altd">'+esc(mine?mine.d.t:"")+
+      (mine&&mine.d.dur?' · '+mine.d.dur+' min':'')+'</div>'+
+      '<div class="altw">'+esc(ALT_CASE[plan.keystone]||"")+'</div></div>';
+    rows+=alts.map(function(a){
+      return '<div class="altrow"><div class="altk">'+esc(a.name)+'</div>'+
+        '<div class="altd">'+esc(a.first)+(a.dur?' · '+a.dur+' min':'')+'</div>'+
+        '<div class="altw">'+esc(a.why)+'</div></div>';}).join("");
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">THE PLAN YOU DID NOT PICK</span></div>'+
+      '<div class="card"><p class="mhow" style="margin:0 0 10px;">Your quiz answers chose one of these. The others are what you would have been given instead — generated the same way, not written to look worse.</p>'+
+      '<div class="altwrap">'+rows+'</div></div>';
+  }
+  /* What you would tell a beginner. Written at week N, kept on this device, and shown back
+     as the thing a week-one player would need to hear. */
+  function adviceCard(st,now){
+    if(!st.plan)return "";
+    var wk=planWeek(st,now),txt=(st.settings&&st.settings.advice)||"";
+    if(wk<3&&!txt)return "";                               // nothing to say in the first fortnight
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">WHAT YOU WOULD TELL A BEGINNER</span></div>'+
+      '<div class="card"><p class="mhow" style="margin:0 0 10px;">You are at week '+wk+'. What is one thing you know now that you did not at week one?</p>'+
+      '<div class="field"><label for="advIn">Your line</label>'+
+      '<input id="advIn" type="text" data-advice maxlength="140" placeholder="One line. It gets shown back to you when you start over." value="'+esc(txt)+'"></div>'+
+      (txt?'<div class="advecho"><div class="ml" style="color:var(--accInk);">WEEK-ONE PLAYERS WILL SEE</div><p>'+esc(txt)+'</p></div>':'')+
+      '<p class="help" style="margin-top:8px;">Kept on this device. Nothing is uploaded and nobody else can read it.</p></div>';
+  }
   function bottleneckCard(st){
     var t=reviewTotals(st,30),total=0;
     for(var k in t)total+=t[k];
@@ -3938,6 +4044,12 @@
     for(var i=0;i<gos.length;i++)(function(b){b.onclick=function(){go(b.getAttribute("data-go"));};})(gos[i]);
     var dst=root.querySelectorAll("[data-dest]");
     for(var di=0;di<dst.length;di++)(function(b){b.onclick=function(){goDest(b.getAttribute("data-dest"));};})(dst[di]);
+    var advI=root.querySelector("[data-advice]");
+    if(advI)advI.onchange=function(e){
+      var s2=load();s2.settings.advice=String(e.target.value||"").trim().slice(0,140);save(s2);render();};
+    var gr=root.querySelectorAll("[data-grad]");
+    for(var gri=0;gri<gr.length;gri++)(function(b){b.onclick=function(){
+      var s2=load();s2.settings.gradAck=b.getAttribute("data-grad");save(s2);render();};})(gr[gri]);
     var hx=root.querySelector("[data-hxcopy]");
     if(hx)hx.onclick=function(){var p=document.getElementById("hxpre");if(p)copyText(p.textContent,hx);};
     var sk=root.querySelectorAll("[data-skip]");
@@ -4473,7 +4585,8 @@
     coachAsk:coachAsk,coachCard:coachCard,applyCoachAnswer:applyCoachAnswer,COACH_ANSWERS:COACH_ANSWERS,
     drillAdherence:drillAdherence,skippedDrill:skippedDrill,skippedCard:skippedCard,
     leakHistory:leakHistory,leakHistoryCard:leakHistoryCard,changedSince:changedSince,changedCard:changedCard,
-    proofRows:proofRows,proofCard:proofCard,honestExport:honestExport};
+    proofRows:proofRows,proofCard:proofCard,honestExport:honestExport,
+    firstWeekCard:firstWeekCard,graduateCard:graduateCard,altPlans:altPlans,altCard:altCard,adviceCard:adviceCard};
 })();
 </script>
 </body>

@@ -61,6 +61,7 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         adherence, metricMove, driftCheck, driftCard, coachAsk, coachCard, applyCoachAnswer,
         COACH_ANSWERS, drillAdherence, skippedDrill, skippedCard,
         leakHistory, leakHistoryCard, changedSince, changedCard, proofRows, proofCard, honestExport,
+        firstWeekCard, graduateCard, altPlans, altCard, adviceCard,
         LSRS, srsAnswer, dueLineups, lineupIsDue, lineupReviewCard,
         stateForBackup, takeBackupImages, picStrip, IMGS, IMG_PER,
         picSlots, picRole, PICROLE } = sandbox.module.exports;
@@ -1560,6 +1561,81 @@ ok('the privacy card states all four claims and the line only a free app can wri
            /Deathmatch/.test(full) && /Scrim/.test(full) &&
            (full.match(/data-offdel=/g) || []).length === 2 &&
            /never counts as a missed day or a completed one/.test(empty);
+  })());
+})();
+
+// --- v3 Group E: lifecycle ---
+(function () {
+  function mkPlanE(weeksIn) {
+    var created = new Date(); created.setDate(created.getDate() - (weeksIn - 1) * 7);
+    return { weekly:{0:'rest',1:'cstrafe',2:'cstrafe',3:'cstrafe',4:'cstrafe',5:'match',6:'match'},
+             keystone:'cstrafe', keystoneName:'Counter-strafing', used:['cstrafe'],
+             profile:{ weak:['cstrafe'], time:'30', days:'4', rank:'mid', platform:'premier' },
+             created: dateKey(created), targets:[{n:'Counter-strafing %', h:'Leetify'}] };
+  }
+  ok('the first week says there is nothing to compare you against yet, then gets out of the way', (function () {
+    var st = { plan: mkPlanE(1), sessions:{}, settings:{}, reviews:{}, metrics:{}, lineups:{} };
+    var day1 = firstWeekCard(st, new Date());
+    for (var i = 0; i < 7; i++) { var d = new Date(); d.setDate(d.getDate() - i);
+      st.sessions[dateKey(d)] = { warm:true, drills:{0:true}, fk:'cstrafe' }; }
+    var after = firstWeekCard(st, new Date());
+    return /Day one\./.test(day1) && /no streak to defend yet/.test(day1) &&
+           /only target is showing up/.test(day1) && after === '';
+  })());
+  ok('graduation offers three EQUAL choices and never frames stopping as failure', (function () {
+    var st = { plan: mkPlanE(12), sessions:{}, settings:{}, reviews:{}, metrics:{}, lineups:{} };
+    st.sessions[dateKey(new Date())] = { warm:true, drills:{0:true}, fk:'cstrafe' };
+    var h = graduateCard(st, new Date());
+    var opts = (h.match(/class="gbtn"/g) || []).length;
+    return /Twelve weeks\./.test(h) && /a choice, not a continuation/.test(h) &&
+           opts === 3 && h.indexOf('pbtn') < 0 &&                    // no primary among them
+           /KEEP MAINTAINING/.test(h) && /BUILD A NEW PLAN/.test(h) && /STOP HERE/.test(h) &&
+           !/fail|quit|give up/i.test(h) &&
+           /\.gradopts \.gbtn\{flex:1/.test(html);                    // laid out as equals
+  })());
+  ok('graduation only appears at week 12, and can be acknowledged away', (function () {
+    var early = { plan: mkPlanE(8), sessions:{}, settings:{}, reviews:{}, metrics:{}, lineups:{} };
+    var done  = { plan: mkPlanE(12), sessions:{}, settings:{ gradAck:'maintain' }, reviews:{}, metrics:{}, lineups:{} };
+    return graduateCard(early, new Date()) === '' && graduateCard(done, new Date()) === '';
+  })());
+  ok('the alternatives come from the REAL generator, not hand-written plans', (function () {
+    var st = { plan: mkPlanE(3), sessions:{}, settings:{}, reviews:{}, metrics:{}, lineups:{} };
+    var alts = altPlans(st);
+    if (!alts.length) return false;
+    // A hand-rolled alternative would still LOOK coherent (real focus, real drill), so the
+    // output alone can't tell them apart — the branch must actually run the generator, which
+    // is free to return a different keystone than the answer asked for.
+    return /p2=generatePlan\(plan\.profile\|\|\{\},k\)/.test(script) &&
+           alts.every(function (a) {
+             var F = FOCI[a.k];
+             return F && a.name && a.first && F.drills.some(function (d) { return d.t === a.first; });
+           }) &&
+           alts.every(function (a) { return a.k !== st.plan.keystone; });   // never offers what you already have
+  })());
+  ok('the alternatives are given an honest case, not made to look obviously wrong', (function () {
+    var st = { plan: mkPlanE(3), sessions:{}, settings:{}, reviews:{}, metrics:{}, lineups:{} };
+    var h = altCard(st);
+    return /YOURS/.test(h) && /class="altrow picked"/.test(h) &&
+           /not written to look worse/.test(h) &&
+           !/worse|inferior|weaker|bad choice/i.test(h.replace(/not written to look worse/, '')) &&
+           (h.match(/class="altw"/g) || []).length >= 2;      // each alternative states its own case
+  })());
+  ok('the beginner note is writable, echoes back, and stays on the device', (function () {
+    var st = { plan: mkPlanE(4), sessions:{}, settings:{}, reviews:{}, metrics:{}, lineups:{} };
+    var blank = adviceCard(st, new Date());
+    st.settings.advice = 'Stop chasing headshots when the spray is landing.';
+    var filled = adviceCard(st, new Date());
+    var tooEarly = adviceCard({ plan: mkPlanE(1), sessions:{}, settings:{}, reviews:{}, metrics:{}, lineups:{} }, new Date());
+    return /week 4/.test(blank) && /data-advice/.test(blank) &&
+           /WEEK-ONE PLAYERS WILL SEE/.test(filled) &&
+           /Stop chasing headshots/.test(filled) &&
+           /Nothing is uploaded/.test(filled) &&
+           tooEarly === '';                                   // nothing to say in the first fortnight
+  })());
+  ok('the beginner note escapes what you type', (function () {
+    var st = { plan: mkPlanE(4), sessions:{}, settings:{ advice:'<img src=x onerror=1>' }, reviews:{}, metrics:{}, lineups:{} };
+    var h = adviceCard(st, new Date());
+    return h.indexOf('<img') < 0 && h.indexOf('&lt;img') >= 0;
   })());
 })();
 
