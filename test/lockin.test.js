@@ -58,6 +58,8 @@ const { generatePlan, computeStreak, richText, validBackup, programWeek,
         quietWeek, tierIdentity, QUIET_DAYS, PAUSE_WEEKS,
         isDeloadWeek, deloadDur, focusMins, deloadCard, whyPanel, whySource,
         bottleneckCard, tiltCard, offPlanCard, OFFPLAN,
+        adherence, metricMove, driftCheck, driftCard, coachAsk, coachCard, applyCoachAnswer,
+        COACH_ANSWERS, drillAdherence, skippedDrill, skippedCard,
         LSRS, srsAnswer, dueLineups, lineupIsDue, lineupReviewCard,
         stateForBackup, takeBackupImages, picStrip, IMGS, IMG_PER,
         picSlots, picRole, PICROLE } = sandbox.module.exports;
@@ -1557,6 +1559,117 @@ ok('the privacy card states all four claims and the line only a free app can wri
            /Deathmatch/.test(full) && /Scrim/.test(full) &&
            (full.match(/data-offdel=/g) || []).length === 2 &&
            /never counts as a missed day or a completed one/.test(empty);
+  })());
+})();
+
+// --- v3 Group C part 2: drift, the coach's question, the skipped drill ---
+(function () {
+  function mkPlan() {
+    var created = new Date(); created.setDate(created.getDate() - 28);
+    return { weekly:{0:'rest',1:'cstrafe',2:'cstrafe',3:'cstrafe',4:'cstrafe',5:'match',6:'match'},
+             keystone:'cstrafe', used:['cstrafe'], profile:{time:'30'}, created: dateKey(created),
+             targets:[{n:'Counter-strafing %', h:'Leetify'}] };
+  }
+  function trainAll(st, days) {
+    var now = new Date();
+    for (var i = 0; i < days; i++) { var d = addDaysT(now, -i);
+      if (!isTrainingDay(st.plan, d)) continue;
+      st.sessions[dateKey(d)] = { warm:true, drills:{0:true}, fk:'cstrafe' }; }
+  }
+  function addDaysT(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+
+  ok('drift needs BOTH halves — high adherence AND a metric the player entered that stalled', (function () {
+    var st = { plan: mkPlan(), sessions:{}, settings:{}, metrics:{}, reviews:{} };
+    trainAll(st, 21);
+    var noMetric = driftCheck(st, new Date());              // showed up, but nothing measured
+    st.metrics[tkey('Counter-strafing %')] = { base: 70, w4: 70.5 };   // barely moved
+    var both = driftCheck(st, new Date());
+    st.metrics[tkey('Counter-strafing %')] = { base: 70, w4: 79 };     // clearly moved
+    var moved = driftCheck(st, new Date());
+    return noMetric === null && moved === null &&
+           both && both.adherence >= 75 && both.metric.n === 'Counter-strafing %';
+  })());
+  ok('drift stays silent when the habit IS the problem — it never blames the player', (function () {
+    var st = { plan: mkPlan(), sessions:{}, settings:{}, metrics:{}, reviews:{} };
+    trainAll(st, 4);                                        // barely showed up
+    st.metrics[tkey('Counter-strafing %')] = { base: 70, w4: 70.2 };
+    return driftCheck(st, new Date()) === null;
+  })());
+  ok('the drift card blames the plan and offers both ways out', (function () {
+    var st = { plan: mkPlan(), sessions:{}, settings:{}, metrics:{}, reviews:{} };
+    trainAll(st, 21);
+    st.metrics[tkey('Counter-strafing %')] = { base: 70, w4: 70.5 };
+    var h = driftCard(st, new Date());
+    return /The habit is not the problem/.test(h) && /the plan is wrong, not you/.test(h) &&
+           /RETAKE THE QUIZ/.test(h) && /data-driftfocus/.test(h) && /70 → 70\.5/.test(h);
+  })());
+  ok('the coach asks on Sundays only, once a week', (function () {
+    var st = { plan: mkPlan(), sessions:{}, settings:{} };
+    var sunday = new Date(2026,0,4), monday = new Date(2026,0,5);   // 4 Jan 2026 is a Sunday
+    var asksSun = coachAsk(st, sunday), asksMon = coachAsk(st, monday);
+    applyCoachAnswer(st, 'none', sunday);
+    return sunday.getDay() === 0 && asksSun && !asksMon && coachAsk(st, sunday) === null;
+  })());
+  ok('every answer does something genuinely different — including the one that does nothing', (function () {
+    var sunday = new Date(2026,0,4);
+    var eco = { plan: mkPlan(), sessions:{}, settings:{} };
+    var buy = { plan: mkPlan(), sessions:{}, settings:{} };
+    var clutch = { plan: mkPlan(), sessions:{}, settings:{} };
+    var beforeBuy = JSON.stringify(buy.plan.weekly);
+    applyCoachAnswer(eco, 'eco', sunday);
+    applyCoachAnswer(buy, 'buy', sunday);
+    applyCoachAnswer(clutch, 'clutch', sunday);
+    var ecoHas = JSON.stringify(eco.plan.weekly).indexOf('utility') >= 0;
+    var clutchHas = JSON.stringify(clutch.plan.weekly).indexOf('clutch') >= 0;
+    var buyUnchanged = JSON.stringify(buy.plan.weekly) === beforeBuy;
+    var says = COACH_ANSWERS.filter(function (a) { return a.k === 'buy'; })[0].changes;
+    return COACH_ANSWERS.length === 4 && ecoHas && clutchHas && buyUnchanged &&
+           /Nothing changes/.test(says);          // and it SAYS it changes nothing
+  })());
+  ok('answering shows a WHAT CHANGES receipt for that week', (function () {
+    var st = { plan: mkPlan(), sessions:{}, settings:{} };
+    var sunday = new Date(2026,0,4);
+    applyCoachAnswer(st, 'eco', sunday);
+    var h = coachCard(st, sunday);
+    return /WHAT CHANGES/.test(h) && /An eco round/.test(h) && /Utility takes one of your training days/.test(h);
+  })());
+  ok('per-drill adherence counts ONLY stamped sessions — unattributable days are skipped', (function () {
+    var st = { plan: mkPlan(), sessions:{}, settings:{} };
+    var now = new Date();
+    st.sessions[dateKey(now)] = { warm:true, drills:{0:true}, fk:'cstrafe' };
+    st.sessions[dateKey(addDaysT(now,-1))] = { warm:true, drills:{0:true} };   // NO stamp
+    var rows = drillAdherence(st, 21, now);
+    var shown = rows.reduce(function (t, r) { return t + r.shown; }, 0);
+    return rows.length === FOCI.cstrafe.drills.length &&      // one row per drill of that focus
+           shown === FOCI.cstrafe.drills.length;              // only the stamped day counted
+  })());
+  ok('the skipped-drill bars render REAL percentages, not decorative widths', (function () {
+    var st = { plan: mkPlan(), sessions:{}, settings:{} };
+    var now = new Date(), n = FOCI.cstrafe.drills.length;
+    // 6 stamped sessions: every drill done each time EXCEPT the last one, done once
+    for (var i = 0; i < 6; i++) {
+      var dr = {}; for (var j = 0; j < n; j++) dr[j] = true;
+      if (i > 0) delete dr[n-1];
+      st.sessions[dateKey(addDaysT(now,-i))] = { warm:true, drills:dr, fk:'cstrafe' };
+    }
+    var s = skippedDrill(st, now);
+    if (!s) return false;
+    var h = skippedCard(st, now);
+    var worstPct = Math.round(1/6*100);                       // 17%
+    return s.worst.pct === worstPct && s.restMin === 100 &&
+           h.indexOf('width:' + worstPct + '%') >= 0 &&       // the bar IS the number
+           h.indexOf('width:100%') >= 0 &&
+           /MAKE IT EASIER/.test(h) && /SWAP IT OUT/.test(h) && /KEEP IT/.test(h) &&
+           /not laziness/.test(h);
+  })());
+  ok('it stays quiet unless one drill is a genuine outlier', (function () {
+    var st = { plan: mkPlan(), sessions:{}, settings:{} };
+    var now = new Date(), n = FOCI.cstrafe.drills.length;
+    for (var i = 0; i < 6; i++) {                             // everything done every time
+      var dr = {}; for (var j = 0; j < n; j++) dr[j] = true;
+      st.sessions[dateKey(addDaysT(now,-i))] = { warm:true, drills:dr, fk:'cstrafe' };
+    }
+    return skippedDrill(st, now) === null && skippedCard(st, now) === '';
   })());
 })();
 

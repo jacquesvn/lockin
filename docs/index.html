@@ -353,6 +353,27 @@
     background:var(--glass2);color:var(--muted);font-size:12px;}
   .ofpill button{background:none;border:0;color:var(--faint);cursor:pointer;font-size:12px;line-height:1;padding:2px 3px;}
   .ofpill button:hover{color:var(--bad-ink);}
+  /* coach's question, drift, and the skipped-drill bars */
+  .coachcard{margin-bottom:11px;}
+  .coachq{font-size:15px;color:var(--text);margin:8px 0 12px;}
+  .coachopts{display:flex;flex-direction:column;gap:7px;}
+  .coachopt{min-height:44px;background:transparent;border:1px solid var(--edge);border-radius:11px;
+    color:var(--text);font-size:14px;text-align:left;padding:0 14px;cursor:pointer;}
+  .coachopt:hover{border-color:var(--acc);color:var(--accInk);}
+  .driftcard{margin-bottom:11px;border-left:3px solid var(--acc);}
+  .driftbig{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.01em;font-size:18px;color:var(--accInk);margin:6px 0 10px;}
+  .driftrow{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:13px;color:var(--muted);}
+  .driftrow b{color:var(--text);font-family:var(--fm);font-variant-numeric:tabular-nums;}
+  .skipcard{margin-bottom:11px;}
+  .skwrap{margin-top:10px;display:flex;flex-direction:column;gap:7px;}
+  .skrow{display:flex;align-items:center;gap:9px;font-size:12.5px;}
+  .skname{flex:0 0 40%;min-width:0;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .skbar{flex:1;height:8px;background:var(--glass2);border-radius:4px;overflow:hidden;}
+  .skbar i{display:block;height:100%;background:var(--acc);}
+  .skbar i.bad{background:var(--bad);}
+  .skpct{flex:0 0 auto;font-family:var(--fm);font-size:11px;color:var(--text);font-variant-numeric:tabular-nums;}
+  .skopts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .skopts .gbtn{flex:1;min-width:104px;}
   .dbox{width:26px;height:26px;border-radius:7px;flex:0 0 auto;display:grid;place-items:center;border:1.5px solid var(--edge);background:transparent;transition:all .15s;margin-top:1px;}
   .drow.done .dbox{background:var(--hero);border-color:var(--hero);}
   .dbox svg{width:14px;height:14px;color:var(--onhero);opacity:0;} .drow.done .dbox svg{opacity:1;}
@@ -1251,6 +1272,164 @@
   }
   // Applies the recommendation WITHOUT resetting the programme: the created date,
   // history and the user's own match-night placement all survive.
+  /* ---------- what a coach would ask ----------
+     One question a week, and each answer does something GENUINELY different — including
+     the answer that changes nothing, which says so rather than pretending to act. The
+     adjustments are real edits to the weekly rotation, not copy.
+     Asked on Sundays, answered once per week (settings.askWeek holds the Monday key). */
+  /* ---------- plan drift ----------
+     Silent failure is the worst outcome for a free coach: someone shows up for three weeks,
+     nothing moves, and the app says nothing. This fires only when BOTH halves are evidenced —
+     high adherence from the session log, and a checkpoint metric the player entered that has
+     barely moved. If either is missing it stays quiet rather than guessing. It blames the
+     PLAN, never the player. */
+  /* ---------- the drill you keep skipping ----------
+     Per-drill adherence, computed ONLY from sessions carrying a focus stamp (s.fk). Days
+     logged before stamping existed are skipped rather than guessed at — the rotation is
+     editable, so re-deriving what index 2 meant weeks ago would be fiction. The bars render
+     the real percentages. It names the outlier and offers three EQUAL responses, because
+     "too hard" and "wrong for you" are as likely as "lazy". */
+  function drillAdherence(st,days,now){
+    now=now||new Date();
+    var seen={};
+    for(var i=0;i<(days||DRIFT_DAYS);i++){
+      var dk=dateKey(addDays(now,-i)),s=st.sessions[dk];
+      if(!s||!s.fk)continue;                                  // unattributable — skip it
+      var F=FOCI[s.fk];if(!F)continue;
+      var list=drillList(F,st.plan);
+      list.forEach(function(it){
+        var key=s.fk+":"+it.i;
+        seen[key]=seen[key]||{name:it.d.t,focus:F.name,shown:0,done:0};
+        seen[key].shown++;
+        if(s.drills&&s.drills[it.i])seen[key].done++;
+      });
+    }
+    var out=[];
+    for(var k in seen){var r=seen[k];r.pct=r.shown?Math.round(r.done/r.shown*100):0;out.push(r);}
+    out.sort(function(a,b){return a.pct-b.pct;});
+    return out;
+  }
+  function skippedDrill(st,now){
+    var rows=drillAdherence(st,DRIFT_DAYS,now).filter(function(r){return r.shown>=4;});
+    if(rows.length<2)return null;                             // need something to compare against
+    var worst=rows[0],rest=rows.slice(1);
+    var restMin=Math.min.apply(null,rest.map(function(r){return r.pct;}));
+    if(worst.pct>=40||restMin<70)return null;                 // only when it's a genuine outlier
+    return {worst:worst,rows:rows,restMin:restMin};
+  }
+  function skippedCard(st,now){
+    var s=skippedDrill(st,now);if(!s)return "";
+    var bars=s.rows.map(function(r){
+      return '<div class="skrow"><span class="skname">'+esc(r.name)+'</span>'+
+        '<span class="skbar"><i style="width:'+r.pct+'%"'+(r===s.worst?' class="bad"':'')+'></i></span>'+
+        '<span class="skpct">'+r.pct+'%</span></div>';}).join("");
+    return '<div class="card skipcard"><div class="ml" style="color:var(--accInk);">THE DRILL YOU KEEP SKIPPING</div>'+
+      '<div class="skwrap">'+bars+'</div>'+
+      '<p class="mhow" style="margin:8px 0 0;">You have done <b style="color:var(--text);">'+esc(s.worst.name)+'</b> in '+s.worst.pct+'% of the sessions it was on, while everything else sits above '+s.restMin+'%. That is not laziness — a drill skipped this consistently is either too hard or wrong for you.</p>'+
+      '<div class="skopts">'+
+      '<button class="gbtn" data-skip="easier">MAKE IT EASIER</button>'+
+      '<button class="gbtn" data-skip="swap">SWAP IT OUT</button>'+
+      '<button class="gbtn" data-skip="keep">KEEP IT</button></div></div>';
+  }
+  var DRIFT_DAYS=21, DRIFT_ADHERENCE=0.75, DRIFT_FLAT=0.03;
+  function adherence(st,now,days){
+    now=now||new Date();var planned=0,trained=0;
+    for(var i=0;i<(days||DRIFT_DAYS);i++){
+      var d=addDays(now,-i);
+      if(isPausedOn(st,d))continue;
+      if(!isTrainingDay(st.plan,d))continue;
+      planned++;
+      var s=st.sessions[dateKey(d)];
+      if(s&&s.warm)trained++;
+    }
+    return {planned:planned,trained:trained,pct:planned?trained/planned:0};
+  }
+  // the biggest movement across any checkpoint the player actually filled in
+  function metricMove(st){
+    var best=null,ms=st.metrics||{},targets=(st.plan&&st.plan.targets)||[];
+    targets.forEach(function(t){
+      var m=ms[tkey(t.n)];if(!m||m.base==null)return;
+      var latest=null;["w12","w8","w4"].forEach(function(p){if(latest===null&&m[p]!=null)latest=m[p];});
+      if(latest===null)return;
+      var base=+m.base,now=+latest;
+      if(!isFinite(base)||!isFinite(now)||!base)return;
+      var rel=Math.abs((now-base)/base);
+      if(!best||rel<best.rel)best={n:t.n,base:base,now:now,rel:rel,delta:+(now-base).toFixed(2)};
+    });
+    return best;
+  }
+  function driftCheck(st,now){
+    if(!st.plan)return null;
+    var a=adherence(st,now);
+    if(a.planned<8||a.pct<DRIFT_ADHERENCE)return null;      // not enough shown up, or not enough days
+    var m=metricMove(st);
+    if(!m||m.rel>DRIFT_FLAT)return null;                    // no entered metric, or it did move
+    return {adherence:Math.round(a.pct*100),trained:a.trained,planned:a.planned,metric:m};
+  }
+  function driftCard(st,now){
+    var d=driftCheck(st,now);if(!d)return "";
+    var m=d.metric;
+    return '<div class="card driftcard"><div class="ml" style="color:var(--accInk);">THE PLAN IS NOT WORKING</div>'+
+      '<p class="driftbig">You showed up '+d.trained+' of '+d.planned+' days. The habit is not the problem.</p>'+
+      '<div class="driftrow"><span>Adherence</span><b>'+d.adherence+'%</b></div>'+
+      '<div class="driftrow"><span>'+esc(m.n)+'</span><b>'+m.base+' → '+m.now+'</b></div>'+
+      '<p class="mhow" style="margin:8px 0 0;">'+esc(m.n)+' has barely moved while you kept turning up. That means the plan is wrong, not you — and the fix is to change the plan.</p>'+
+      '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">'+
+      '<button class="pbtn" data-act="retake">RETAKE THE QUIZ</button>'+
+      '<button class="gbtn" data-driftfocus="1">CHANGE ONE FOCUS</button></div></div>';
+  }
+  var COACH_Q="Which round did you lose this week that you should have won?";
+  var COACH_ANSWERS=[
+    {k:"eco",  t:"An eco round",          fx:"utility",
+     changes:"Utility takes one of your training days this week. Losing to an eco is usually a util problem, not an aim one."},
+    {k:"buy",  t:"A full-buy gun round",  fx:null,
+     changes:"Nothing changes. Losing a fair gun round is the game working as intended — the plan you're on already trains for it."},
+    {k:"clutch",t:"A 1v1 clutch",         fx:"clutch",
+     changes:"Clutch scenarios go on your last training day of the week, so you practise them tired rather than fresh."},
+    {k:"none", t:"Nothing stands out",    fx:null,
+     changes:"The plan holds. I'll ask again on Sunday — if nothing stands out two weeks running, that's worth knowing too."}
+  ];
+  function coachAsk(st,now){
+    now=now||new Date();
+    if(!st.plan)return null;
+    if(now.getDay()!==0)return null;                        // Sundays only
+    var wk=dateKey(mondayOf(now));
+    if(st.settings&&st.settings.askWeek===wk)return null;   // already answered this week
+    return {week:wk};
+  }
+  // apply an answer to the actual weekly rotation
+  function applyCoachAnswer(st,k,now){
+    var a=null;COACH_ANSWERS.forEach(function(x){if(x.k===k)a=x;});
+    if(!a)return st;
+    st.settings=st.settings||{};
+    st.settings.askWeek=dateKey(mondayOf(now||new Date()));
+    st.settings.askAnswer=k;
+    if(a.fx&&FOCI[a.fx]&&st.plan&&st.plan.weekly){
+      // take the LAST training day of the week so the new work lands late, not first
+      var slot=null;
+      for(var d=0;d<7;d++){var f=st.plan.weekly[d];if(f&&f!=="rest"&&f!=="match")slot=d;}
+      if(slot!==null){
+        st.plan.weekly[slot]=a.fx;
+        st.plan.used=uniq((st.plan.used||[]).concat([a.fx]));
+      }
+    }
+    return st;
+  }
+  function coachCard(st,now){
+    var ask=coachAsk(st,now);
+    var answered=st.settings&&st.settings.askAnswer&&st.settings.askWeek===dateKey(mondayOf(now||new Date()));
+    if(!ask&&!answered)return "";
+    if(answered){
+      var a=null;COACH_ANSWERS.forEach(function(x){if(x.k===st.settings.askAnswer)a=x;});
+      if(!a)return "";
+      return '<div class="card coachcard"><div class="ml" style="color:var(--accInk);">WHAT CHANGES</div>'+
+        '<p class="mhow" style="margin:6px 0 0;"><b style="color:var(--text);">'+esc(a.t)+'</b> — '+esc(a.changes)+'</p></div>';
+    }
+    var opts=COACH_ANSWERS.map(function(a){
+      return '<button class="coachopt" data-coach="'+a.k+'">'+esc(a.t)+'</button>';}).join("");
+    return '<div class="card coachcard"><div class="ml" style="color:var(--accInk);">WHAT A COACH WOULD ASK</div>'+
+      '<p class="coachq">'+esc(COACH_Q)+'</p><div class="coachopts">'+opts+'</div></div>';
+  }
   function applyReview(st,key){
     var old=st.plan,p2=generatePlan(old.profile||{},key);
     var seq=[],d;
@@ -1431,6 +1610,14 @@
     if(ctx.lapse)out.push({tier:2,k:"lapse",label:"Welcome back",html:lapseCard(ctx.lapse)});
     var due=dueCard(st,ctx.pr,ctx.lnDue);
     if(due)out.push({tier:3,k:"due",label:"Due",html:due});
+    // T2: this week — the plan itself is failing, and that outranks anything scheduled
+    var dc=driftCard(st,now);
+    if(dc)out.push({tier:2,k:"drift",label:"Plan drift",html:dc});
+    var sc=skippedCard(st,now);
+    if(sc)out.push({tier:2,k:"skipped",label:"Skipped drill",html:sc});
+    // T3: scheduled — the Sunday question, and the WHAT CHANGES receipt once answered
+    var cc=coachCard(st,now);
+    if(cc)out.push({tier:3,k:"coach",label:"Coach's question",html:cc});
     if(ctx.debrief)out.push({tier:4,k:"debrief",label:"Match debrief",html:ctx.debrief});
     if(ctx.recap)out.push({tier:4,k:"recap",label:"Last week",html:recapCard(st,ctx.recap)});
     return out.filter(function(c){return c.html;});
@@ -3577,6 +3764,18 @@
     for(var i=0;i<gos.length;i++)(function(b){b.onclick=function(){go(b.getAttribute("data-go"));};})(gos[i]);
     var dst=root.querySelectorAll("[data-dest]");
     for(var di=0;di<dst.length;di++)(function(b){b.onclick=function(){goDest(b.getAttribute("data-dest"));};})(dst[di]);
+    var sk=root.querySelectorAll("[data-skip]");
+    for(var ski=0;ski<sk.length;ski++)(function(b){b.onclick=function(){
+      var k=b.getAttribute("data-skip");
+      // "easier" and "keep" are acknowledgements; only "swap" edits the plan, and it sends
+      // you to the rotation rather than silently choosing a replacement for you
+      if(k==="swap")go("plan");
+      else{var s2=load();s2.settings.skipAck=dateKey(new Date());save(s2);render();}};})(sk[ski]);
+    var df=root.querySelector("[data-driftfocus]");
+    if(df)df.onclick=function(){go("plan");};   // the rotation is editable there, tap any day
+    var ca=root.querySelectorAll("[data-coach]");
+    for(var cai=0;cai<ca.length;cai++)(function(b){b.onclick=function(){
+      var s2=load();applyCoachAnswer(s2,b.getAttribute("data-coach"),new Date());save(s2);render();};})(ca[cai]);
     var op=root.querySelectorAll("[data-offplan]");
     for(var opi=0;opi<op.length;opi++)(function(b){b.onclick=function(){
       var s2=load(),dk=dateKey(actDate());
@@ -3844,6 +4043,10 @@
     var F=FOCI[plan.weekly[actDow]];if(!F||plan.weekly[actDow]==="rest")return;
     var s=st.sessions[actK]||{warm:false,deep:false,feel:0,drills:{}};
     s.drills=s.drills||{};
+    // Stamp the focus this day's drill indices belong to. Without it, a drill index means
+    // nothing later: the weekly rotation is editable, so re-reading plan.weekly to decide
+    // what index 2 was six weeks ago is a guess. Stamped days can be attributed exactly.
+    s.fk=plan.weekly[actDow];
     var coreDoneBefore=F.drills.every(function(d,ix){return !d.core||s.drills[ix];});
     s.drills[i]=!s.drills[i];
     var any=F.drills.some(function(d,ix){return s.drills[ix];});
@@ -3926,6 +4129,7 @@
     var st=load(),F=SESS.fk?FOCI[SESS.fk]:null,tk=SESS.dayKey;   // snapshot day: a session crossing midnight stays on its start day
     if(markDone){
       var s=st.sessions[tk]||{warm:false,deep:false,feel:0,drills:{}};s.drills=s.drills||{};
+      if(SESS.fk)s.fk=SESS.fk;                      // same focus stamp as toggleDrill
       var ix=SESS.list[SESS.idx].i;
       if(ix>=0){                                    // a real plan drill
         s.drills[ix]=true;
@@ -4088,7 +4292,10 @@
     tierIdentity:tierIdentity,QUIET_DAYS:QUIET_DAYS,PAUSE_WEEKS:PAUSE_WEEKS,
     isDeloadWeek:isDeloadWeek,deloadDur:deloadDur,focusMins:focusMins,deloadCard:deloadCard,
     whyPanel:whyPanel,whySource:whySource,bottleneckCard:bottleneckCard,tiltCard:tiltCard,
-    offPlanCard:offPlanCard,OFFPLAN:OFFPLAN};
+    offPlanCard:offPlanCard,OFFPLAN:OFFPLAN,
+    adherence:adherence,metricMove:metricMove,driftCheck:driftCheck,driftCard:driftCard,
+    coachAsk:coachAsk,coachCard:coachCard,applyCoachAnswer:applyCoachAnswer,COACH_ANSWERS:COACH_ANSWERS,
+    drillAdherence:drillAdherence,skippedDrill:skippedDrill,skippedCard:skippedCard};
 })();
 </script>
 </body>
