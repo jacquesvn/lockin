@@ -1621,14 +1621,62 @@ ok('no second status vocabulary: every chip-SHAPED rule is .st or is a control',
   if (bad.length) console.log('      rival chip shells: ' + bad.join(', '));
   return bad.length === 0;
 })());
-ok('--line2 is never a control boundary — it is 1.5:1 and misses the 3:1 non-text minimum', (function () {
-  // AA bug 2 from the handoff, and I only half-fixed it: --edge went onto the drill
-  // checkboxes and dashed targets it named, while .subtab / .fullbtn / .tbtn — transparent
-  // buttons whose ONLY affordance is that border — kept --line2. Measured 1.53-1.72:1 on
-  // every ground, against --edge at 3.41-4.22:1. Directional rules are dividers, not
-  // boundaries, so they stay allowed; a full border or border-color does not.
-  var bad2 = (css.match(/border(?:-color)?\s*:[^;}]*var\(--line2\)/g) || []);
+ok('--line2 never PAINTS anything — it is a ~1.6:1 divider, not a colour', (function () {
+  // Twice now this token has hidden something. First it outlined transparent buttons whose
+  // only affordance was that border. Then — the one the user actually noticed — it filled
+  // the history bars: .bfill measured 1.65:1 dark / 1.55:1 light, so "Sessions / week, last
+  // 8 weeks" drew ONE accent bar and SEVEN ghosts and read as an empty panel.
+  // So the rule is now absolute rather than a list of the misuses I happened to find:
+  // --line2 may appear only in a directional border (a hairline divider). It may never be a
+  // background, a full border, or a border-color. --edge (3.4-4.2:1) is the visible one.
+  var bad2 = (css.match(/(?:background(?:-color)?|border(?:-color)?)\s*:[^;}]*var\(--line2\)/g) || []);
+  if (bad2.length) console.log('      --line2 painting: ' + bad2.join(' | '));
   return bad2.length === 0 && /--edge\s*:/.test(css);
+})());
+ok('the pre-v3 amber identity is gone from every shipped surface', (function () {
+  // The redesign changed the tokens but left the hard-coded hexes behind, so the app was
+  // violet while the taskbar icon, the favicon, the browser theme-colour and — worst — the
+  // shareable progress card users POST were all still the old amber. Hard-coded hexes are
+  // exactly what a token system cannot protect, so they get their own guard.
+  var amber = /#(EAC54F|322D14|1b1b18|ECE9E0|9A9482|332F22|78735F)\b/gi;
+  var files = { 'index.html': html };
+  try { files['landing.html'] = fs.readFileSync(path.join(__dirname, '..', 'docs', 'landing.html'), 'utf8'); } catch (e) {}
+  try { files['manifest'] = fs.readFileSync(path.join(__dirname, '..', 'docs', 'manifest.webmanifest'), 'utf8'); } catch (e) {}
+  try { files['icon.svg'] = fs.readFileSync(path.join(__dirname, '..', 'docs', 'icon.svg'), 'utf8'); } catch (e) {}
+  var bad = [];
+  Object.keys(files).forEach(function (f) {
+    var m = files[f].match(amber);
+    if (m) bad.push(f + ': ' + m.join(','));
+  });
+  if (bad.length) console.log('      stale identity: ' + bad.join(' | '));
+  // and the share card must actually paint in the v3 palette
+  var card = script.slice(script.indexOf('function shareCard('));
+  card = card.slice(0, card.indexOf('\n  function ', 10));
+  return bad.length === 0 && /#E38EFD/i.test(card) && /#09070C/i.test(card);
+})());
+ok('an entry animation never leaves its element invisible at rest', (function () {
+  // v3 motion animates in from opacity:0 / scale(0) / scaleX(0). With fill-mode BOTH the
+  // element also holds that invisible 0% frame BEFORE the animation starts — so anything
+  // that stalls the start leaves it blank. The end frame of every one of these equals the
+  // element's resting style, so no fill is needed at all... EXCEPT where there is a delay:
+  // during a delay, no-fill shows the resting state and then snaps to 0%, which flashes.
+  // Hence: delay => must carry a fill; no delay => must NOT carry a backwards fill.
+  var entry = /animation:(lk-snap|lk-rise|v3-shardA|v3-shardB|v3-bloom|v3-rise|v3-roll|v3-pop|v3-growX|v3-badge|v3-cell|v3-tick)([^;}]*)/g;
+  var m, bad = [];
+  while ((m = entry.exec(css))) {
+    var rest = m[2];
+    // a delay is a SECOND time value in the shorthand (the first is the duration)
+    var times = rest.match(/(?:^|\s)-?[\d.]+m?s/g) || [];
+    var hasDelay = times.length >= 2;
+    var backwards = /\b(both|backwards)\b/.test(rest);
+    if (hasDelay !== backwards) bad.push(m[1] + ' delay:' + hasDelay + ' backwardsFill:' + backwards);
+  }
+  if (bad.length) console.log('      ' + bad.join(' | '));
+  // and the calendar specifically must survive a stalled clock: 36 cells is the bulk of the
+  // Progress screen, so its entry may scale but must never fade from opacity 0.
+  var cell = (css.match(/@keyframes v3-cell\{[^}]*\}[^}]*\}/) || [''])[0];
+  var cellSafe = cell && !/opacity:\s*0(\D|$)/.test(cell) && /scale\(\.86\)/.test(cell);
+  return bad.length === 0 && cellSafe;
 })());
 ok('no blanket element selector can outrank a status chip nested inside a component', (function () {
   // .lnrow .lnb span (0,2,1) silently beat .st.due (0,2,0) and rendered the DUE chip grey.
