@@ -1925,19 +1925,23 @@ ok('every touch-reachable control clears 44px, with a SEPARATE desktop variant',
   if (missing.length) console.log('      not in the 44px rule: ' + missing.join(', '));
   return missing.length === 0 && /input\[type="text"\]/.test(block);
 })());
-ok('standard transitions stay inside the 260-450ms band, on the standard curve', (function () {
-  // Section 2: "durations 260-450ms", standard easing cubic-bezier(.2,.9,.2,1). Ambient and
-  // looping motion (the spinner, the scan, the celebration bloom/ping) is deliberately
-  // exempt — it is not a transition. Everything else drifted: .whypanel ran 220ms, three
-  // entry animations ran 500ms, and four carried a bare `ease`.
-  var AMBIENT = /v3-spin|lk-scan|lk-blink|lk-ping|v3-bloom|v3-ping/;
+ok('standard transitions stay inside the 380-680ms band, on the standard curve', (function () {
+  // Section 2 gives 260-450ms. The user asked for the motion to linger — "it looks too good
+  // to just have it for a second" — so the band was moved UP deliberately, not widened
+  // because something failed. The floor still exists so nothing snaps, and the ceiling still
+  // exists so entry motion on every render never feels like waiting for the UI.
+  // Ambient and looping motion (spinner, scan, celebration bloom/ping) stays exempt.
+  // Exempt: ambient/looping motion, AND the assemble's own frames — that moment is a one-off
+  // with its own guard covering its timing, so holding it to the everyday band would be
+  // measuring it against the wrong thing.
+  var AMBIENT = /v3-spin|lk-scan|lk-blink|lk-ping|v3-bloom|v3-ping|v3-shardA|v3-shardB|v3-roll/;
   var re = /animation:([\w-]+)([^;}]*)/g, m, bad = [];
   while ((m = re.exec(css))) {
     if (AMBIENT.test(m[1])) continue;
     var rest = m[2];
     var times = (rest.match(/(?:^|\s)(\d*\.?\d+)(ms|s)(?=\s|$)/g) || [])
       .map(function (t) { t = t.trim(); return /ms$/.test(t) ? parseFloat(t) : parseFloat(t) * 1000; });
-    if (times.length && (times[0] < 260 || times[0] > 450)) bad.push(m[1] + ' ' + times[0] + 'ms');
+    if (times.length && (times[0] < 380 || times[0] > 680)) bad.push(m[1] + " " + times[0] + "ms");
     if (/\bease(-in|-out|-in-out)?\b/.test(rest) && !/cubic-bezier/.test(rest)) bad.push(m[1] + ' bare ease');
   }
   if (bad.length) console.log('      ' + Array.from(new Set(bad)).join(' | '));
@@ -2056,12 +2060,25 @@ ok('"the assemble" is BUILT: both shards, bloom, ping and the rolling numeral', 
          /class="shA" d="'\+EMBLEM_A/.test(script) &&      // the real emblem paths, not a placeholder
          /class="shB" d="'\+EMBLEM_B/.test(script);
 })());
-ok('the assemble self-clears in under 1.3s of motion and never demands dismissal', (function () {
+ok('the assemble lingers, still self-clears, and its motion finishes before it does', (function () {
+  // Section 5.1 caps the assemble at 1.3s. The user has seen it and asked for it to linger —
+  // that is their call over the spec, so the band moved to 3.2s DELIBERATELY. What must not
+  // move is the invariant underneath: it clears itself, and no frame is still animating when
+  // it goes, or the moment ends mid-flight instead of landing.
   var m = script.match(/celeT=setTimeout\(done,(\d+)\)/);
-  // scoped to celebrate() — the lightbox DOES ask to be dismissed, and should
+  if (!m) { console.log('      no self-clear timer at all'); return false; }
+  var clearsAt = +m[1];
+  // the latest-finishing frame in the assemble: its delay plus its duration
+  var latest = 0;
+  var re = /animation:(v3-shardA|v3-shardB|v3-bloom|v3-ping|v3-rise|v3-roll|lk-rise)\s+([\d.]+)s(?:\s+cubic-bezier\([^)]*\))?(?:\s+([\d.]+)s)?/g, x;
+  while ((x = re.exec(css))) {
+    var dur = parseFloat(x[2]) * 1000, delay = x[3] ? parseFloat(x[3]) * 1000 : 0;
+    if (dur + delay > latest) latest = dur + delay;
+  }
   var fn = (script.match(/function celebrate\([\s\S]*?\n  \}/) || [''])[0];
-  return m && +m[1] <= 1600 &&                              // clears itself
-         fn.indexOf('TAP OR PRESS') < 0 &&                  // no instruction to dismiss
+  if (latest >= clearsAt) console.log('      motion ends at ' + latest + 'ms but it clears at ' + clearsAt + 'ms');
+  return clearsAt <= 3600 && latest > 0 && latest < clearsAt &&   // lands before it leaves
+         fn.indexOf('TAP OR PRESS') < 0 &&                        // no instruction to dismiss
          /celeKey=function\(e\)\{if\(e\.key==="Escape"/.test(script);   // but Esc still works
 })());
 ok('every v3 keyframe we define is actually used somewhere', (function () {
@@ -2668,6 +2685,27 @@ ok('--faint on --glass2 (the tightest pair in the system) clears AA once composi
     var g2 = t === 'dark' ? over([1, 1, 1], 0.085, surf) : over(oklchToRgb(0.30, 0.06, 303), 0.075, surf);
     var r = cr(faint, g2);
     if (r < 4.5) bad.push(t + ' faint on glass2 = ' + r.toFixed(2));
+  });
+  if (bad.length) console.log('      ' + bad.join('; '));
+  return bad.length === 0;
+})());
+ok('--acc as a FILL clears 3:1 on every ground it lands on, in both themes', (function () {
+  // Toning the accent down on request walked it toward a floor nothing was watching: --acc
+  // is the paint for the nav slab, the milestone rungs, the heatmap peak, the current bar and
+  // the track fill, and those are non-text elements that must clear 3:1. --surface2 is the
+  // lightest ground in dark, so it is the binding case — one more step down breaks it.
+  // Text contrast had guards; the fill did not, which is how "make it less bright" could have
+  // quietly cost the design its legibility.
+  var bad = [];
+  ['dark', 'light'].forEach(function (t) {
+    var a = tok('acc', t);
+    [['surface2', tok('surface2', t)], ['surface', tok('surface', t)], ['bg', tok('bg', t)]].forEach(function (p) {
+      var r = cr(a, p[1]);
+      if (r < 3) bad.push(t + ' acc on ' + p[0] + ' = ' + r.toFixed(2));
+    });
+    // and --onAcc must stay AA as text sitting ON that fill
+    var onR = cr(tok('onAcc', t), a);
+    if (onR < 4.5) bad.push(t + ' onAcc on acc = ' + onR.toFixed(2));
   });
   if (bad.length) console.log('      ' + bad.join('; '));
   return bad.length === 0;
