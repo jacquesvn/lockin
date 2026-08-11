@@ -2028,13 +2028,33 @@ ok('the two micro-label roles are distinct and both sit inside the spec type sca
   function px(r) { var m = r.match(/font-size:([\d.]+)px/); return m ? +m[1] : null; }
   function em(r) { var m = r.match(/letter-spacing:([-\d.]+)em/); return m ? +m[1] : null; }
   function wt(r) { var m = r.match(/font-weight:(\d+)/); return m ? +m[1] : null; }
-  var statOk = px(base) >= 8 && px(base) <= 10 && em(base) >= 0.12 && em(base) <= 0.14;
-  var kickOk = px(kick) >= 8 && px(kick) <= 8.5 && em(kick) === 0.18 && wt(kick) === 400;
+  // The spec bands are 8-10px (stat) and 8-8.5px (kicker). Those were tuned in a mockup; in
+  // a real window at real viewing distance they read small, and the user asked for a lift.
+  // So the bands moved UP by a point on request — deliberately, the same way the motion band
+  // did — rather than being widened because something failed. Both roles must still be
+  // DISTINCT and the kicker must still be the quieter of the two, which is what this checks.
+  var statOk = px(base) >= 9.5 && px(base) <= 11 && em(base) >= 0.12 && em(base) <= 0.14;
+  var kickOk = px(kick) >= 9 && px(kick) <= 10 && em(kick) === 0.18 && wt(kick) === 400;
+  var stillDistinct = px(kick) < px(base) && wt(kick) < (+(base.match(/font-weight:(\d+)/) || [])[1] || 600);
   // and the hero numeral is the TOP of the display range, not merely inside it
   var big = (css.match(/\.big-n\{[^}]*\}/) || [''])[0];
   var bigOk = px(big) === 68 && em(big) === -0.045;
-  if (!statOk || !kickOk || !bigOk) console.log('      base=' + base + '\n      kicker=' + kick + '\n      big=' + big);
-  return statOk && kickOk && bigOk && base !== kick;
+  if (!statOk || !kickOk || !bigOk || !stillDistinct) console.log('      base=' + base + '\n      kicker=' + kick + '\n      big=' + big);
+  return statOk && kickOk && bigOk && stillDistinct && base !== kick;
+})());
+ok('nothing renders below 9px — no text asks you to lean in', (function () {
+  // "Some of the text is hard to read" was never a contrast problem: everything measured
+  // 5.15:1 or better. It was SIZE. This sets a floor so the next small label cannot slip
+  // under it, and so the type scale can only be lowered deliberately.
+  var small = [];
+  var re = /([^{}]*)\{([^}]*font-size:\s*([\d.]+)px[^}]*)\}/g, m;
+  while ((m = re.exec(css))) {
+    var sel = m[1].replace(/\/\*[\s\S]*?\*\//g, '').trim().replace(/\s+/g, ' ');
+    var size = +m[3];
+    if (size < 9 && sel && sel.indexOf('@') < 0) small.push(sel.slice(-40) + ' = ' + size + 'px');
+  }
+  if (small.length) console.log('      below the 9px floor: ' + small.join(' | '));
+  return small.length === 0;
 })());
 ok('a selected nav item is never signalled by text colour alone', (function () {
   // .snav .snsub.on set background:transparent AND ::before{display:none}, cancelling BOTH

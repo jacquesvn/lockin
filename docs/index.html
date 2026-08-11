@@ -91,8 +91,8 @@
      prototype, without any single label looking wrong.
        Data / stat label  --fm  8-10px  400/600  0.12-0.14em   ("CURRENT STREAK", "THE RULE")
        Section kicker     --fm  8-8.5px  400     0.18em        ("DRILL LIBRARY", "INSIGHTS")  */
-  .ml{font-family:var(--fm);font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--faint);font-weight:600;}
-  .divi .ml,.ml.kicker{font-size:8.5px;font-weight:400;letter-spacing:0.18em;}
+  .ml{font-family:var(--fm);font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--faint);font-weight:600;}
+  .divi .ml,.ml.kicker{font-size:9.5px;font-weight:400;letter-spacing:0.18em;}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;}
   /* a card that's also a button — the Plan → Maps pointer */
   .ptrcard{width:100%;text-align:left;cursor:pointer;display:flex;align-items:center;gap:12px;color:inherit;font:inherit;}
@@ -139,10 +139,10 @@
   #tabbar{background:var(--dock);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);gap:2px;padding:4px 6px calc(4px + env(safe-area-inset-bottom));}
   #tabbar .tab{min-width:71px;min-height:56px;padding:8px 4px;gap:4px;position:relative;}
   #tabbar .tab svg{width:20px;height:20px;}
-  #tabbar .tab span{display:block;font-size:8.5px;letter-spacing:0.08em;}
+  #tabbar .tab span{display:block;font-size:9px;letter-spacing:0.08em;}
   #tabbar .tab.on{background:var(--acc);color:var(--onAcc);--knock:var(--acc);clip-path:var(--facet);}
   .tabdue{animation:v3-pop .46s cubic-bezier(.2,.9,.2,1);position:absolute;top:4px;right:12px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;
-    background:var(--acc);color:var(--onAcc);font-family:var(--fm);font-size:8.5px;font-weight:700;
+    background:var(--acc);color:var(--onAcc);font-family:var(--fm);font-size:9px;font-weight:700;
     display:grid;place-items:center;line-height:1;}
   #tabbar .tab.on .tabdue{background:var(--onAcc);color:var(--acc);}
   /* the dock floats over content, so the scroll container has to clear it */
@@ -185,7 +185,8 @@
   .snav .snsub.on::before{display:block;left:-14px;top:50%;bottom:auto;height:14px;width:2px;
     transform:translateY(-50%);background:var(--acc);border-radius:2px;}
   .snrule{display:flex;align-items:center;gap:8px;margin:14px 0 4px;}
-  .snrule span{font-family:var(--fm);font-size:8px;letter-spacing:0.18em;color:var(--faint);}
+  /* 8px was below the floor — nothing in the app should ask you to lean in */
+  .snrule span{font-family:var(--fm);font-size:9px;letter-spacing:0.18em;color:var(--faint);}
   .snrule::after{content:"";flex:1;height:1px;background:var(--line);}
   /* Practice sub-tabs inside the screen. The selected one is a solid accent fill with the
      facet — a 1px outline was too subtle to read and shipped as a bug. */
@@ -193,7 +194,7 @@
   .subtab{min-height:44px;padding:0 16px;background:transparent;border:1px solid var(--edge);border-radius:10px;
     color:var(--muted);font-family:var(--fm);font-size:11px;font-weight:700;letter-spacing:0.1em;cursor:pointer;}
   .subtab.on{background:var(--acc);border-color:var(--acc);color:var(--onAcc);border-radius:0;}
-  .subcap{font-family:var(--fm);font-size:8.5px;letter-spacing:0.18em;color:var(--faint);margin-bottom:14px;}
+  .subcap{font-family:var(--fm);font-size:9px;letter-spacing:0.18em;color:var(--faint);margin-bottom:14px;}
   @media (min-width:720px){ .subtab{min-height:36px;} }
   /* MORE sheet — mobile only; desktop lists Gear/Setup in the sidebar instead */
   #sheet{position:fixed;inset:0;z-index:60;display:none;}
@@ -246,9 +247,9 @@
   .psmark{width:20px;height:20px;color:var(--accInk);display:inline-block;--knock:var(--surface);}
   .psmark svg{width:20px;height:20px;}
   .psname{font-family:var(--fd);font-weight:800;font-size:15px;letter-spacing:-0.01em;color:var(--text);margin-right:auto;}
-  .psver{font-family:var(--fm);font-size:8.5px;letter-spacing:0.12em;color:var(--faint);}
+  .psver{font-family:var(--fm);font-size:9px;letter-spacing:0.12em;color:var(--faint);}
   .psgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:13px 0;}
-  .psk{font-family:var(--fm);font-size:8.5px;letter-spacing:0.14em;color:var(--faint);}
+  .psk{font-family:var(--fm);font-size:9px;letter-spacing:0.14em;color:var(--faint);}
   .psv{font-family:var(--fd);font-weight:800;font-size:22px;letter-spacing:-0.02em;color:var(--accInk);margin-top:3px;}
   .psfoot{padding-top:11px;border-top:1px solid var(--line);font-size:13px;color:var(--text);}
   .psfoot .psk{display:inline;margin-right:6px;}
@@ -266,7 +267,7 @@
   .gtl{display:flex;align-items:center;gap:8px;justify-content:space-between;}
   .gtv{font-family:var(--fd);font-weight:800;font-size:17px;letter-spacing:-0.01em;color:var(--text);margin-top:7px;}
   .gtile.empty .gtv{color:var(--faint);}
-  .gth{font-family:var(--fm);font-size:8.5px;letter-spacing:0.08em;color:var(--faint);margin-top:3px;}
+  .gth{font-family:var(--fm);font-size:9px;letter-spacing:0.08em;color:var(--faint);margin-top:3px;}
   @media (max-width:719px){ .gtiles{grid-template-columns:repeat(auto-fit,minmax(132px,1fr));} }
   /* ---------- settings audit rows ---------- */
   .sarow{padding:11px 0;border-bottom:1px solid var(--line);}
@@ -305,14 +306,14 @@
   /* .big-n is declared later in the sheet, so a bare .srn ties on specificity and loses —
      the rail numeral rendered at the headline's 68px. Scope it so the rail wins. */
   .srail .srn{font-size:44px;line-height:.9;color:var(--text);letter-spacing:-0.03em;}
-  .srunit{font-family:var(--fm);font-size:8.5px;letter-spacing:0.14em;color:var(--faint);line-height:1.15;}
-  .srunit small{display:block;font-size:8.5px;}
+  .srunit{font-family:var(--fm);font-size:9px;letter-spacing:0.14em;color:var(--faint);line-height:1.15;}
+  .srunit small{display:block;font-size:9px;}
   .srail .frzrow{margin-left:auto;display:inline-flex;gap:3px;}
   .srail .frzs{width:13px;height:13px;color:var(--accInk);}
   .srail .frzs svg{width:13px;height:13px;}
   .srail .frzs.spent{color:var(--faint);opacity:.55;}
   .srail .frzs.none{color:var(--edge);}
-  .srsub{font-family:var(--fm);font-size:8.5px;letter-spacing:0.05em;color:var(--faint);}
+  .srsub{font-family:var(--fm);font-size:9px;letter-spacing:0.05em;color:var(--faint);}
   .srbar{height:2px;background:var(--line);border-radius:2px;overflow:hidden;}
   .srbar i{display:block;height:100%;background:var(--acc);transform-origin:left center;
     animation:v3-growX .68s cubic-bezier(.2,.9,.2,1);}
@@ -376,7 +377,7 @@
   .frzs{width:14px;height:14px;color:var(--accInk);display:inline-block;}
   .frzs svg{width:14px;height:14px;}
   .frzs.spent{color:var(--faint);opacity:.55;}      /* spent, not gone — you can see what it cost */
-  .frzt small{display:block;color:var(--faint);letter-spacing:0.08em;margin-top:2px;}
+  .frzt small{display:block;font-size:9px;color:var(--faint);letter-spacing:0.08em;margin-top:2px;}
   /* pause — stopping on purpose is not dropping off */
   .pausecard{margin-bottom:11px;}
   .pausebig{font-family:var(--fd);font-weight:800;text-transform:uppercase;letter-spacing:-0.01em;font-size:22px;color:var(--accInk);margin-top:6px;}
@@ -401,13 +402,13 @@
   .tierhex b{font-family:var(--fd);font-weight:800;font-size:17px;}
   .tiertx{min-width:0;}
   .tiername{display:block;font-family:var(--fd);font-weight:800;font-size:12px;letter-spacing:-0.01em;overflow-wrap:anywhere;}
-  .tiertx small{display:block;font-family:var(--fm);font-size:8px;letter-spacing:0.16em;color:var(--faint);margin-top:2px;}
+  .tiertx small{display:block;font-family:var(--fm);font-size:9px;letter-spacing:0.16em;color:var(--faint);margin-top:2px;}
   /* In the rail the hierarchy inverts: the handle is the quiet line and the TIER is the loud
      one, in accent. We had it the other way round — the tier was 8px --faint, a whisper. */
   #side .tierid{padding-bottom:16px;border-bottom:1px solid var(--line);}
   #side .tierhex{width:26px;height:29px;}
   #side .tierhex b{font-size:11px;}
-  #side .tiername{font-family:var(--fm);font-size:8.5px;font-weight:400;letter-spacing:0.14em;
+  #side .tiername{font-family:var(--fm);font-size:9px;font-weight:400;letter-spacing:0.14em;
     text-transform:uppercase;color:var(--faint);}
   #side .tiertx small{font-family:var(--fd);font-size:13px;font-weight:800;letter-spacing:-0.01em;
     text-transform:uppercase;color:var(--accInk);margin-top:1px;}
@@ -438,12 +439,11 @@
     background:var(--surface2);color:var(--faint);
     clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
     font-family:var(--fd);font-weight:800;font-size:10.5px;line-height:1;}
-  .mtn small{display:block;margin-top:6px;font-family:var(--fm);font-size:8px;letter-spacing:0.12em;color:var(--faint);}
+  .mtn small{display:block;margin-top:6px;font-family:var(--fm);font-size:9px;letter-spacing:0.12em;color:var(--faint);}
   .mtn.on .mthex{background:var(--acc);color:var(--onAcc);}
   .mtn.on small{color:var(--muted);}
   .mtn.next .mthex{background:var(--surface2);color:var(--accInk);box-shadow:0 0 0 2px var(--acc);}
   @media (max-width:719px){ .mtn small{font-size:7.5px;letter-spacing:0.06em;} .mtn{width:44px;} }
-  .mrt{font-family:var(--fm);font-size:7.5px;letter-spacing:0.1em;color:var(--faint);margin-top:2px;}
   /* auto-logged match summary */
   .adcard{margin-bottom:10px;}
   .adtop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
@@ -467,8 +467,12 @@
   .ach.on .achhex{background:var(--acc);color:var(--onAcc);animation:v3-badge .58s cubic-bezier(.2,.9,.2,1);}
   .acht{font-family:var(--fm);font-weight:700;font-size:9.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text);}
   .ach:not(.on) .acht{color:var(--muted);}
-  .achd{font-family:var(--fm);font-size:8.5px;letter-spacing:0.05em;color:var(--faint);line-height:1.4;margin-top:1px;}
-  .achp{font-family:var(--fm);font-size:8.5px;letter-spacing:0.08em;color:var(--faint);margin-top:2px;}
+  /* These are SENTENCES — "Reach a 14-day streak." — and I put them in 8.5px tracked mono
+     when the badges became hexagons, because everything else in that card is a label. Label
+     sizes work for labels: short, uppercase, widely spaced, read at a glance. Prose at the
+     same size is just small. Back to the body face at a size you can actually read. */
+  .achd{font-family:var(--fb);font-size:11.5px;letter-spacing:normal;color:var(--muted);line-height:1.45;margin-top:3px;}
+  .achp{font-family:var(--fm);font-size:9px;letter-spacing:0.08em;color:var(--faint);margin-top:2px;}
   .ach.on .achp{color:var(--good);}
   .hr-r{text-align:right;}
   .hr-r .n2{font-family:var(--fd);font-weight:800;font-size:26px;letter-spacing:-0.02em;}
@@ -866,7 +870,7 @@
   .btarget{position:absolute;left:0;right:0;height:0;border-top:1px dashed var(--edge);pointer-events:none;}
   /* sits ABOVE the rule rather than on it, so it needs no knockout background — which also
      keeps it from reading as a chip to the shape guard, correctly: it is an axis label */
-  .btarget span{position:absolute;right:0;top:-12px;font-family:var(--fm);font-size:8.5px;
+  .btarget span{position:absolute;right:0;top:-12px;font-family:var(--fm);font-size:9px;
     letter-spacing:0.1em;color:var(--faint);}
   /* ---------- twelve-week heatmap ---------- */
   /* fixed 12px cells, not flex-filled — stretched to the card width each cell became 63px
@@ -880,7 +884,7 @@
   .hm.l2{background:color-mix(in oklab,var(--acc) 75%,var(--surface2));}
   .hm.l3{background:var(--acc);}
   .hm.fut{background:transparent;box-shadow:inset 0 0 0 1px var(--line);}
-  .hmkey{display:inline-flex;align-items:center;gap:3px;font-family:var(--fm);font-size:8px;
+  .hmkey{display:inline-flex;align-items:center;gap:3px;font-family:var(--fm);font-size:9px;
     letter-spacing:0.14em;color:var(--faint);}
   .hmkey .hm{width:9px;height:9px;aspect-ratio:auto;}
   /* ---------- trend line ---------- */
@@ -913,7 +917,7 @@
   .bval{font-family:var(--fm);font-size:10px;text-align:center;color:var(--muted);font-variant-numeric:tabular-nums;}
   .bval.off{color:var(--faint);opacity:.45;}
   .baxis{display:flex;justify-content:space-between;margin-top:5px;}
-  .baxis span{font-family:var(--fm);font-size:8.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--faint);}
+  .baxis span{font-family:var(--fm);font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--faint);}
   .chempty{flex:1;font-family:var(--fm);font-size:10.5px;color:var(--faint);line-height:1.5;}
   @media (max-width:719px){.sparkrow{align-items:flex-start;flex-direction:column;gap:10px;} .sparkrow .sl{flex:none;} .bwrap{width:100%;max-width:none;}}
   .gate{border-left:3px solid var(--hero);}
