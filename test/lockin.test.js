@@ -1693,6 +1693,40 @@ ok('Progress card order: milestones open, achievements close, and the leak follo
          share < badges &&                       // share card, then the badges, as in the art
          /Derived from the audit above/.test(script);
 })());
+ok('a normal weekend is NOT a lapse — the quiet week never fires on a perfect user', (function () {
+  // The bug: quietWeek measured the gap in CALENDAR days while lapseInfo — the app's other,
+  // correct detector — counts MISSED TRAINING DAYS. On the default 4-day plan a perfect week
+  // has a Thu->Mon gap of 4 calendar days and zero missed training days, so `4 < LAPSE_MIN+1`
+  // was false and every Monday armed a quiet week. QUIET_DAYS is 4 and there are 4 training
+  // days a week, so it re-armed before it could expire: from week two onward every user was
+  // permanently on core-only drills, told "a lighter week back" on days they never missed.
+  // Measured before the fix: fired on 12 of 16 perfectly-trained days.
+  var plan = generatePlan({ rank: 'good', weapon: 'rifle', role: 'entry', weak: ['cstrafe'], time: '10', days: '4', goal: 'consistency' });
+  plan.created = '2026-01-05';
+  var st = { plan: plan, sessions: {}, settings: {}, metrics: {}, matches: {}, lineups: {}, reviews: {} };
+  var start = new Date(2026, 0, 5), fired = 0, total = 0;
+  for (var w = 0; w < 4; w++) for (var off = 0; off < 7; off++) {
+    var d = new Date(start); d.setDate(d.getDate() + w * 7 + off);
+    if (!isTrainingDay(plan, d)) continue;
+    st.sessions[dateKey(d)] = { warm: true };
+    total++; if (quietWeek(st, d)) fired++;
+  }
+  // and a REAL lapse must still be caught, or the fix has just deleted the feature
+  var st2 = { plan: plan, sessions: {}, settings: {}, metrics: {}, matches: {}, lineups: {}, reviews: {} };
+  st2.sessions['2026-01-05'] = { warm: true };
+  st2.sessions['2026-01-06'] = { warm: true };
+  st2.sessions['2026-01-26'] = { warm: true };        // back after three weeks away
+  var realLapse = quietWeek(st2, new Date(2026, 0, 26));
+  if (fired) console.log('      quiet week fired on ' + fired + ' of ' + total + ' perfect days');
+  // slice to the END of the function, not a fixed character count — the explanatory comment
+  // above the loop pushed the code past a 1200-char window and the check silently read blank
+  var fn = script.slice(script.indexOf('function quietWeek('));
+  fn = fn.slice(0, fn.indexOf('\n  function ', 10));
+  return total === 16 && fired === 0 && !!realLapse &&
+         // it must count the same thing lapseInfo counts, not calendar days
+         /isTrainingDay\(plan,d\)&&!isPausedOn\(st,d\)\)missed\+\+/.test(fn) &&
+         fn.indexOf('gapDays') < 0;
+})());
 ok('a round is recorded once, and a re-post of the same round is not a second round', (function () {
   // CS2 can re-post an edge, and round numbers repeat every match — so neither the round
   // number nor the map alone is a key. Same map+round inside two minutes is one round.

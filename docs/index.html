@@ -2994,12 +2994,24 @@
   var QUIET_DAYS=4;
   function quietWeek(st,now){
     now=now||new Date();
+    var plan=st&&st.plan;if(!plan)return null;
     var warm=warmDays(st);if(warm.length<2)return null;
-    // find the most recent return: a training day logged after a gap long enough to lapse
+    /* Find the most recent return: a training day logged after a gap long enough to LAPSE.
+       "Long enough" must be counted in MISSED TRAINING DAYS, exactly as lapseInfo counts it —
+       not in calendar days. Counting calendar days made an ordinary weekend look like a lapse:
+       on the default 4-day plan (train Mon-Thu, match Fri/Sat, rest Sun) a perfect week has a
+       Thu->Mon gap of 4 calendar days and ZERO missed training days, and 4 < LAPSE_MIN+1 is
+       false — so the quiet week armed every Monday, and since QUIET_DAYS is 4 and there are
+       exactly 4 training days a week it re-armed before it could ever expire.
+       Measured on a user who never missed a day: it fired on 12 of 16 training days from week
+       two onward, hiding every non-core drill and telling them "a lighter week back" forever,
+       while lapseInfo — looking at the same history — correctly reported no lapse at all. */
     for(var i=warm.length-1;i>0;i--){
       var cur=parseKey(warm[i]),prev=parseKey(warm[i-1]);
-      var gapDays=Math.round((midnight(cur)-midnight(prev))/86400000);
-      if(gapDays<LAPSE_MIN+1)continue;
+      var missed=0;
+      for(var d=addDays(prev,1);midnight(d)<midnight(cur);d=addDays(d,1))
+        if(isTrainingDay(plan,d)&&!isPausedOn(st,d))missed++;   // a paused day was never missed
+      if(missed<LAPSE_MIN)continue;
       var since=Math.round((midnight(now)-midnight(cur))/86400000);
       if(since<0||since>=QUIET_DAYS)return null;
       return {since:since,left:QUIET_DAYS-since,returned:warm[i]};
