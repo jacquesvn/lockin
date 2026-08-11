@@ -341,7 +341,28 @@
   .hd h1{font-size:30px;line-height:1;}
   .iconbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer;display:grid;place-items:center;}
   .iconbtn svg{width:17px;height:17px;}
-  .iconbtn:focus-visible,.tab:focus-visible,.snav button:focus-visible,.opt:focus-visible,.drow:focus-visible,.pbtn:focus-visible,.gbtn:focus-visible{outline:2px solid var(--hero);outline-offset:2px;}
+  /* ---------- focus ----------
+     Two things were wrong here and both are the kind that only a keyboard user meets.
+     · The ring used --hero, which aliases to --acc: the FILL, not the ink. That is the exact
+       acc/accInk split the spec warns about, and toning the accent down for the buttons
+       dimmed the focus ring with it. It is --accInk now, which is what section 8 asks for.
+     · It named seven selectors by hand, written before most of this app existed. Of 194
+       focusable controls, 24 KINDS had no rule — .srdue, .sico, .subtab, .mchip, every
+       input — so they fell back to the browser default, which on a dark violet ground is
+       close to invisible. One rule for everything focusable cannot drift like that.
+     Faceted elements get an INSET ring: clip-path cuts an outline (and an outer shadow)
+     clean off, so on those the ring has to be drawn inside the shape. */
+  :focus-visible{outline:2px solid var(--accInk);outline-offset:2px;border-radius:2px;}
+  /* Clipped shapes need the ring INSIDE them, and its colour depends on what it sits on.
+     On an ACCENT FILL the ink is the wrong token — in light theme --accInk (L .455) and
+     --acc (L .495) are almost the same lightness, so an accInk ring on an accent button
+     measured 1.16:1, i.e. invisible. --onAcc is the colour designed to sit on that fill. */
+  .facet:focus-visible,#tabbar .tab.on:focus-visible,.snav button.on:focus-visible{
+    outline:none;box-shadow:inset 0 0 0 2px var(--onAcc);}
+  /* clipped but NOT accent-filled — these sit on a normal ground, so the ink is right */
+  .gtile:focus-visible,.pshot:focus-visible{
+    outline:none;box-shadow:inset 0 0 0 2px var(--accInk);}
+  /* superseded by the rule above — kept only to document what it used to be */
 
   /* ---------- streak hero ---------- */
   .hero-card{position:relative;overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;}
@@ -699,7 +720,6 @@
   @media (min-width:560px){.wsgrid{grid-template-columns:repeat(auto-fill,minmax(248px,1fr));}}
   .wsrow{display:flex;flex-direction:column;gap:3px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:11px 13px;text-decoration:none;color:inherit;transition:border-color .12s,transform .12s;}
   .wsrow:hover{border-color:var(--hero);transform:translateY(-1px);}
-  .wsrow:focus-visible{outline:2px solid var(--hero);outline-offset:2px;}
   .wstop{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
   .wsname{font-weight:600;font-size:13.5px;color:var(--text);margin-right:auto;}
   .wsrecheck{background:none;border:none;color:var(--hero-ink);font:inherit;font-size:12.5px;cursor:pointer;text-decoration:underline;padding:0;}

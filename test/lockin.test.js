@@ -2759,6 +2759,47 @@ ok('--faint on --glass2 (the tightest pair in the system) clears AA once composi
   if (bad.length) console.log('      ' + bad.join('; '));
   return bad.length === 0;
 })());
+ok('the focus ring is one universal rule, not a hand-kept list of selectors', (function () {
+  // It named seven selectors written before most of this app existed, so of 194 focusable
+  // controls 24 KINDS had no rule and fell back to the browser default — invisible on a dark
+  // violet ground. A list has to be maintained; a universal rule cannot drift.
+  // strip comments first — an ungreedy [^{}]* happily swallows the comment block above a
+  // rule, so the "selector" came out as the whole comment plus :focus-visible and never
+  // matched. That is my regex being wrong about the CSS, not the CSS being wrong.
+  var bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  var sels = [];
+  (bare.match(/[^{}]*:focus-visible[^{]*\{[^}]*\}/g) || []).forEach(function (r) {
+    r.split('{')[0].split(',').forEach(function (s) { sels.push(s.trim()); });
+  });
+  var hasUniversal = sels.indexOf(':focus-visible') >= 0;
+  if (!hasUniversal) console.log('      no bare :focus-visible rule — the ring is a list again');
+  return hasUniversal &&
+         /:focus-visible\{outline:2px solid var\(--accInk\);outline-offset:2px/.test(css) &&
+         css.indexOf('outline:2px solid var(--hero)') < 0;   // the fill token is never the ring
+})());
+ok('a clipped shape rings INSIDE itself, in the colour that suits what it sits on', (function () {
+  // clip-path cuts an outline clean off, so faceted controls need an inset ring — and on an
+  // ACCENT FILL the ink is the wrong token: in light theme --accInk and --acc are nearly the
+  // same lightness and the ring measured 1.16:1, i.e. gone. --onAcc is made for that ground.
+  var accentRing = (css.match(/\.facet:focus-visible[^{]*\{([^}]*)\}/) || [])[1] || '';
+  var neutralRing = (css.match(/\.gtile:focus-visible[^{]*\{([^}]*)\}/) || [])[1] || '';
+  var accentOk = /box-shadow:inset 0 0 0 2px var\(--onAcc\)/.test(accentRing) && /outline:none/.test(accentRing);
+  var neutralOk = /box-shadow:inset 0 0 0 2px var\(--accInk\)/.test(neutralRing) && /outline:none/.test(neutralRing);
+  // and every element that IS clipped must appear in one of the two inset rules
+  var clipped = [];
+  (css.match(/([^{}]*)\{[^}]*clip-path:var\(--facet\)/g) || []).forEach(function (r) {
+    var sel = r.split('{')[0].trim();
+    if (sel && sel.indexOf(':focus-visible') < 0) clipped.push(sel);
+  });
+  var insetSels = accentRing && neutralRing
+    ? (css.match(/([^{}]*):focus-visible[^{]*\{[^}]*box-shadow:inset[^}]*\}/g) || []).join(' ') : '';
+  var missing = clipped.filter(function (sel) {
+    var base = sel.replace(/^[.#]/, '').split(/[ .:]/)[0];
+    return insetSels.indexOf(base) < 0;
+  });
+  if (missing.length) console.log('      clipped but no inset ring: ' + missing.join(', '));
+  return accentOk && neutralOk && missing.length === 0;
+})());
 ok('--acc as a FILL clears 3:1 on every ground it lands on, in both themes', (function () {
   // Toning the accent down on request walked it toward a floor nothing was watching: --acc
   // is the paint for the nav slab, the milestone rungs, the heatmap peak, the current bar and
