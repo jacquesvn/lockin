@@ -2419,6 +2419,7 @@
   }
   /* ---------- desktop auto-update (Tauri) ---------- */
   var UPD={state:"idle",version:null,error:null};   // idle | checking | available | current | installing | error
+  var _updHtml=null;                                // last banner written into the live region
   function checkUpdate(manual){
     if(!isNative||UPD.state==="checking"||UPD.state==="installing")return;
     UPD.state="checking";UPD.error=null;if(manual)render();
@@ -2762,8 +2763,14 @@
     if(!tourKey){
       tourKey=function(e){
         if(TOUR_I<0)return;
-        if(e.key==="Escape"){e.preventDefault();endTour();}
-        else if(e.key==="ArrowRight"||e.key==="Enter"){e.preventDefault();TOUR_I++;showTourStep();}
+        if(e.key==="Escape"){e.preventDefault();endTour();return;}
+        /* Enter belongs to whichever control has focus. Claiming it at the document level
+           meant the tour's own buttons could not be used from the keyboard at all: Enter on
+           BACK moved the tour FORWARD, and SKIP could not be activated. Arrows stay global —
+           nothing else wants them — but Enter only advances when focus is not on a control. */
+        var t=e.target,tag=(t&&t.tagName?t.tagName:"").toLowerCase();
+        var onControl=tag==="button"||tag==="a"||tag==="input"||tag==="select"||tag==="textarea";
+        if(e.key==="ArrowRight"||(e.key==="Enter"&&!onControl)){e.preventDefault();TOUR_I++;showTourStep();}
         else if(e.key==="ArrowLeft"&&TOUR_I>0){e.preventDefault();TOUR_I--;showTourStep();}
       };
       document.addEventListener("keydown",tourKey);
@@ -2845,7 +2852,12 @@
     var _f=focusSig(document.activeElement);
     try{
       renderSide(st);renderTabs(st);
-      var ub=document.getElementById("updbar");if(ub)ub.innerHTML=updateBanner();
+      /* #updbar is role="status" aria-live="polite", so every innerHTML write re-announces
+         it — and this ran on every render(), i.e. on every tick, tap and drill check. A
+         screen-reader user heard "Update available" read out again on each interaction for as
+         long as the banner was up. Write only when the content actually changed. */
+      var ub=document.getElementById("updbar");
+      if(ub){var ubh=updateBanner();if(ubh!==_updHtml){_updHtml=ubh;ub.innerHTML=ubh;}}
       var main=document.getElementById("main");
       if(screen==="today")main.innerHTML=htmlToday(st);
       else if(screen==="plan")main.innerHTML=subTabs("plan")+htmlPlan(st);
@@ -3460,20 +3472,34 @@
   }
   var PICTARGET=null;   // index of the lineup armed to receive the next paste / file pick
   var PICSLOT=null;     // which frame that paste is meant to fill (stand / aim / extra)
-  var LIGHT=null;       // id of the picture open in the lightbox
+  var LIGHT=null,lightFrom=null;       // id of the picture open in the lightbox
+  /* It has declared role="dialog" aria-modal="true" since v0.29 and behaved like none of
+     those things: the app behind it was never inerted, focus was never moved in, and nothing
+     was restored on close. So Tab walked straight through the black scrim into the lineup
+     list underneath — including [data-picdel] and [data-lndel], which delete without asking
+     twice — and a screen reader read the page behind a modal it had been told was modal.
+     Same treatment as the tour and the More sheet: inert, focus in, focus back. */
   function showLightbox(id){
     var el=document.getElementById("lightbox");if(!el)return;
     var d=IMGS[id];if(!d)return;
-    LIGHT=id;
+    LIGHT=id;lightFrom=document.activeElement||null;
     el.innerHTML='<img src="'+esc(d)+'" alt="Lineup picture"><div class="ml lbhint">TAP OR PRESS ESC TO CLOSE</div>';
     el.classList.add("show");
     el.onclick=hideLightbox;
+    var app=document.getElementById("app"),tb=document.getElementById("tabbar");
+    if(app)app.setAttribute("inert","");if(tb)tb.setAttribute("inert","");
+    el.setAttribute("tabindex","-1");try{el.focus();}catch(_){}
     if(!showLightbox._k){showLightbox._k=function(e){if(e.key==="Escape")hideLightbox();};document.addEventListener("keydown",showLightbox._k);}
   }
   function hideLightbox(){
     var el=document.getElementById("lightbox");LIGHT=null;
-    if(el){el.classList.remove("show");el.innerHTML="";}
+    if(el){el.classList.remove("show");el.innerHTML="";el.removeAttribute("tabindex");}
+    var app=document.getElementById("app"),tb=document.getElementById("tabbar");
+    if(app)app.removeAttribute("inert");if(tb)tb.removeAttribute("inert");
     if(showLightbox._k){document.removeEventListener("keydown",showLightbox._k);showLightbox._k=null;}
+    // back to the thumbnail that opened it, not to <body>
+    if(lightFrom&&lightFrom.focus)try{lightFrom.focus();}catch(_){}
+    lightFrom=null;
   }
   // state + pictures together, for export and the desktop mirror. Pictures are kept OUT of
   // localStorage, so a backup has to carry them explicitly or a restore would lose every one.
@@ -5449,6 +5475,14 @@
   }
   function renderSession(){
     var ov=document.getElementById("session"),F=SESS.fk?FOCI[SESS.fk]:null,d=SESS.list[SESS.idx].d;
+    /* Which control the user is actually on, captured BEFORE innerHTML destroys it. The
+       fallback at the end was written as "focus ✕ only if focus isn't already inside the
+       overlay" — correct intent, but rewriting innerHTML removes the focused node and
+       activeElement falls back to <body>, so the test passed every time. Result: PAUSE, SKIP
+       and DONE all re-render, and every press threw keyboard focus onto END SESSION. Press
+       DONE, press Enter again to continue, and the session ends. */
+    var wasOn=(document.activeElement&&document.activeElement.getAttribute&&ov&&ov.contains(document.activeElement))
+      ?document.activeElement.getAttribute("data-sess"):null;
     var head=SESS.protocol?esc(SESS.protocol.name).toUpperCase():esc(F.name).toUpperCase();
     var dots="";for(var i=0;i<SESS.list.length;i++)dots+='<span class="sdot'+(i<SESS.idx?" past":i===SESS.idx?" cur":"")+'"></span>';
     ov.setAttribute("role","dialog");ov.setAttribute("aria-modal","true");ov.setAttribute("aria-label","Guided session");
@@ -5483,8 +5517,12 @@
       else if(a==="skip")sessAdvance(false);
       else if(a==="done")sessAdvance(true);
       else endSession();};})(ctrls[c]);
-    var x=ov.querySelector('[data-sess="end"]');
-    if(x&&(!document.activeElement||!ov.contains(document.activeElement)))try{x.focus();}catch(_){}
+    // Put focus back on the button they pressed. Only a session that was NOT already open
+    // falls through to ✕, which is the one case where nothing else has a claim on it.
+    var back=wasOn?ov.querySelector('[data-sess="'+wasOn+'"]'):null;
+    if(back){try{back.focus();}catch(_){}}
+    else{var x=ov.querySelector('[data-sess="end"]');
+      if(x&&(!document.activeElement||!ov.contains(document.activeElement)))try{x.focus();}catch(_){}}
   }
 
   var celeT, celeKey;

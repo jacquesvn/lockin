@@ -3319,5 +3319,45 @@ ok('the token is validated again in Rust, where it is actually trusted', (functi
   })());
 })();
 
+// --- v0.47: three modals that were not modal, and a live region that would not stop talking ---
+ok('the guided session puts focus back on the button you pressed, not on END SESSION', (function () {
+  // renderSession rewrites innerHTML, which removes the focused node — so the old
+  // "only focus ✕ if focus isn't already inside" test passed every single time and every
+  // PAUSE / SKIP / DONE parked focus on the destructive control. Enter again ended the run.
+  return /var wasOn=\(document\.activeElement&&document\.activeElement\.getAttribute&&ov&&ov\.contains\(document\.activeElement\)\)/.test(script) &&
+         /\?document\.activeElement\.getAttribute\("data-sess"\):null;/.test(script) &&
+         /var back=wasOn\?ov\.querySelector\('\[data-sess="'\+wasOn\+'"\]'\):null;/.test(script) &&
+         /if\(back\)\{try\{back\.focus\(\);\}catch\(_\)\{\}\}/.test(script) &&
+         // the ✕ fallback survives, but only when nothing else has a claim
+         /else\{var x=ov\.querySelector\('\[data-sess="end"\]'\);/.test(script);
+})());
+ok('the lightbox actually behaves like the modal it declares itself to be', (function () {
+  var i = script.indexOf('function showLightbox(');
+  var body = script.slice(i, script.indexOf('\n  function hideLightbox', i));
+  var hide = script.slice(script.indexOf('function hideLightbox('));
+  hide = hide.slice(0, hide.indexOf('\n  function ', 10));
+  return html.indexOf('id="lightbox" role="dialog" aria-modal="true"') >= 0 &&
+         /app\.setAttribute\("inert",""\)/.test(body) && /tb\.setAttribute\("inert",""\)/.test(body) &&
+         /el\.setAttribute\("tabindex","-1"\);try\{el\.focus\(\);\}catch/.test(body) &&
+         /lightFrom=document\.activeElement\|\|null;/.test(body) &&
+         // and every one of those is undone on close, or the app stays inert forever
+         /app\.removeAttribute\("inert"\)/.test(hide) && /tb\.removeAttribute\("inert"\)/.test(hide) &&
+         /el\.removeAttribute\("tabindex"\)/.test(hide) &&
+         /if\(lightFrom&&lightFrom\.focus\)/.test(hide);
+})());
+ok('the tour no longer steals Enter from its own buttons', (function () {
+  // Enter on BACK used to move the tour FORWARD, and SKIP could not be reached at all
+  return /var onControl=tag==="button"\|\|tag==="a"\|\|tag==="input"\|\|tag==="select"\|\|tag==="textarea";/.test(script) &&
+         /if\(e\.key==="ArrowRight"\|\|\(e\.key==="Enter"&&!onControl\)\)/.test(script) &&
+         script.indexOf('else if(e.key==="ArrowRight"||e.key==="Enter"){e.preventDefault();TOUR_I++') < 0 &&
+         /if\(e\.key==="Escape"\)\{e\.preventDefault\(\);endTour\(\);return;\}/.test(script);   // Escape still wins outright
+})());
+ok('the update banner is announced once, not on every interaction', (function () {
+  return /aria-live="polite"/.test(html) &&
+         /var _updHtml=null;/.test(script) &&
+         /if\(ub\)\{var ubh=updateBanner\(\);if\(ubh!==_updHtml\)\{_updHtml=ubh;ub\.innerHTML=ubh;\}\}/.test(script) &&
+         script.indexOf('if(ub)ub.innerHTML=updateBanner();') < 0;
+})());
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
