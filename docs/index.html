@@ -1183,7 +1183,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.47.0";
+  var VERSION="0.48.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -2118,7 +2118,8 @@
               "Fixed: past week 12 every week counted as a deload, so every drill stayed halved forever",
               "Fixed: “Erase all data” left every lineup screenshot behind",
               "Fixed: the reminder switch could read ON while your browser was blocking notifications",
-              "Progress opens without the pause — your record is worked out once instead of on every render"]
+              "Progress opens without the pause — your record is worked out once instead of on every render"],
+    "0.48.0":["Fixed: CS2 auto-tracking recorded no rounds at all — the death audit had been blank since it shipped"]
   };
   function vcmp(a,b){
     var x=String(a).split("."),y=String(b).split(".");

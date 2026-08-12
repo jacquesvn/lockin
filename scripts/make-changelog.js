@@ -44,7 +44,12 @@ const cmp = (a, b) => {
 };
 
 /* ---- render ---- */
-const documented = tags.filter((t) => notes[t.ver]);
+const tagged = new Set(tags.map((t) => t.ver));
+// A version with notes but no tag yet is the release being PREPARED. Without this it would be
+// absent from the changelog entirely, and --check would fail on the very commit that adds the
+// notes — a gate that fires only during a release, which is when you can least afford it.
+const pending = Object.keys(notes).filter((v) => !tagged.has(v)).map((v) => ({ tag: 'v' + v, ver: v, date: 'unreleased' }));
+const documented = pending.concat(tags.filter((t) => notes[t.ver]));
 const bare = tags.filter((t) => !notes[t.ver]);
 
 let out = '';
@@ -55,7 +60,10 @@ out += 'and the git tag dates. Do not hand-edit — run the script.\n\n';
 out += 'Full downloads and installers: [Releases](' + REPO + '/releases).\n\n';
 
 documented.sort((a, b) => cmp(b.ver, a.ver)).forEach((t) => {
-  out += '## [' + t.ver + '](' + REPO + '/releases/tag/' + t.tag + ') — ' + t.date + '\n\n';
+  // an unreleased version has no tag to link to yet
+  out += t.date === 'unreleased'
+    ? '## ' + t.ver + ' — unreleased\n\n'
+    : '## [' + t.ver + '](' + REPO + '/releases/tag/' + t.tag + ') — ' + t.date + '\n\n';
   notes[t.ver].forEach((line) => { out += '- ' + line + '\n'; });
   out += '\n';
 });
@@ -80,7 +88,8 @@ if (bare.length) {
  * every set of notes users were shown in the app must also be in the changelog. */
 if (CHECK) {
   const current = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
-  const missing = Object.keys(notes).filter((v) => current.indexOf('[' + v + ']') < 0);
+  const missing = Object.keys(notes).filter((v) =>
+    current.indexOf('[' + v + ']') < 0 && current.indexOf('## ' + v + ' — unreleased') < 0);
   if (missing.length) {
     console.error('✗ CHANGELOG.md is missing ' + missing.length + ' release(s) users were shown in-app: ' +
                   missing.join(', ') + '\n  run: node scripts/make-changelog.js');
