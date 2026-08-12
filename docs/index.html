@@ -1183,7 +1183,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.48.1";
+  var VERSION="0.49.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -2133,7 +2133,9 @@
               "Progress opens without the pause — your record is worked out once instead of on every render"],
     "0.48.0":["Fixed: CS2 auto-tracking recorded no rounds at all — the death audit had been blank since it shipped"],
     "0.48.1":["Fixed: the match debrief never appeared unless the plan called it a match night — it follows the match now",
-              "Fixed: rounds you survived recorded zero kills, when CS2 was sending the real number all along"]
+              "Fixed: rounds you survived recorded zero kills, when CS2 was sending the real number all along"],
+    "0.49.0":["Your death audit now argues with the clock — tag deaths as aim when CS2 timed them in the opening seconds, and it says so",
+              "It only ever claims a number it can prove, and stays quiet when the clock agrees with you"]
   };
   function vcmp(a,b){
     var x=String(a).split("."),y=String(b).split(".");
