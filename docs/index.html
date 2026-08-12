@@ -1530,7 +1530,7 @@
   function planReview(st,now){
     var plan=st&&st.plan;if(!plan||!plan.created)return null;
     now=now||new Date();
-    var wk=programWeek(plan,now),done=st.planReviews||{},n=null;
+    var wk=planWeek(st,now),done=st.planReviews||{},n=null;
     // Once week 9 is reached the week-4 window is long past; showing it late (e.g. to
     // someone who was away weeks 5–8) is wrong, and letting it re-appear right after the
     // week-8 review is completed reads as a bug. So n=4 is only offered before week 9.
@@ -1789,7 +1789,7 @@
       for(var i=1;i<=7;i++){var nd=addDays(now,i);
         if(isTrainingDay(plan,nd)){nextName=nd.toLocaleDateString(undefined,{weekday:"long"});break;}}
     }
-    return {days:gap,missed:missed,week:programWeek(plan,now),best:bestStreak(st),
+    return {days:gap,missed:missed,week:planWeek(st,now),best:bestStreak(st),
       total:warm.length,canTrainToday:isTrainingDay(plan,now),next:nextName};
   }
   function lapseCard(lp){
@@ -1985,7 +1985,12 @@
     return '<div class="card revcard"><div class="ml" style="color:var(--hero-ink);">LAST WEEK · IN REVIEW</div>'+
       lines+tail+'<div class="revacts"><button class="pbtn" data-recap="ok">GOT IT</button></div></div>';
   }
-  function programWeek(plan,today){if(!plan||!plan.created)return 1;var days=Math.round((midnight(today)-parseKey(plan.created))/86400000);var wk=Math.floor(days/7)+1;return Math.max(1,Math.min(12,wk));}
+  /* UNCLAMPED on purpose. This used to end with Math.min(12,wk), which is right for the
+     "WK 5/12" display but wrong for anything asking "am I past the end". isDeloadWeek tests
+     w%4===0, so from day 84 onward the clamped 12 made EVERY week a deload: durations halved
+     forever, the card still announcing "Week 12 of the programme, so the load is halved on
+     purpose". Callers that want the display clamp go through planWeek. */
+  function rawWeek(plan,today){if(!plan||!plan.created)return 1;var days=Math.round((midnight(today)-parseKey(plan.created))/86400000);return Math.max(1,Math.floor(days/7)+1);}
 
   /* ---------- storage ---------- */
   function blank(){return {plan:null,sessions:{},settings:{},metrics:{},reviews:{},lineups:{},planReviews:{},debriefs:{},matches:{},offPlan:{}};}
@@ -3060,8 +3065,8 @@
      the session doesn't honour. */
   function isDeloadWeek(st,now){
     if(!st||!st.plan)return false;
-    var w=planWeek(st,now||new Date());
-    return w%4===0;                                  // weeks 4, 8, 12 of the twelve
+    var w=planWeekRaw(st,now||new Date());           // RAW: 13+ is past the programme, not week 12
+    return w<=12&&w%4===0;                           // weeks 4, 8, 12 of the twelve
   }
   function deloadDur(d,on){return on?Math.max(1,Math.round((d.dur||1)/2)):(d.dur||1);}
   function focusMins(F,plan,on){
@@ -3116,7 +3121,7 @@
     var bfToggle=backfill?'<button class="bftoggle on" data-backfill="1">◂ BACK TO TODAY</button>':(ydTrainable?'<button class="bftoggle" data-backfill="1">LOG YESTERDAY</button>':'');
     var tag=playerTag(st);
     // section 5.1 item 1 names the crumb explicitly: --fm 8.5px, 0.18em, --faint
-    var hd='<div class="hd"><div><div class="ml kicker">'+(tag?'HEY '+esc(tag.toUpperCase())+' · ':'')+dstr.toUpperCase()+' · WK '+programWeek(plan,now)+'/12</div><h1 class="dsp">TODAY</h1></div>'+
+    var hd='<div class="hd"><div><div class="ml kicker">'+(tag?'HEY '+esc(tag.toUpperCase())+' · ':'')+dstr.toUpperCase()+' · WK '+planWeek(st,now)+'/12</div><h1 class="dsp">TODAY</h1></div>'+
       '<div style="display:flex;gap:8px;align-items:center;">'+bfToggle+'<button class="iconbtn" data-go="setup" aria-label="Setup">'+GEAR+'</button></div></div>';
     var hero='<div class="hero-card" data-tour="today"><div class="hero-row">'+
       '<div><div class="ml">CURRENT STREAK</div><div class="big-n">'+streak+'</div><div class="ml" style="color:var(--muted);">DAYS LOCKED IN</div>'+
@@ -3706,7 +3711,7 @@
       if(dk2===tk){cls+=" today";lab=(lab?lab+", ":"")+"today";}
       cal+='<div class="'+cls+'" role="img" aria-label="'+day.getDate()+(lab?" — "+lab:"")+'">'+d+'</div>';}
     cal+='</div><div class="calleg"><span><i class="swatch" style="background:color-mix(in oklab,var(--hero) 12%,transparent);border:1px solid var(--hero)"></i>trained</span><span><i class="swatch" style="background:var(--hero)"></i>full session</span><span><i class="swatch" style="background:transparent;border:1px dashed var(--bad)"></i>missed weekday</span></div></div>';
-    var pw=programWeek(plan,now);
+    var pw=planWeek(st,now);
     var due=pw>=12?"w12":pw>=8?"w8":pw>=4?"w4":"base";
     var mx='<div class="divi"><span class="ml" role="heading" aria-level="2">LEETIFY CHECKPOINTS · WK '+pw+'/12</span></div><div class="card">';
     mx+='<p class="mhow" style="margin-top:0;">Type your Leetify numbers in at the start (BASE) and again at weeks 4 / 8 / 12. The chip shows movement from base.</p>'+'<p class="help" style="margin:0 0 12px;">Optional — Leetify’s free tier covers these. Skip it if you don’t use it: your streak, calendar and drills work without any of it.</p>';
@@ -3924,7 +3929,6 @@
   function lineupMaps(st){var n=0,l=st.lineups||{};for(var m in l)if((l[m]||[]).length)n++;return n;}
   function recallCount(st){return (st.settings&&st.settings.recalls)||0;}
   function hadComeback(st){var w=warmDays(st);for(var i=1;i<w.length;i++){if(Math.round((parseKey(w[i])-parseKey(w[i-1]))/86400000)>=5)return true;}return false;}
-  function progWeek(st){return st.plan?programWeek(st.plan,new Date()):1;}
   /* Twelve badges. Names follow the v3 spec wherever the condition is something we can
      honestly compute; the spec's "Spray tamer", "Prefire" and "Clutch" are deliberately NOT
      here, because attributing a ticked drill to a focus after the fact is guesswork once the
@@ -3944,7 +3948,7 @@
     {id:"comeback",t:"Comeback",d:"Come back and train after a break.",goal:1,val:function(st){return hadComeback(st)?1:0;}},
     {id:"dialled",t:"Iron Hands",d:"Log a 5/5 hand-feel five times.",goal:5,val:feel5Count},
     {id:"days100",t:"Century",d:"100 training days in total.",goal:100,val:function(st){return warmDays(st).length;}},
-    {id:"graduate",t:"Global",d:"Reach week 12 — the whole program.",goal:12,val:progWeek}
+    {id:"graduate",t:"Global",d:"Reach week 12 — the whole program.",goal:12,val:planWeek}
   ];
   function achState(st){return ACHIEVEMENTS.map(function(a){var cur=a.val(st)||0;return {id:a.id,t:a.t,d:a.d,cur:cur,goal:a.goal,earned:cur>=a.goal};});}
   // returns the newest just-unlocked achievement to celebrate, or null. The FIRST call
@@ -3974,10 +3978,24 @@
      survived and the player learned nothing from it. Now the spent ones show dimmed, the
      spend is named, and the next earn is dated. */
   // the programme week, held still while paused — resume picks up where you left off
-  function planWeek(st,now){
-    var p=pauseInfo(st),when=(p&&isPausedOn(st,now||new Date()))?p.from:(now||new Date());
-    return st.plan?programWeek(st.plan,when):1;
+  /* Days of the pause ALREADY SERVED, capped at today. The pause has to hold the programme
+     clock, not merely freeze the number on screen while it is running. planWeek used to pin
+     the week to p.from only while isPausedOn was true, so the instant a pause ended — by
+     expiry or by RESUME NOW — every paused day counted as elapsed programme time and the plan
+     jumped forward by the whole pause. Take a two-week pause in week 3 and you come back to
+     week 5, having trained not one day of week 3 or 4. The card promises the plan "does not
+     restart"; it must not fast-forward either. */
+  function pauseServed(st,now){
+    var p=pauseInfo(st);if(!p)return 0;
+    var end=(midnight(p.until)<midnight(now))?p.until:now;
+    return Math.max(0,Math.round((midnight(end)-midnight(p.from))/86400000));
   }
+  function planWeekRaw(st,now){
+    var plan=st&&st.plan;if(!plan)return 1;
+    var d=now||new Date(),served=pauseServed(st,d);
+    return rawWeek(plan,served>0?addDays(d,-served):d);
+  }
+  function planWeek(st,now){return Math.min(12,planWeekRaw(st,now));}
   var PAUSE_WEEKS=[2,4,6];
   function pauseWord(n){return n===2?"two":n===4?"four":n===6?"six":String(n);}
   function pauseCard(st,now){
@@ -4633,7 +4651,7 @@
       x.fillStyle="#F7F6FA";x.font="800 18px Helvetica,Arial,sans-serif";
       x.fillText(String(st.plan&&st.plan.keystoneName||"").toUpperCase(),72,286);
       x.fillStyle="#ABA7B2";x.font="600 12px ui-monospace,Consolas,monospace";
-      x.fillText("FOCUS  ·  WK "+programWeek(st.plan,new Date())+"/12",72,308);
+      x.fillText("FOCUS  ·  WK "+planWeek(st,new Date())+"/12",72,308);
       var mon=mondayOf(new Date());
       x.fillStyle="#ABA7B2";x.font="600 11px ui-monospace,Consolas,monospace";x.fillText("THIS WEEK",392,170);
       for(var i=0;i<7;i++){var s2=st.sessions[dateKey(addDays(mon,i))];
@@ -4652,7 +4670,7 @@
   function planShot(st){
     var plan=st.plan;if(!plan||!plan.created)return "";
     var now=new Date(),tag=playerTag(st),m=milestoneState(curStreak(st));
-    var wds=warmDays(st).length,pw=programWeek(plan,now);
+    var wds=warmDays(st).length,pw=planWeek(st,now);
     var foc=FOCI[plan.keystone],next=null;
     // the drill rotation names what comes next; no forecast, just the plan as written
     (plan.used||[]).forEach(function(k){if(k!==plan.keystone&&!next&&FOCI[k])next=FOCI[k];});
@@ -5517,7 +5535,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,programWeek:programWeek,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,lineChart:lineChart,heatmap:heatmap,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,rawWeek:rawWeek,planWeekRaw:planWeekRaw,pauseServed:pauseServed,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,lineChart:lineChart,heatmap:heatmap,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
     stateForBackup:stateForBackup,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER,
     picSlots:picSlots,picRole:picRole,PICROLE:PICROLE,DESTS:DESTS,destOf:destOf,subTabs:subTabs,dueCard:dueCard,todayCards:todayCards,todayStack:todayStack,
     leakOfWeek:leakOfWeek,applyGsiRound:applyGsiRound,roundStats:roundStats,autoAuditCard:autoAuditCard,ROUND_CAP:ROUND_CAP,EARLY_MS:EARLY_MS,AUDIT_MIN_ROUNDS:AUDIT_MIN_ROUNDS,needsBackup:needsBackup,backupCard:backupCard,backupAge:backupAge,whatsNew:whatsNew,newSince:newSince,vcmp:vcmp,VERSION:VERSION,markVersionSeen:markVersionSeen,WHATSNEW:WHATSNEW,BACKUP_MIN_SESSIONS:BACKUP_MIN_SESSIONS,offPlanRecent:offPlanRecent,offPlanHistory:offPlanHistory,gearTiles:gearTiles,planShot:planShot,settingsAudit:settingsAudit,XHAIR_DYNAMIC:XHAIR_DYNAMIC,leakFocus:leakFocus,applyLeakFocus:applyLeakFocus,focusIsSet:focusIsSet,LEAK_DRILL:LEAK_DRILL,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou,

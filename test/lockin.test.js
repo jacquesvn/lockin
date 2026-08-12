@@ -47,7 +47,7 @@ sandbox.window.document = sandbox.document;
 vm.createContext(sandbox);
 vm.runInContext(script, sandbox, { filename: 'docs/index.html#script' });
 
-const { generatePlan, computeStreak, richText, validBackup, programWeek,
+const { generatePlan, computeStreak, richText, validBackup, rawWeek, planWeekRaw, pauseServed,
         dateKey, drillList, FOCI, bestStreak, weekCounts, reviewTotals, barChart, lineChart, heatmap, MAPS,
         leakFocus, applyLeakFocus, focusIsSet, LEAK_DRILL, settingsAudit, XHAIR_DYNAMIC,
         offPlanRecent, offPlanHistory, gearTiles, planShot,
@@ -193,10 +193,13 @@ ok('milestones unlock from real state, and the first check never retro-spams', (
          ACHIEVEMENTS.length === 12;                          // the spec calls for twelve
 })());
 
-// --- programWeek is 1..12 and starts at week 1 ---
-ok('programWeek day 0 = week 1', programWeek({ created: '2026-07-01' }, new Date('2026-07-01T12:00:00')) === 1);
-ok('programWeek day 7 = week 2', programWeek({ created: '2026-07-01' }, new Date('2026-07-08T12:00:00')) === 2);
-ok('programWeek clamps to 12', programWeek({ created: '2026-01-01' }, new Date('2026-07-01T12:00:00')) === 12);
+// --- the programme clock: rawWeek is the true week, planWeek clamps it for display ---
+ok('day 0 = week 1', rawWeek({ created: '2026-07-01' }, new Date('2026-07-01T12:00:00')) === 1);
+ok('day 7 = week 2', rawWeek({ created: '2026-07-01' }, new Date('2026-07-08T12:00:00')) === 2);
+ok('planWeek clamps to 12, rawWeek does NOT — deload asks the raw one', (function () {
+  var st = { plan: { created: '2026-01-01' }, settings: {} }, d = new Date('2026-07-01T12:00:00');
+  return planWeek(st, d) === 12 && rawWeek(st.plan, d) === 26 && planWeekRaw(st, d) === 26;
+})());
 
 // --- v0.7: insights, death audit, quick-tier drills ---
 var hist = stt(['2026-07-13','2026-07-14','2026-07-15','2026-07-06','2026-07-07']); // 3-run and a 2-run
@@ -3135,6 +3138,56 @@ ok('the token is validated again in Rust, where it is actually trusted', (functi
          /#\[tauri::command\]\s*fn start_gsi/.test(rs) &&         // the attribute stayed on the command
          /#\[tauri::command\]\s*fn write_gsi_config/.test(rs);
 })());
+
+// --- v0.47: the pause must hold the programme CLOCK, not just the number on screen ---
+// planWeek pinned the week to p.from only WHILE isPausedOn was true, so the instant a pause
+// ended — by expiry or by RESUME NOW — every paused day counted as elapsed programme time.
+// Take two weeks off in week 3 and you came back to week 5, having trained no day of either.
+(function () {
+  function planFrom(created) { return { plan: { created: created }, settings: {} }; }
+  ok('a pause that runs its full course does not fast-forward the plan', (function () {
+    var st = planFrom('2026-01-01');
+    st.settings.pause = { from: '2026-01-15', weeks: 2 };
+    return planWeek(st, new Date(2026,0,20)) === 3 &&    // pinned while paused
+           planWeek(st, new Date(2026,0,29)) === 3 &&    // STILL week 3 the day it expires — not spent
+           planWeek(st, new Date(2026,1,5))  === 4;      // and it advances normally again after
+  })());
+  ok('RESUME NOW holds only the days actually served', (function () {
+    var st = planFrom('2026-01-01');
+    st.settings.pause = { from: '2026-01-15', weeks: 6, endedOn: '2026-01-22' };
+    return pauseServed(st, new Date(2026,1,5)) === 7 &&  // seven served, not the booked forty-two
+           planWeek(st, new Date(2026,1,5)) === 5;       // so day 35 behaves like day 28, i.e. week 5
+  })());
+  ok('a plan with no pause is untouched by the pause maths', (function () {
+    var st = planFrom('2026-01-01');
+    return pauseServed(st, new Date(2026,0,20)) === 0 && planWeek(st, new Date(2026,0,20)) === 3;
+  })());
+
+  // --- v0.47: week 13+ is PAST the programme, not a permanent deload ---
+  // programWeek clamped to 12, and isDeloadWeek asks w%4===0, so from day 84 every single
+  // week was a deload week: every drill halved forever, card still saying "Week 12".
+  function planAtWeek(week) {
+    var created = new Date(); created.setDate(created.getDate() - (week - 1) * 7);
+    return { weekly:{0:'rest',1:'cstrafe',2:'cstrafe',3:'cstrafe',4:'cstrafe',5:'match',6:'match'},
+             keystone:'cstrafe', used:['cstrafe'], profile:{}, created: dateKey(created) };
+  }
+  ok('deload stops at week 12 instead of running forever', (function () {
+    var hits = [], past = [];
+    for (var w = 1; w <= 12; w++) if (isDeloadWeek({ plan: planAtWeek(w), settings:{} }, new Date())) hits.push(w);
+    for (var v = 13; v <= 40; v++) if (isDeloadWeek({ plan: planAtWeek(v), settings:{} }, new Date())) past.push(v);
+    return hits.join(',') === '4,8,12' && past.length === 0;
+  })());
+  ok('past the end the deload card goes quiet and the real load comes back', (function () {
+    var st = { plan: planAtWeek(16), settings: {} };
+    return deloadCard(st, FOCI.cstrafe, st.plan, new Date()) === '' &&
+           focusMins(FOCI.cstrafe, st.plan, false) > focusMins(FOCI.cstrafe, st.plan, true);
+  })());
+  ok('the graduate achievement reads the pause-aware clock, not a raw date diff', (function () {
+    var a = null; for (var i = 0; i < ACHIEVEMENTS.length; i++) if (ACHIEVEMENTS[i].id === 'graduate') a = ACHIEVEMENTS[i];
+    var st = { plan: planAtWeek(6), settings: { pause: { from: dateKey(new Date(Date.now() - 14*86400000)), weeks: 2 } } };
+    return a && a.val === planWeek && a.val(st) === 4;    // two of those six weeks were paused
+  })());
+})();
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
