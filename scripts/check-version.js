@@ -1,6 +1,12 @@
 // CI guard: every place that carries the version must agree with the git tag.
-// Turns the 5 hand-synced version sources into an enforced invariant (audit finding #7).
+// Turns the 6 hand-synced version sources into an enforced invariant (audit finding #7).
 // Usage: node scripts/check-version.js <tag>   (e.g. v0.6.2)
+//
+// Cargo.lock counts. It carries the crate's own version, and once the lockfile was committed
+// `cargo test --locked` began REFUSING to run when it disagrees with Cargo.toml. Leaving it
+// out of this check meant a forgotten bump sailed past the version gate and then failed
+// several minutes later, mid-release, with an error about the lockfile needing an update
+// rather than the one thing that was actually wrong.
 const fs = require('fs');
 const path = require('path');
 
@@ -16,6 +22,8 @@ const sources = {
   'package.json': JSON.parse(read('package.json')).version,
   'tauri.conf.json': JSON.parse(read('src-tauri/tauri.conf.json')).version,
   'Cargo.toml': grab(read('src-tauri/Cargo.toml'), /^version\s*=\s*"([^"]+)"/m),
+  // the lockfile's entry for our OWN package, not the first version line in the file
+  'Cargo.lock': grab(read('src-tauri/Cargo.lock'), /name = "lockin"\r?\nversion = "([^"]+)"/),
   'docs/index.html VERSION': grab(read('docs/index.html'), /var VERSION="([^"]+)"/),
   'service-worker CACHE': grab(read('docs/service-worker.js'), /CACHE\s*=\s*'lockin-([^']+)'/),
 };
