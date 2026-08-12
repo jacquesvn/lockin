@@ -327,5 +327,81 @@ ok('migration is idempotent — a second boot does not re-scale anything', (func
   return after1 === after2 && after1 <= 5;
 })());
 
+/* ================================================================ PHASE 8 ========
+ * A match played on a night the plan did not schedule.
+ *
+ * This is the real case, not a hypothetical: a 13-8 on de_cache on a Wednesday, which the
+ * plan calls a rifle day. Auto-tracking recorded it, the app knew the map and the score, and
+ * the debrief — the one place that asks what actually cost you rounds — was unreachable,
+ * because both it and the pre-queue gate hung off focusKey==="match".
+ */
+(function () {
+  const NIGHT = new Date(2026, 7, 12, 22, 30, 0);            // a Wednesday
+  const dk = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const seed = bootApp(null, NIGHT);
+  const plan = seed.X.generatePlan({ rank: 'mid', weapon: 'rifle', role: 'entry', weak: ['cstrafe'],
+                                     time: '30', days: '4', goal: 'consistency' });
+  plan.created = dk(new Date(2026, 6, 20));
+  plan.startedOn = plan.created;
+  plan.weekly = { 0: 'utility', 1: 'cstrafe', 2: 'awp', 3: 'rifle', 4: 'rest', 5: 'match', 6: 'match' };
+
+  function stateWith(matches) {
+    return { plan, sessions: {}, settings: {}, metrics: {}, reviews: {}, lineups: {},
+             planReviews: {}, debriefs: {}, matches: matches || {}, offPlan: {} };
+  }
+  const played = {};
+  played[dk(NIGHT)] = [{ result: 'win', ct: 13, t: 8, map: 'de_cache', at: NIGHT.getTime() }];
+
+  ok('Wednesday really is a training night in this plan, not a match night', plan.weekly[3] === 'rifle');
+
+  ok('a match played on a training night now gets its debrief, unfolded', (function () {
+    const app = bootApp(stateWith(played), NIGHT);
+    const s = app.screen();
+    const hasDebrief = /data-dbleak/.test(s) && /AFTER THE MATCH/.test(s);
+    const showsResult = /13–8/.test(s) && /cache/.test(s);
+    // Being computed is not the same as being seen. At tier 4 it rendered and then folded
+    // behind "N MORE WAITING", which is indistinguishable from missing to the person who
+    // played the match — that was the actual complaint.
+    const notFolded = s.indexOf('MORE WAITING') < 0;
+    if (!(hasDebrief && showsResult && notFolded))
+      console.log('      debrief=' + hasDebrief + ' result=' + showsResult + ' unfolded=' + notFolded);
+    return hasDebrief && showsResult && notFolded;
+  })());
+
+  ok('but the pre-queue gate does NOT appear after the fact', (function () {
+    // "warmed up, not tilted, one process goal" is a commitment you make BEFORE queueing.
+    // Showing it once the match is over would be asking about a decision already made.
+    const app = bootApp(stateWith(played), NIGHT);
+    return app.screen().indexOf('BEFORE YOU QUEUE') < 0;
+  })());
+
+  ok('a training night with NO match still shows neither', (function () {
+    const app = bootApp(stateWith({}), NIGHT);
+    const s = app.screen();
+    return s.indexOf('data-dbleak') < 0 && s.indexOf('BEFORE YOU QUEUE') < 0;
+  })());
+
+  ok('on a match night the debrief waits until there is a match to debrief', (function () {
+    // Assert the DELTA, which is the only thing this change touches. Which card wins the one
+    // non-T3 slot depends on the whole stack — on a fixture with no sessions logged it is
+    // "THE FIRST SEVEN DAYS" — so testing "the gate leads" would be testing everything else.
+    const FRI = new Date(2026, 7, 14, 22, 30, 0);            // plan.weekly[5] === "match"
+    const before = bootApp(stateWith({}), FRI).screen();
+    const m = {}; m[dk(FRI)] = [{ result: 'loss', ct: 9, t: 13, map: 'de_mirage', at: FRI.getTime() }];
+    const after = bootApp(stateWith(m), FRI).screen();
+    const foldedBefore = before.indexOf('AFTER THE MATCH') < 0;
+    const shownAfter = after.indexOf('AFTER THE MATCH') >= 0;
+    if (!(foldedBefore && shownAfter)) console.log('      folded before=' + foldedBefore + '  shown after=' + shownAfter);
+    return foldedBefore && shownAfter;
+  })());
+
+  ok('on a match night AFTER you play, the debrief comes out of the fold', (function () {
+    const FRI = new Date(2026, 7, 14, 22, 30, 0);
+    const m = {}; m[dk(FRI)] = [{ result: 'loss', ct: 9, t: 13, map: 'de_mirage', at: FRI.getTime() }];
+    const s = bootApp(stateWith(m), FRI).screen();
+    return /data-dbleak/.test(s) && /AFTER THE MATCH/.test(s) && /9–13/.test(s);
+  })());
+})();
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

@@ -1980,7 +1980,19 @@
     // T3: scheduled — the Sunday question, and the WHAT CHANGES receipt once answered
     var cc=coachCard(st,now);
     if(cc)out.push({tier:3,k:"coach",label:"Coach's question",html:cc});
-    if(ctx.debrief)out.push({tier:4,k:"debrief",label:"Match debrief",html:ctx.debrief});
+    /* T3 once a match ACTUALLY happened tonight, T4 otherwise. The debrief sat at T4 with the
+       comment "purely informational, so it never displaces anything you could act on" — but a
+       debrief is not informational, it is the one card that asks you to record something, and
+       it is the most perishable thing on the screen. The whole stack is ranked by how fast the
+       moment passes, and an honest read on tonight is gone by tomorrow.
+       At T4 it folded behind "1 MORE WAITING" and was never seen: a real 13-8 was played, the
+       app had the map and the score, and the card that asks what cost you rounds was one click
+       further away than the thing that made it worth asking. T3 is always shown, so a match
+       you played cannot be collapsed. With no match tonight it stays T4 and folds as before. */
+    if(ctx.debrief){
+      var playedTonight=(((st.matches||{})[dateKey(now)])||[]).length>0;
+      out.push({tier:playedTonight?3:4,k:"debrief",label:"Match debrief",html:ctx.debrief});
+    }
     if(ctx.recap)out.push({tier:4,k:"recap",label:"Last week",html:recapCard(st,ctx.recap)});
     return out.filter(function(c){return c.html;});
   }
@@ -3302,6 +3314,18 @@
       // tier stack above the day's work rather than sitting inside it
       if(focusKey==="match"&&!backfill){
         tierGate=reappraisalCard()+gateCard(sess,nightLosses(st,now));
+      }
+      /* THE DEBRIEF FOLLOWS THE MATCH, NOT THE PLAN. Both cards used to hang off
+         focusKey==="match", which meant a match you actually played on a training night had
+         nowhere to go: auto-tracking recorded it, the app knew the map and the score, and the
+         one place that asks what cost you rounds was unreachable. Found the hard way — a real
+         13-8 on a Wednesday, which this plan calls a rifle day.
+         The GATE stays behind the plan on purpose: it is a pre-commitment ritual you read
+         BEFORE queueing ("warmed up, not tilted, one process goal"), and showing it after the
+         fact would be asking questions about a decision already made. The debrief is the
+         opposite — it only makes sense once a match exists. */
+      var playedTonight=(((st.matches||{})[actK])||[]).length>0;
+      if((focusKey==="match"||playedTonight)&&!backfill){
         tierDebrief=autoDebrief(st,actK)+debriefCard(st,actK);
       }
       var deloadNote=deloadCard(st,F,plan,now);
