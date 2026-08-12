@@ -6,6 +6,11 @@ and the git tag dates. Do not hand-edit — run the script.
 
 Full downloads and installers: [Releases](https://github.com/jacquesvn/lockin/releases).
 
+## 0.52.0 — unreleased
+
+- Showing up — the share of rounds you died in without a kill or an assist, tracked against your own earlier rounds
+- It is the first figure on Progress that Lockin measured rather than asked you to type in
+
 ## [0.51.0](https://github.com/jacquesvn/lockin/releases/tag/v0.51.0) — 2026-08-12
 
 - The half buy — when yours win less often than both your full buys and your full ecos, Lockin says so
