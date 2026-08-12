@@ -887,12 +887,26 @@ ok('the Practice sub-tab selection is unambiguous (accent fill + facet + caption
          subTabs('today') === '' && subTabs('maps') === '';   // only Practice has sub-tabs
 })());
 ok('Plan is now just strategy — drills, protocol and maps moved off it', (function () {
-  var planRet = html.match(/function htmlPlan[\s\S]*?\n {4}return ([^\n]*)/);
-  var drillsRet = html.match(/function htmlDrills[\s\S]*?return ([^\n]*)/);
-  var gearRet = html.match(/function htmlGear[\s\S]*?return ([^\n]*)/);
-  return planRet && ['practiceCard','mapPrep','protocolCard','+lib+','+tg+'].every(function (x) { return planRet[1].indexOf(x) < 0; }) &&
-         drillsRet && drillsRet[1].indexOf('protocolCard') >= 0 &&               // drills owns the library + protocol
-         gearRet && gearRet[1].indexOf('loadoutSec') >= 0 &&                     // gear owns the config
+  // `([^\n]*)` captured ONE line. htmlPlan's return is two, so altCard + adviceCard +
+  // drillsPointer + mapsPointer — half of what the screen renders — was never checked, and
+  // anything moved back onto Plan on that second line would have passed silently.
+  function returnOf(fn) {
+    var i = script.indexOf('function ' + fn + '(');
+    if (i < 0) return null;
+    var next = script.indexOf('\n  function ', i + 10);
+    var body = script.slice(i, next < 0 ? undefined : next);
+    var r = body.lastIndexOf('\n    return ');
+    if (r < 0) return null;
+    var tail = body.slice(r + 1);
+    var stop = tail.search(/;\r?\n {2}\}/);                 // the whole statement, however many lines
+    return stop < 0 ? null : tail.slice(0, stop + 1);
+  }
+  var planRet = returnOf('htmlPlan'), drillsRet = returnOf('htmlDrills'), gearRet = returnOf('htmlGear');
+  if (planRet && planRet.split('\n').length < 2) console.log('      htmlPlan return captured as one line — check returnOf');
+  return planRet && ['practiceCard','mapPrep','protocolCard','+lib+','+tg+'].every(function (x) { return planRet.indexOf(x) < 0; }) &&
+         planRet.indexOf('adviceCard') >= 0 &&                                   // proof we read past line one
+         drillsRet && drillsRet.indexOf('protocolCard') >= 0 &&                   // drills owns the library + protocol
+         gearRet && gearRet.indexOf('loadoutSec') >= 0 &&                         // gear owns the config
          html.indexOf('data-go="drills"') >= 0 && html.indexOf('data-go="maps"') >= 0;   // pointers on Plan
 })());
 // --- v0.25: desktop reads sens + launch options from CS2 ---
@@ -908,9 +922,16 @@ ok('the CS2 read fills only sensitivity + launch (DPI and crosshair stay manual)
 // --- v0.22: automatic backup — continue where you left off ---
 ok('desktop mirrors state to a file and restores it when localStorage is empty', (function () {
   var s = script;
+  // `s.indexOf('mirrorBackup(st)')` was satisfied by the DECLARATION — function
+  // mirrorBackup(st){ contains that substring — so deleting the call from save() left this
+  // green and the auto-backup silently stopped following the state. Scope it to save()'s
+  // own body, which is the only place the wiring can actually be.
+  var saveBody = s.slice(s.indexOf('function save(st){'));
+  saveBody = saveBody.slice(0, saveBody.indexOf('\n'));
   return s.indexOf('backup_write') >= 0 && s.indexOf('backup_read') >= 0 &&
          /function mirrorBackup\(st\)\{\s*if\(!isNative\)return/.test(s) &&   // mirror is desktop-only (gate is the first line)
-         s.indexOf('mirrorBackup(st)') >= 0;                              // wired into save()
+         /mirrorBackup\(st\);/.test(saveBody) &&                              // genuinely wired into save()
+         saveBody.indexOf('function mirrorBackup') < 0;                       // and we are not reading the declaration again
 })());
 ok('the backup restore only fires when there is no local plan (localStorage stays authoritative)', (function () {
   // in the init: restore is inside the `if(st.plan){...return}` else-path, gated on isNative
@@ -959,8 +980,17 @@ ok('every place the tag is shown escapes it (no HTML injection)', (function () {
   return html.indexOf("+playerTag()+") < 0 && html.indexOf("+playerTag(st)+") < 0 && uses.length >= 4;
 })());
 ok('web build shows plain map links, never a download badge', (function () {
+  // .wsinst / .wsmiss were renamed to the shared status chips in v3 and this guard was left
+  // naming the dead classes, so it could only ever pass. Assert the text the chips actually
+  // render — and assert the chips DO exist somewhere, or the guard goes hollow the next time
+  // the copy changes.
   var h = workshopKit();   // default sandbox is web (isNative false) — must never badge
-  return h.indexOf('class="wsinst"') < 0 && h.indexOf('class="wsmiss"') < 0 && h.indexOf('data-wsrecheck') < 0;
+  var chipsExist = /statusChip\("live","Installed"\)/.test(script) && /statusChip\("idle","Not downloaded"\)/.test(script);
+  return chipsExist &&
+         h.indexOf('Installed') < 0 && h.indexOf('Not downloaded') < 0 &&
+         h.indexOf('class="st live"') < 0 && h.indexOf('class="st idle"') < 0 &&
+         h.indexOf('data-wsrecheck') < 0 &&
+         h.indexOf('steamcommunity.com') >= 0;      // it does still render the plain links
 })());
 // the native command that backs the badges, and its fail-safe contract, live in Rust —
 // assert the frontend actually calls it and treats an un-ok scan as "show nothing"
@@ -1385,8 +1415,14 @@ ok('a failed WRITE keeps mem authoritative; a successful READ never re-flips sto
          script.indexOf('getItem(KEY);storageOk=true') < 0;   // the read no longer heals the write-blocked flag
 })());
 ok('GSI dedup is identity+time based (settings.lastGsi within a window), not today’s-last-entry content', (function () {
+  // This used to be /applyGsiMatch\(st,m,dk,now\)/, which the DECLARATION satisfies —
+  // `function applyGsiMatch(st,m,dk,now){` contains it — so deleting the argument at the
+  // call site left the guard green and the dedup window comparing against the wrong clock.
+  // Match a CALL: the statement, not the definition.
+  var calls = (script.match(/(^|[^n])\s*applyGsiMatch\(st,m,dk,now\);/gm) || []).length;
   return script.indexOf('st.settings.lastGsi') >= 0 && /\(now-last\.at\)<600000/.test(script) &&
-         /applyGsiMatch\(st,m,dk,now\)/.test(script);   // now is threaded through
+         calls >= 1 &&                                                     // now is threaded through at the call site
+         !/function applyGsiMatch\(st,m,dk,now\);/.test(script);           // and that match is not the declaration
 })());
 ok('external CS2-triggered renders are focus-safe (skip while a text field is focused)', (function () {
   // bound to gsiRender's OWN body: the fix is the early-return-on-focused-input, so a hollow
@@ -2200,15 +2236,30 @@ ok('nothing renders below 9px — no text asks you to lean in', (function () {
   // "Some of the text is hard to read" was never a contrast problem: everything measured
   // 5.15:1 or better. It was SIZE. This sets a floor so the next small label cannot slip
   // under it, and so the type scale can only be lowered deliberately.
-  var small = [];
-  var re = /([^{}]*)\{([^}]*font-size:\s*([\d.]+)px[^}]*)\}/g, m;
-  while ((m = re.exec(css))) {
-    var sel = m[1].replace(/\/\*[\s\S]*?\*\//g, '').trim().replace(/\s+/g, ' ');
-    var size = +m[3];
-    if (size < 9 && sel && sel.indexOf('@') < 0) small.push(sel.slice(-40) + ' = ' + size + 'px');
+  // The `@` filter below exists to skip at-rule PREAMBLES, but it was silently exempting
+  // real rules: for `@media (…){ .mtn small{font-size:7.5px} … }` the scan captured the
+  // selector as "@media (…)" — the block opener — and dropped it for containing an @. So
+  // the FIRST rule inside every media query was unguarded, and the app's one sub-floor rule
+  // sat in exactly that slot, at 7.5px, for as long as this guard has existed. Strip the
+  // at-rule openers first so every rule is scanned at the top level.
+  function scanUnder9(text) {
+    var flat = text.replace(/@(?:media|supports|container)[^{]*\{/g, ''), out = [];
+    var re = /([^{}]*)\{([^}]*font-size:\s*([\d.]+)px[^}]*)\}/g, m;
+    while ((m = re.exec(flat))) {
+      var sel = m[1].replace(/\/\*[\s\S]*?\*\//g, '').trim().replace(/\s+/g, ' ');
+      if (+m[3] < 9 && sel && sel.indexOf('@') < 0) out.push(sel.slice(-40) + ' = ' + m[3] + 'px');
+    }
+    return out;
   }
+  var small = scanUnder9(css);
   if (small.length) console.log('      below the 9px floor: ' + small.join(' | '));
-  return small.length === 0;
+  // Self-falsifying: .mtn small IS the first rule inside a media query — the exact slot that
+  // used to be exempt. Shrink it on a copy and the scan must catch it, or this guard is
+  // hollow again and would report a clean floor on a screen full of 6px type.
+  var doctored = scanUnder9(css.replace('.mtn small{font-size:9px', '.mtn small{font-size:6px'));
+  var reaches = doctored.length === 1 && /\.mtn small/.test(doctored[0]);
+  if (!reaches) console.log('      the scan does not reach inside @media — guard is hollow (' + doctored.length + ' hits)');
+  return small.length === 0 && reaches;
 })());
 ok('a selected nav item is never signalled by text colour alone', (function () {
   // .snav .snsub.on set background:transparent AND ::before{display:none}, cancelling BOTH

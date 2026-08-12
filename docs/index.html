@@ -449,7 +449,11 @@
   .mtn.on .mthex{background:var(--acc);color:var(--onAcc);}
   .mtn.on small{color:var(--muted);}
   .mtn.next .mthex{background:var(--surface2);color:var(--accInk);box-shadow:0 0 0 2px var(--acc);}
-  @media (max-width:719px){ .mtn small{font-size:7.5px;letter-spacing:0.06em;} .mtn{width:44px;} }
+  /* 7.5px here was the only type in the app under the 9px floor, and the floor guard could
+     not see it: its regex treated the first rule inside an @media block as the selector
+     "@media (max-width:719px)" and skipped it for containing an @. Hold the floor and widen
+     the node instead, so PLATINUM still fits on one line at the larger size. */
+  @media (max-width:719px){ .mtn small{font-size:9px;letter-spacing:0.02em;} .mtn{width:52px;} }
   /* auto-logged match summary */
   .adcard{margin-bottom:10px;}
   .adtop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
