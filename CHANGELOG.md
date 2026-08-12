@@ -6,7 +6,7 @@ and the git tag dates. Do not hand-edit — run the script.
 
 Full downloads and installers: [Releases](https://github.com/jacquesvn/lockin/releases).
 
-## 0.50.0 — unreleased
+## [0.50.0](https://github.com/jacquesvn/lockin/releases/tag/v0.50.0) — 2026-08-12
 
 - Your rounds, not the scoreboard — the round you got a 2k and lost is no longer filed with the round you did nothing
 - Removed the panel that reported your median time of death. It was a fact with no decision attached
