@@ -2241,7 +2241,18 @@
   function randToken(){var a=new Uint8Array(16);try{window.crypto.getRandomValues(a);}catch(_){}
     var s="";for(var i=0;i<a.length;i++)s+=("0"+(a[i]&255).toString(16)).slice(-2);return s;}
   // one stable token per install, shared between the cfg we write and the listener that checks it
-  function gsiToken(){var st=load();if(!st.settings.gsiToken){st.settings.gsiToken=randToken();save(st);}return st.settings.gsiToken;}
+  // Exactly what randToken mints: 16 random bytes as 32 lowercase hex characters. Anything
+  // else is not ours — a hand-edited or hostile backup — and must never reach the cfg writer,
+  // because the token is embedded verbatim between two quotes in a KeyValues file.
+  var GSI_TOKEN_RE=/^[0-9a-f]{32}$/;
+  // Re-mint on ANY value that is not our shape, not merely on absence: an imported backup can
+  // carry an arbitrary string here (validBackup only ever inspected sessions and plan), and it
+  // would otherwise be written straight into CS2's config file.
+  function gsiToken(){
+    var st=load();
+    if(!GSI_TOKEN_RE.test(st.settings.gsiToken||"")){st.settings.gsiToken=randToken();save(st);}
+    return st.settings.gsiToken;
+  }
   function gsiLive(){return isNative&&gsiLastBeat>0&&(Date.now()-gsiLastBeat<90000);}  // beat is a 30s heartbeat
   // A re-render triggered by an EXTERNAL CS2 event must not yank focus or discard text the user is
   // mid-typing into a blur-committed field (cue/goal/gamertag), so skip it while such a field is focused.
@@ -3445,6 +3456,17 @@
   function stateForBackup(st){
     var out={},k;
     for(k in st)if(st.hasOwnProperty(k))out[k]=st[k];
+    /* The GSI token is MACHINE-LOCAL: it exists here and in the literal text of
+       gamestate_integration_lockin.cfg inside the CS2 install. Carrying it in a portable
+       backup silently kills auto-tracking — restore on another PC (or from the web build,
+       which has no token at all) and the listener starts checking a token CS2 is not sending,
+       so every payload is dropped before the heartbeat. It looks fine until the next launch
+       because the running listener already captured the old one. Strip it on the way out. */
+    if(out.settings){
+      var s={},sk;
+      for(sk in out.settings)if(out.settings.hasOwnProperty(sk)&&sk!=="gsiToken")s[sk]=out.settings[sk];
+      out.settings=s;
+    }
     var used={},any=false,lns=st.lineups||{};
     for(var m in lns){var arr=lns[m]||[];
       for(var i=0;i<arr.length;i++){var im=arr[i].im||[];
@@ -5208,7 +5230,13 @@
         if(!confirm(summ)){inf.value="";return;}
         // coerce metrics to numbers — a hostile/old backup could carry strings (delta math + attribute safety)
         if(isObj(d2.metrics)){for(var mk in d2.metrics){var mm=d2.metrics[mk];if(!isObj(mm)){delete d2.metrics[mk];continue;}for(var pp in mm){var num=parseFloat(mm[pp]);if(isFinite(num))mm[pp]=num;else delete mm[pp];}}}
-        d2.settings=d2.settings||{};takeBackupImages(d2);save(d2);inf.value="";render();
+        d2.settings=d2.settings||{};
+        // Keep THIS machine's GSI token across a restore: it is paired with the cfg file sitting
+        // in the CS2 install, which an import cannot touch. Anything the file carries is either
+        // another machine's token or attacker-supplied, and neither belongs here.
+        var mine=(load().settings||{}).gsiToken;
+        if(GSI_TOKEN_RE.test(mine||""))d2.settings.gsiToken=mine; else delete d2.settings.gsiToken;
+        takeBackupImages(d2);save(d2);inf.value="";render();
       };
       rd.readAsText(f);};
     var rst=root.querySelector('[data-act="reset"]');

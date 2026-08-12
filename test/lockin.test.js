@@ -3101,5 +3101,40 @@ ok('the find-lineups action is a hero-yellow button sitting right under the list
          script.indexOf('<a class="datarow" style="margin-top:8px;" href="https://csnades.gg/') < 0;
 })());
 
+// --- v0.47: the GSI token is a security boundary, not a setting ---
+// It lands VERBATIM between two quotes in a KeyValues file that CS2 executes. Backups were
+// fully attacker-controlled here (validBackup never inspected settings), so a token carrying
+// a quote + newline closes our block and opens a second one — a second GSI endpoint, pointed
+// anywhere, exfiltrating live match data. Three separate holes, three guards.
+ok('a backup never carries the GSI token off this machine', (function () {
+  var st = { lineups: {}, sessions: {}, settings: { gsiToken: 'a1b2c3d4e5f60718293a4b5c6d7e8f90', theme: 'dark' } };
+  var b = stateForBackup(st);
+  return b.settings.gsiToken === undefined &&
+         b.settings.theme === 'dark' &&                 // the rest of settings survives
+         st.settings.gsiToken === 'a1b2c3d4e5f60718293a4b5c6d7e8f90';   // and the live state is not mutated
+})());
+ok('a state with no settings still backs up (the strip must not assume the key exists)', (function () {
+  var b = stateForBackup({ lineups: {}, sessions: {} });
+  return b && b.settings === undefined;
+})());
+ok('any token that is not exactly 32 lowercase hex is re-minted rather than used', (function () {
+  // the shape check itself, and that it gates the mint
+  return /var GSI_TOKEN_RE=\/\^\[0-9a-f\]\{32\}\$\//.test(script) &&
+         /if\(!GSI_TOKEN_RE\.test\(st\.settings\.gsiToken\|\|""\)\)\{st\.settings\.gsiToken=randToken\(\);save\(st\);\}/.test(script);
+})());
+ok('an import keeps THIS machine\'s token and drops whatever the file carried', (function () {
+  return /var mine=\(load\(\)\.settings\|\|\{\}\)\.gsiToken;/.test(script) &&
+         /if\(GSI_TOKEN_RE\.test\(mine\|\|""\)\)d2\.settings\.gsiToken=mine; else delete d2\.settings\.gsiToken;/.test(script) &&
+         /d2\.settings=d2\.settings\|\|\{\};/.test(script);   // runs even when the file has no settings block
+})());
+ok('the token is validated again in Rust, where it is actually trusted', (function () {
+  var rs = require('fs').readFileSync(require('path').join(__dirname, '..', 'src-tauri', 'src', 'lib.rs'), 'utf8');
+  return /fn gsi_token_ok\(t: &str\) -> bool \{\s*t\.len\(\) == 32 && t\.chars\(\)\.all\(\|c\| c\.is_ascii_hexdigit\(\) && !c\.is_ascii_uppercase\(\)\)/.test(rs) &&
+         // both sinks: the listener and the file writer
+         (rs.match(/if !gsi_token_ok\(&token\) \{\s*return Err\("refused: malformed GSI token"\.into\(\)\);/g) || []).length === 2 &&
+         /#\[tauri::command\]\s*fn start_gsi/.test(rs) &&         // the attribute stayed on the command
+         /#\[tauri::command\]\s*fn write_gsi_config/.test(rs);
+})());
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
