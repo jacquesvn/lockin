@@ -360,6 +360,17 @@
      Faceted elements get an INSET ring: clip-path cuts an outline (and an outer shadow)
      clean off, so on those the ring has to be drawn inside the shape. */
   :focus-visible{outline:2px solid var(--accInk);outline-offset:2px;border-radius:2px;}
+  /* The skip link: off-screen until it takes focus, then a real target sitting over the
+     sidebar. Not display:none and not visibility:hidden — either would take it out of the
+     tab order and it would never be reachable, which is the classic way this gets shipped
+     broken. #main carries tabindex="-1" so the jump actually moves focus rather than only
+     scrolling (Safari and Chrome both need that on a non-interactive target). */
+  .skip{position:absolute;left:12px;top:-60px;z-index:90;background:var(--surface2);
+    color:var(--text);border:1px solid var(--accInk);border-radius:9px;padding:11px 16px;
+    font-family:var(--fm);font-size:12px;font-weight:700;letter-spacing:0.08em;
+    text-transform:uppercase;text-decoration:none;transition:top .12s ease;}
+  .skip:focus{top:12px;}
+  #main:focus{outline:none;}          /* it is a scroll target, not a control */
   /* Clipped shapes need the ring INSIDE them, and its colour depends on what it sits on.
      On an ACCENT FILL the ink is the wrong token — in light theme --accInk (L .455) and
      --acc (L .495) are almost the same lightness, so an accInk ring on an accent button
@@ -660,7 +671,7 @@
   .lfyin{display:flex;gap:8px;}
   .lfyin input{flex:1;min-width:0;background:var(--sunk);border:1px solid var(--line);color:var(--text);
     border-radius:8px;padding:10px 11px;font:inherit;font-size:13px;}
-  .lfyin input:focus{outline:none;border-color:var(--hero);}
+  .lfyin input:focus{border-color:var(--hero);}
   .lfyname{font-weight:800;margin:10px 0 8px;font-size:15px;}
   .lfynums{display:grid;grid-template-columns:1fr;gap:2px;}
   .lfyrow{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;
@@ -817,7 +828,7 @@
   .cps label{font-family:var(--fm);font-size:9px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:3px;}
   .cps input{width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:7px;padding:6px 8px;color:var(--text);font-family:var(--fm);font-size:12.5px;text-align:center;}
   .cps .due input{border-color:var(--hero);}
-  .cps input:focus{outline:none;border-color:var(--hero);}
+  .cps input:focus{border-color:var(--hero);}
 
   /* ---------- v0.5: banners, cue, session, practice, glossary ---------- */
   .warnbanner{background:color-mix(in oklab,var(--bad) 9%,transparent);border:1px solid color-mix(in oklab,var(--bad) 40%,transparent);border-left:3px solid var(--bad);border-radius:11px;padding:11px 13px;font-size:13px;color:var(--text);margin-bottom:12px;}
@@ -855,7 +866,14 @@
   .startsession:hover{background:var(--hero2);}
   .field{margin-top:0;} .field label{font-family:var(--fm);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:5px;}
   .field input{width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;color:var(--text);font-family:var(--fb);font-size:14px;}
-  .field input:focus{outline:none;border-color:var(--hero);}
+  /* These three used to open with outline:none, which killed the universal :focus-visible
+     ring above and left the border swap as the ONLY focus indicator. Measured in dark
+     theme — the default — that swap is --line to --hero, and those two are 1.21:1 apart in
+     luminance: near-identical brightness, differing almost entirely in hue, on a 1px
+     border. A user who cannot separate violet from grey had no focus indicator at all on
+     any text input, which is most of Setup, Gear and the whole quiz. Keep the border tint
+     as a bonus and let the 2px accInk ring do the actual work. */
+  .field input:focus{border-color:var(--hero);}
   .taglead{width:100%;max-width:300px;text-align:left;}
   .taglead label{text-align:center;}
   .dbk{font-family:var(--fm);font-size:10px;letter-spacing:0.12em;color:var(--faint);margin-bottom:7px;}
@@ -1018,7 +1036,11 @@
   #session{position:fixed;inset:0;z-index:70;display:none;flex-direction:column;background:var(--bg);padding:20px 18px calc(20px + env(safe-area-inset-bottom));}
   #session.show{display:flex;}
   #session .sbar{display:flex;justify-content:space-between;align-items:center;}
-  #session .siconx{background:transparent;border:1px solid var(--line);border-radius:9px;width:34px;height:34px;color:var(--muted);cursor:pointer;font-size:14px;}
+  /* 34px was the smallest tap target in the app, at every viewport, and it is the one
+     control in the session overlay that THROWS AWAY the run — pressed by someone mid-drill
+     with the phone propped up. It clears WCAG 2.2's 24px minimum either way; this is about
+     not making the destructive button the hardest one to hit. */
+  #session .siconx{background:transparent;border:1px solid var(--line);border-radius:9px;width:44px;height:44px;color:var(--muted);cursor:pointer;font-size:14px;}
   #session .sdots{display:flex;gap:6px;margin:16px 0;}
   #session .sdot{flex:1;height:4px;border-radius:2px;background:var(--surface2);}
   #session .sdot.past{background:var(--hero);opacity:.5;} #session .sdot.cur{background:var(--hero);}
@@ -1139,8 +1161,13 @@
 
 <div id="onboard"></div>
 <div id="app" style="display:none;">
+  <!-- 2.4.1 Bypass Blocks (Level A). #side renders the wordmark, the identity block, seven
+       nav items and the status rail, and it comes BEFORE <main> in the document — so every
+       keyboard and screen-reader user traversed all of it again on every single screen.
+       Hidden until focused; the first Tab on any screen reveals it. -->
+  <a class="skip" href="#main">Skip to content</a>
   <aside id="side"></aside>
-  <div id="maincol"><div id="updbar" role="status" aria-live="polite"></div><main class="wrap" id="main"></main></div>
+  <div id="maincol"><div id="updbar" role="status" aria-live="polite"></div><main class="wrap" id="main" tabindex="-1"></main></div>
 </div>
 <nav id="tabbar" style="display:none;" aria-label="Primary"></nav>
 <div id="session"></div>
