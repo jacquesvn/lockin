@@ -348,6 +348,14 @@
   .hd h1{font-size:30px;line-height:1;}
   .iconbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer;display:grid;place-items:center;}
   .iconbtn svg{width:17px;height:17px;}
+  /* The 2x2. A grid rather than a table because the row labels are not headers of equal
+     weight — the numbers are the content and the labels only orient you. */
+  .ixgrid{display:grid;grid-template-columns:auto 1fr 1fr;gap:8px 10px;align-items:center;}
+  .ixh{font-family:var(--fm);font-size:10px;letter-spacing:0.14em;color:var(--faint);text-transform:uppercase;text-align:center;font-weight:600;}
+  .ixr{font-family:var(--fm);font-size:10.5px;letter-spacing:0.1em;color:var(--muted);text-transform:uppercase;white-space:nowrap;}
+  .ixc{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:10px 8px;text-align:center;}
+  .ixc b{display:block;font-family:var(--fd);font-weight:800;font-size:26px;line-height:1;color:var(--text);letter-spacing:-0.02em;}
+  .ixc span{display:block;margin-top:4px;font-size:11.5px;color:var(--muted);}
   /* ---------- focus ----------
      Two things were wrong here and both are the kind that only a keyboard user meets.
      · The ring used --hero, which aliases to --acc: the FILL, not the ink. That is the exact
@@ -2379,6 +2387,11 @@
       if(p.s===sig&&(now-p.at)<120000)return st;
     }
     st.rounds.push({s:sig,d:dk,at:now,
+      // Schema marker. Records written before 0.48.1 always carry k:0 on a round you
+      // SURVIVED, because kills were only captured inside the death branch — so counting them
+      // would make every player look carried. Anything reading k for more than "did you die
+      // without a kill" must filter on v>=2. Old records simply have no v.
+      v:2,
       x:r.died?1:0,                                   // died
       ms:(typeof r.deathMs==="number")?r.deathMs:null, // when, from round-live
       bm:r.buyMoney|0, be:r.buyEquip|0,                // what you walked out holding
@@ -3904,7 +3917,7 @@
        it leads into it rather than trailing it, and youVsYou — the you-against-your-own-past
        line — now sits with the comparison it is about instead of floating at the top. */
     return hd+milestoneRail(st)+insightsCard(st)+
-      autoAuditCard(st)+bottleneckCard(st)+timingCard(st,new Date())+deathCard(st)+leakCard(st)+
+      autoAuditCard(st)+impactCard(st)+bottleneckCard(st)+timingCard(st,new Date())+deathCard(st)+leakCard(st)+
       leakHistoryCard(st)+changedCard(st)+youVsYou()+proofCard(st)+mx+
       cal+planShot(st)+sharePreview(st)+milestonesCard(st)+glossary();
   }
@@ -4857,6 +4870,52 @@
       'Aim decides a duel. It does not decide when the duel starts, or whether you were the one who started it. '+
       'Worth asking, next session, whether those were duels you lost or duels you chose.</p>'+
       '<p class="help" style="margin:8px 0 0;">Counted only on days where the tracker saw every death you tagged, so the figure is a floor, not an estimate.</p></div>';
+  }
+  /* ---------- your rounds, not the scoreboard ----------
+     A scoreboard shows your K/D and the score and never crosses them, so the round you got a
+     2k and lost anyway looks identical to the round you did nothing and lost. They are not
+     the same round and they do not deserve the same review.
+
+     Impact here is ONE KILL. That is arithmetic, not a judgement: five enemies, five players,
+     so a round where you take one is a round where you took your share. It is deliberately
+     not a rating — no multipliers for opening kills, no bonus for a 3k, because the moment
+     this starts scoring you it becomes a leaderboard, and the app does not have those.
+
+     WHAT IT CANNOT SEE, and the card says so out loud: the flash that won the entry, the
+     smoke that took the site, the info call, the angle you held that made them go elsewhere.
+     GSI reports kills. So "no kill" means "the game recorded no kill", never "you did
+     nothing" — and a support player would be badly served by any other wording. */
+  function impactSplit(st,n){
+    // v>=2 only: before 0.48.1 a survived round always stored k:0, so older records would
+    // load the bottom row with rounds the player actually fragged in.
+    var rs=(st.rounds||[]).filter(function(r){return r&&r.v>=2&&(r.w===1||r.w===0);});
+    if(n)rs=rs.slice(-n);
+    var o={rounds:rs.length,won:0,lost:0,earned:0,carried:0,didJob:0,toFix:0,big:0};
+    rs.forEach(function(r){
+      var k=r.k||0,impact=k>=1;
+      if(k>=2&&r.w===0)o.big++;                       // 2k or better, and still lost it
+      if(r.w===1){o.won++;impact?o.earned++:o.carried++;}
+      else{o.lost++;impact?o.didJob++:o.toFix++;}
+    });
+    return o;
+  }
+  function impactCard(st){
+    var s=impactSplit(st);
+    if(s.rounds<30)return "";                          // a 2x2 of four small counts says nothing
+    if(!s.lost||!s.won)return "";                      // one row empty is not a split
+    function cell(n,label){return '<div class="ixc"><b>'+n+'</b><span>'+label+'</span></div>';}
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">YOUR ROUNDS, NOT THE SCOREBOARD</span>'+
+      statusChip("cap",s.rounds+" ROUNDS")+'</div>'+
+      '<div class="card"><div class="ixgrid">'+
+        '<div class="ixh"></div><div class="ixh">WON</div><div class="ixh">LOST</div>'+
+        '<div class="ixr">a kill</div>'+cell(s.earned,"earned it")+cell(s.didJob,"did your job")+
+        '<div class="ixr">no kill</div>'+cell(s.carried,"carried")+cell(s.toFix,"yours to fix")+
+      '</div>'+
+      '<p class="mhow" style="margin:10px 0 0;">Of the <b style="color:var(--text);">'+s.lost+'</b> rounds you lost, you took a kill in <b style="color:var(--text);">'+s.didJob+'</b>'+
+      (s.big?' — and <b style="color:var(--text);">'+s.big+'</b> of those were two or more'+(s.big===1?'':'')+'':'')+
+      '. Those are not the rounds to review. The '+s.toFix+' below them are.</p>'+
+      '<p class="help" style="margin:8px 0 0;">A kill is your share of a five-man round, so this counts one as pulling your weight and does not score you above it. '+
+      'It is also all CS2 reports: the flash that won the entry, the smoke, the info call and the angle you held are not in the data, so <b>no kill</b> means the game recorded none — not that you did nothing.</p></div>';
   }
   function deathCard(st){
     var today=(st.reviews||{})[dateKey(new Date())]||{};
@@ -5874,7 +5933,7 @@
     pauseCard:pauseCard,freezeRow:freezeRow,restWeek:restWeek,restLine:restLine,quietWeek:quietWeek,
     tierIdentity:tierIdentity,QUIET_DAYS:QUIET_DAYS,PAUSE_WEEKS:PAUSE_WEEKS,
     isDeloadWeek:isDeloadWeek,deloadDur:deloadDur,focusMins:focusMins,deloadCard:deloadCard,
-    whyPanel:whyPanel,whySource:whySource,bottleneckCard:bottleneckCard,timingCard:timingCard,timingVsTag:timingVsTag,tiltCard:tiltCard,nightLosses:nightLosses,nightKeys:nightKeys,gateCard:gateCard,
+    whyPanel:whyPanel,whySource:whySource,bottleneckCard:bottleneckCard,timingCard:timingCard,timingVsTag:timingVsTag,impactCard:impactCard,impactSplit:impactSplit,tiltCard:tiltCard,nightLosses:nightLosses,nightKeys:nightKeys,gateCard:gateCard,
     offPlanCard:offPlanCard,OFFPLAN:OFFPLAN,
     adherence:adherence,metricMove:metricMove,driftCheck:driftCheck,driftCard:driftCard,
     coachAsk:coachAsk,coachCard:coachCard,applyCoachAnswer:applyCoachAnswer,COACH_ANSWERS:COACH_ANSWERS,

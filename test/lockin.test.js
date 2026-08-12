@@ -62,7 +62,7 @@ const { generatePlan, computeStreak, richText, validBackup, rawWeek, planWeekRaw
         streakDetail, pauseInfo, isPausedOn, planWeek, pauseCard, freezeRow, restWeek, restLine,
         quietWeek, tierIdentity, QUIET_DAYS, PAUSE_WEEKS,
         isDeloadWeek, deloadDur, focusMins, deloadCard, whyPanel, whySource,
-        bottleneckCard, timingCard, timingVsTag, tiltCard, nightLosses, nightKeys, gateCard, offPlanCard, OFFPLAN,
+        bottleneckCard, timingCard, timingVsTag, impactCard, impactSplit, tiltCard, nightLosses, nightKeys, gateCard, offPlanCard, OFFPLAN,
         adherence, metricMove, driftCheck, driftCard, coachAsk, coachCard, applyCoachAnswer,
         COACH_ANSWERS, drillAdherence, skippedDrill, skippedCard,
         leakHistory, leakHistoryCard, changedSince, changedCard, proofRows, proofCard, honestExport,
@@ -1543,8 +1543,14 @@ ok('Progress states you-vs-you and the app has no leaderboard anywhere', (functi
   var assembly = script.slice(script.indexOf('function htmlProgress('));
   assembly = assembly.slice(0, assembly.indexOf('\n  function ', 10));
   var rendered = /return hd\+[\s\S]*?youVsYou\(\)/.test(assembly);
+  // Block comments out first. The claim is about what the app SHOWS, and a comment
+  // explaining why a card deliberately is not a leaderboard is the opposite of a violation.
+  // (Third time today a guard has read a comment as content — the others were "<main>" in an
+  // HTML comment and "outline:none" in a CSS one. Only /* */ is stripped: a blanket // strip
+  // would eat every https:// in the file.)
+  var visible = html.replace(/\/\*[\s\S]*?\*\//g, ' ');
   return /no leaderboard/i.test(y) && /own past/i.test(y) && rendered &&
-         !/leaderboard/i.test(html.replace(/no leaderboard/ig, ''));   // only ever mentioned to deny it
+         !/leaderboard/i.test(visible.replace(/no leaderboard/ig, ''));   // only ever mentioned to deny it
 })());
 ok('the privacy card states all four claims and the line only a free app can write', (function () {
   var m = html.match(/NOTHING LEAVES THIS DEVICE[\s\S]{0,900}/);
@@ -1827,8 +1833,13 @@ ok('the audit stores facts and never a verdict, and stays bounded', (function ()
   var st = {}, dk = dateKey(new Date()), now = Date.now();
   applyGsiRound(st, { round: 1, map: 'de_dust2', died: true, deathMs: 9000, buyMoney: 1150, buyEquip: 4200, leftOver: 2300, roundKills: 0, won: false }, dk, now);
   var rec = st.rounds[0];
-  // every field is something that happened; nothing here is an opinion about it
-  var factsOnly = Object.keys(rec).every(function (k) { return ['s', 'd', 'at', 'x', 'ms', 'bm', 'be', 'lo', 'k', 'w'].indexOf(k) >= 0; });
+  // every field is something that happened; nothing here is an opinion about it.
+  // `v` is the odd one out and is allowed on purpose: it is a schema marker saying which
+  // writer produced the record, not a claim about the round. It exists because records from
+  // before 0.48.1 carry a k:0 that is wrong for any round the player survived, and anything
+  // reading kills has to be able to tell those apart.
+  var factsOnly = Object.keys(rec).every(function (k) { return ['s', 'd', 'at', 'v', 'x', 'ms', 'bm', 'be', 'lo', 'k', 'w'].indexOf(k) >= 0; });
+  var stamped = rec.v === 2;
   // unknown outcome must be null, never false — false would read as a lost round
   applyGsiRound(st, { round: 2, map: 'de_dust2', died: false, buyMoney: 800, buyEquip: 0, roundKills: 0, won: null }, dk, now + 1);
   var unknownIsNull = st.rounds[1].w === null;
@@ -1836,7 +1847,7 @@ ok('the audit stores facts and never a verdict, and stays bounded', (function ()
   for (var i = 0; i < ROUND_CAP + 40; i++) {
     applyGsiRound(st, { round: i, map: 'de_x' + i, died: false, buyMoney: 0, buyEquip: 0, roundKills: 0, won: true }, dk, now + 1000 + i);
   }
-  return factsOnly && unknownIsNull && st.rounds.length === ROUND_CAP;
+  return factsOnly && stamped && unknownIsNull && st.rounds.length === ROUND_CAP;
 })());
 ok('the audit stays silent until it has seen enough, and reports counts not conclusions', (function () {
   var st = { rounds: [] }, dk = dateKey(new Date()), now = Date.now();
@@ -3722,6 +3733,89 @@ ok('a spring-forward inside the window does not lose a day', (function () {
     const t = timingVsTag(st, new Date());
     if (!(t.floor === 3 && t.taggedAim === 12)) console.log('      floor=' + t.floor + ' aim=' + t.taggedAim);
     return t.floor === 3 && t.taggedAim === 12 && timingCard(st, new Date()) === '';
+  })());
+})();
+
+// --- v0.50: the 2x2 — impact against outcome ---
+(function () {
+  function rounds(spec) {
+    // spec: [kills, won, count, version?]
+    const R = [];
+    spec.forEach(([k, won, n, v]) => {
+      for (let i = 0; i < n; i++) {
+        const r = { s: 'de_cache#' + R.length, d: '2026-08-12', at: Date.now(), x: 1, ms: 30000,
+                    bm: 4000, be: 3900, lo: 0, k: k, w: won === null ? null : (won ? 1 : 0) };
+        if (v !== 0) r.v = v || 2;
+        R.push(r);
+      }
+    });
+    return { rounds: R, reviews: {}, sessions: {}, settings: {}, plan: null };
+  }
+
+  ok('the four cells count what they say they count', (function () {
+    const s = impactSplit(rounds([[1, true, 12], [2, true, 6], [0, true, 9],
+                                  [1, false, 9], [2, false, 5], [0, false, 21]]));
+    return s.rounds === 62 && s.won === 27 && s.lost === 35 &&
+           s.earned === 18 && s.carried === 9 && s.didJob === 14 && s.toFix === 21 &&
+           s.earned + s.carried === s.won && s.didJob + s.toFix === s.lost;
+  })());
+
+  ok('a 2k that still lost is counted, and a 2k that won is not', (function () {
+    const s = impactSplit(rounds([[2, false, 5], [3, false, 2], [2, true, 8], [1, false, 4], [0, true, 20]]));
+    return s.big === 7 && s.didJob === 11;      // 5 + 2 multi-kills lost; 11 losses with a kill
+  })());
+
+  ok('rounds from before the kills fix are excluded entirely', (function () {
+    // v0.48.0 and earlier stored k:0 on every round you SURVIVED. Counting them would load
+    // "carried" and "yours to fix" with rounds the player actually fragged in — the card
+    // would call a good player carried, using data we already know is wrong.
+    const mixed = rounds([[1, true, 20], [1, false, 20], [0, true, 30, 0], [0, false, 30, 0]]);
+    const s = impactSplit(mixed);
+    if (s.rounds !== 40) console.log('      counted ' + s.rounds + ' rounds, expected 40');
+    return s.rounds === 40 && s.carried === 0 && s.toFix === 0 &&
+           mixed.rounds.length === 100;          // the old ones are still stored, just not counted
+  })());
+
+  ok('rounds with an unknown result are not forced into a cell', (function () {
+    const s = impactSplit(rounds([[1, true, 20], [0, false, 20], [2, null, 15]]));
+    return s.rounds === 40 && s.won === 20 && s.lost === 20;
+  })());
+
+  ok('it stays silent below thirty usable rounds', (function () {
+    return impactCard(rounds([[1, true, 14], [0, false, 14]])) === '';
+  })());
+
+  ok('it stays silent when a whole row is empty — that is not a split', (function () {
+    const allWon = impactCard(rounds([[1, true, 25], [0, true, 20]]));
+    const allLost = impactCard(rounds([[1, false, 25], [0, false, 20]]));
+    return allWon === '' && allLost === '';
+  })());
+
+  ok('it names the losses that were not yours, and the ones that were', (function () {
+    const c = impactCard(rounds([[1, true, 12], [2, true, 6], [0, true, 9],
+                                 [1, false, 9], [2, false, 5], [0, false, 21]]));
+    return /YOUR ROUNDS, NOT THE SCOREBOARD/.test(c) &&
+           c.indexOf('>35<') >= 0 && c.indexOf('>14<') >= 0 &&      // lost, and lost-with-a-kill
+           /Those are not the rounds to review\. The 21 below them are\./.test(c);
+  })());
+
+  ok('it never claims a kill is the whole of impact', (function () {
+    const c = impactCard(rounds([[1, true, 20], [0, false, 20]]));
+    // a support player reading "no kill" as "you did nothing" would be badly served, and the
+    // app cannot see utility, so it has to say which one it means
+    return /the game recorded none — not that you did nothing/.test(c) &&
+           /flash that won the entry/.test(c) && /not in the data/.test(c);
+  })());
+
+  ok('one kill is the bar, and it is not a rating', (function () {
+    // a 5k and a 1k both count once — the moment it weights them it is a leaderboard
+    const a = impactSplit(rounds([[1, false, 10], [1, true, 25]]));
+    const b = impactSplit(rounds([[5, false, 10], [5, true, 25]]));
+    return a.didJob === b.didJob && a.earned === b.earned;
+  })());
+
+  ok('new round records carry the schema marker', (function () {
+    return /v:2,/.test(script) && /r\.v>=2/.test(script);
   })());
 })();
 
