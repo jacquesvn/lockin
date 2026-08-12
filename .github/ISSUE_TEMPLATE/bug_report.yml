@@ -1,0 +1,56 @@
+name: Bug report
+description: Something in Lockin does not do what it says it does.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Please don't attach your backup file** — it's your whole
+        training history, and it's almost never needed to reproduce anything.
+  - type: dropdown
+    id: build
+    attributes:
+      label: Which build?
+      options:
+        - Desktop (installer)
+        - Web / installed PWA
+        - Single file (index.html opened directly)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Setup → the version is at the bottom. The in-app feedback button fills this in for you.
+      placeholder: "0.47.0"
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS and browser
+      placeholder: "Windows 11 · Chrome 131 — or just 'Windows 11' for the desktop app"
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How do you make it happen again?
+      description: Even "I'm not sure, it just did it once" is useful — say so.
+  - type: checkboxes
+    id: data
+    attributes:
+      label: Did it cost you anything?
+      options:
+        - label: I lost a streak, a session, or something else I had logged
+        - label: The app got stuck and I had to reload or reinstall

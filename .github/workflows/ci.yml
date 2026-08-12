@@ -45,6 +45,12 @@ jobs:
       - name: Frontend gate (syntax + unit tests)
         run: npm run verify
 
+      # Catches the release whose in-app notes never reached CHANGELOG.md. Tag-independent
+      # on purpose: the tag being prepared does not exist yet when this runs, so comparing
+      # the whole file would fail on every release and pass only in between.
+      - name: Release notes reached the changelog
+        run: node scripts/make-changelog.js --check
+
       # Same conditional --locked as desktop-build: correct whether or not the lockfile is
       # committed, and the step below says which mode actually ran so "reproducible" is never
       # something you have to take on trust.

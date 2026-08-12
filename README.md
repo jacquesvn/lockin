@@ -348,7 +348,16 @@ Bump the version in **all six**: `package.json`, `src-tauri/tauri.conf.json`,
 `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock` (the `name = "lockin"` entry), `VERSION` in
 `docs/index.html`, and `CACHE` in `docs/service-worker.js` (kept equal to the version). Add
 an entry to `WHATSNEW` in `docs/index.html` — without one the release lands silently for
-everyone updating. Then tag `vX.Y.Z` and push.
+everyone updating. Then tag `vX.Y.Z` and push, and afterwards:
+
+```bash
+node scripts/make-changelog.js       # picks up the tag you just pushed
+```
+
+`CHANGELOG.md` is generated, never hand-written — from the `WHATSNEW` notes users were
+actually shown and the git tag dates, so it cannot quietly disagree with either.
+`--check` verifies every in-app release note reached the changelog; it deliberately does not
+compare the whole file, because the tag being prepared does not exist yet when CI runs.
 
 CI refuses to build unless every one of those six agrees with the tag, then runs the
 frontend gate before touching Rust — so a syntax-broken or mislabelled release can't ship.

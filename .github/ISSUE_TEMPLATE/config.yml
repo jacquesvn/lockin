@@ -1,0 +1,11 @@
+# blank_issues_enabled MUST stay true. The in-app feedback button opens
+# issues/new?labels=feedback&title=...&body=... with the version prefilled, and turning blank
+# issues off would send every one of those users to a template chooser that discards it.
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/jacquesvn/lockin/security/advisories/new
+    about: Report privately, not as a public issue. See SECURITY.md.
+  - name: Try Lockin
+    url: https://jacquesvn.github.io/lockin/
+    about: The web build — no account, works offline.

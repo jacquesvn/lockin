@@ -1,0 +1,28 @@
+name: Idea or request
+description: Something Lockin should do, or should stop doing.
+labels: [idea]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Worth knowing before you write: Lockin only ships coaching advice that has evidence
+        behind it, and it deliberately leaves out several things that sound obviously true —
+        interleaved practice, quiet-eye drills, aim-trainer transfer — because the evidence
+        does not support them. See "On the coaching" in the README. An idea is much easier to
+        act on if it comes with where the claim comes from.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is the problem?
+      description: What are you trying to do that Lockin makes hard or impossible?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you have it do?
+  - type: input
+    id: evidence
+    attributes:
+      label: If this is a coaching claim, where does it come from?
+      placeholder: "A study, a pro's VOD, your own logged data, or 'just a hunch' — all fine, just say which"
