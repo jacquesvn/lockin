@@ -62,7 +62,7 @@ const { generatePlan, computeStreak, richText, validBackup, rawWeek, planWeekRaw
         streakDetail, pauseInfo, isPausedOn, planWeek, pauseCard, freezeRow, restWeek, restLine,
         quietWeek, tierIdentity, QUIET_DAYS, PAUSE_WEEKS,
         isDeloadWeek, deloadDur, focusMins, deloadCard, whyPanel, whySource,
-        bottleneckCard, tiltCard, offPlanCard, OFFPLAN,
+        bottleneckCard, tiltCard, nightLosses, nightKeys, gateCard, offPlanCard, OFFPLAN,
         adherence, metricMove, driftCheck, driftCard, coachAsk, coachCard, applyCoachAnswer,
         COACH_ANSWERS, drillAdherence, skippedDrill, skippedCard,
         leakHistory, leakHistoryCard, changedSince, changedCard, proofRows, proofCard, honestExport,
@@ -3186,6 +3186,85 @@ ok('the token is validated again in Rust, where it is actually trusted', (functi
     var a = null; for (var i = 0; i < ACHIEVEMENTS.length; i++) if (ACHIEVEMENTS[i].id === 'graduate') a = ACHIEVEMENTS[i];
     var st = { plan: planAtWeek(6), settings: { pause: { from: dateKey(new Date(Date.now() - 14*86400000)), weeks: 2 } } };
     return a && a.val === planWeek && a.val(st) === 4;    // two of those six weeks were paused
+  })());
+})();
+
+// --- v0.47: a night is not a calendar day, and one handler is not three buttons ---
+(function () {
+  function nightAt(h, m) { var d = new Date(2026, 5, 10); d.setHours(h, m || 0, 0, 0); return d; }
+  function stWithLosses(dayKey, n) {
+    var st = { sessions: {}, settings: {} };
+    st.sessions[dayKey] = { warm: true, losses: n };
+    return st;
+  }
+
+  ok('two losses logged at 23:30 are still two losses at 03:00', (function () {
+    var st = stWithLosses('2026-06-10', 2);
+    // 23:30 on the 10th and 03:00 on the 11th are the SAME night
+    return nightLosses(st, nightAt(23, 30)) === 2 &&
+           nightLosses(st, new Date(2026, 5, 11, 3, 0, 0)) === 2 &&
+           // ...and 03:00 two nights later is not
+           nightLosses(st, new Date(2026, 5, 12, 3, 0, 0)) === 0;
+  })());
+  ok('the stop-loss card survives midnight — it was dead for five of its six hours', (function () {
+    var st = stWithLosses('2026-06-10', 2);
+    var at2330 = tiltCard(st, nightAt(23, 30));
+    var at0300 = tiltCard(st, new Date(2026, 5, 11, 3, 0, 0));
+    var at1400 = tiltCard(st, nightAt(14, 0));
+    return at2330.indexOf('STOP-LOSS') >= 0 &&
+           at0300.indexOf('STOP-LOSS') >= 0 &&      // this was '' before the fix
+           at0300.indexOf('03:00') >= 0 &&          // and it names the real hour
+           at1400 === '';                           // still silent outside the window
+  })());
+  ok('one loss is never a stop-loss, whatever the hour', (function () {
+    var st = stWithLosses('2026-06-10', 1);
+    return tiltCard(st, nightAt(23, 30)) === '' &&
+           tiltCard(st, new Date(2026, 5, 11, 3, 0, 0)) === '';
+  })());
+  ok('the night spans exactly two buckets before 05:00 and one after', (function () {
+    return nightKeys(nightAt(23, 30)).join(',') === '2026-06-10' &&
+           nightKeys(new Date(2026, 5, 11, 4, 59, 0)).join(',') === '2026-06-11,2026-06-10' &&
+           nightKeys(new Date(2026, 5, 11, 5, 0, 0)).join(',') === '2026-06-11';
+  })());
+  ok('the gate shows the same number the stop-loss is counting', (function () {
+    var st = stWithLosses('2026-06-10', 2);
+    var past = new Date(2026, 5, 11, 3, 0, 0);
+    var n = nightLosses(st, past);
+    var card = gateCard(st.sessions['2026-06-10'], n);
+    // the card is rendered with the night count, not sess.losses — and it must be wired
+    // that way at the call site too, or the gate reads 0 while the tilt card reads 2
+    return n === 2 && card.indexOf('>2</div>') >= 0 && /Stop-loss hit/.test(card) &&
+           /gateCard\(sess,nightLosses\(st,now\)\)/.test(script);
+  })());
+  ok('RESET clears the whole night, not just today’s bucket', (function () {
+    return /var nk=nightKeys\(ad\);/.test(script) &&
+           /for\(var nki=0;nki<nk\.length;nki\+\+\)\{var sy=s2\.sessions\[nk\[nki\]\];if\(sy\)sy\.losses=0;\}/.test(script);
+  })());
+
+  ok('every DO THE TEN button is wired, not just the first one on screen', (function () {
+    // three independent emitters: the lapse card, Today's headline, the tilt card
+    var emitted = (script.match(/data-quickstart="1"/g) || []).length;
+    return emitted === 3 &&
+           /var qs=root\.querySelectorAll\("\[data-quickstart\]"\)/.test(script) &&
+           /for\(var qsi=0;qsi<qs\.length;qsi\+\+\)/.test(script) &&
+           script.indexOf('var qs=root.querySelector("[data-quickstart]")') < 0;
+  })());
+
+  ok('the More sheet uses its own attribute so wire() cannot steal its handlers', (function () {
+    // wire() rebinds every [data-go] in document.body to a plain go(); a gsiRender landing
+    // while the sheet is open used to replace close-then-navigate with navigate-only,
+    // leaving the scrim up and #app inert — unusable until reload.
+    return /data-sheet-go="gear"/.test(script) && /data-sheet-go="setup"/.test(script) &&
+           /el\.querySelectorAll\("\[data-sheet-go\]"\)/.test(script) &&
+           !/class="shrow" data-go=/.test(script) &&
+           /closeMore\(true\);go\(b\.getAttribute\("data-sheet-go"\)\)/.test(script);
+  })());
+  ok('dismissing the sheet returns focus to the tab that opened it', (function () {
+    return /moreFrom=document\.activeElement\|\|null;/.test(script) &&
+           /if\(keepFocus!==true&&moreFrom&&moreFrom\.focus\)/.test(script) &&
+           // NOT onclick=closeMore — that passes the MouseEvent in as keepFocus
+           script.indexOf('cl[i].onclick=closeMore;') < 0 &&
+           /cl\[i\]\.onclick=function\(\)\{closeMore\(\);\}/.test(script);
   })());
 })();
 

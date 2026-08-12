@@ -2667,15 +2667,23 @@
       return;
     }
   }
-  var moreKey=null;
+  var moreKey=null,moreFrom=null;
+  /* The sheet rows use data-sheet-go, NOT data-go, and that is load-bearing. wire() scans the
+     whole of document.body and rebinds every [data-go] to a plain go() — so any render that
+     landed while the sheet was open (gsiRender fires on a beat, a match, a round, or 95s after
+     CS2 quits) silently replaced these handlers with ones that navigate WITHOUT closing.
+     The scrim stays up and #app keeps its inert attribute, which is not a cosmetic bug: the
+     app is unusable until reload. A separate attribute makes the collision impossible rather
+     than relying on wire() to keep excluding us. */
   function openMore(){
     var el=document.getElementById("sheet");if(!el)return;
+    moreFrom=document.activeElement||null;                  // so focus can go back where it came from
     el.innerHTML='<div class="shscrim" data-sheet-close="1"></div>'+
       '<div class="shbody" role="dialog" aria-modal="true" aria-label="More">'+
         '<div class="shgrab" aria-hidden="true"></div>'+
         '<div class="ml" style="color:var(--accInk);margin-bottom:10px;">MORE</div>'+
-        '<button class="shrow" data-go="gear">'+MOUSE+'<span>Gear<small>Sens, crosshair, launch options</small></span></button>'+
-        '<button class="shrow" data-go="setup">'+GEAR+'<span>Setup<small>Profile, reminders, backup, data</small></span></button>'+
+        '<button class="shrow" data-sheet-go="gear">'+MOUSE+'<span>Gear<small>Sens, crosshair, launch options</small></span></button>'+
+        '<button class="shrow" data-sheet-go="setup">'+GEAR+'<span>Setup<small>Profile, reminders, backup, data</small></span></button>'+
         '<button class="gbtn" data-sheet-close="1" style="width:100%;margin-top:12px;">CLOSE</button>'+
       '</div>';
     el.classList.add("show");
@@ -2684,16 +2692,23 @@
     var first=el.querySelector(".shrow");if(first&&first.focus)try{first.focus();}catch(_){}
     if(!moreKey){moreKey=function(e){if(e.key==="Escape")closeMore();};document.addEventListener("keydown",moreKey);}
     var cl=el.querySelectorAll("[data-sheet-close]");
-    for(var i=0;i<cl.length;i++)cl[i].onclick=closeMore;
-    var gs=el.querySelectorAll("[data-go]");
-    for(var j=0;j<gs.length;j++)(function(b){b.onclick=function(){closeMore();go(b.getAttribute("data-go"));};})(gs[j]);
+    // NOT `onclick=closeMore` — that hands the MouseEvent in as keepFocus, which is truthy,
+    // and the focus return this exists for never happens.
+    for(var i=0;i<cl.length;i++)cl[i].onclick=function(){closeMore();};
+    var gs=el.querySelectorAll("[data-sheet-go]");
+    for(var j=0;j<gs.length;j++)(function(b){b.onclick=function(){closeMore(true);go(b.getAttribute("data-sheet-go"));};})(gs[j]);
   }
-  function closeMore(){
+  // keepFocus: navigating away should let the new screen take focus normally, but dismissing
+  // the sheet (Escape, CLOSE, the scrim) must hand focus back to the tab that opened it —
+  // otherwise it lands on <body> and the next Tab restarts from the top of the document.
+  function closeMore(keepFocus){
     var el=document.getElementById("sheet");
     if(el){el.classList.remove("show");el.innerHTML="";}
     var app=document.getElementById("app");if(app)app.removeAttribute("inert");
     var tb=document.getElementById("tabbar");if(tb)tb.removeAttribute("inert");
     if(moreKey){document.removeEventListener("keydown",moreKey);moreKey=null;}
+    if(keepFocus!==true&&moreFrom&&moreFrom.focus)try{moreFrom.focus();}catch(_){}
+    moreFrom=null;
   }
   // Sub-tabs inside Practice. The selected one must be UNAMBIGUOUS — a 1px outline was too
   // subtle to read at a glance — so it takes a solid accent fill with the facet, and the
@@ -3195,7 +3210,7 @@
       // the gate (T1) and the debrief (T4) are CONDITION CARDS now — they rise into the
       // tier stack above the day's work rather than sitting inside it
       if(focusKey==="match"&&!backfill){
-        tierGate=reappraisalCard()+gateCard(sess);
+        tierGate=reappraisalCard()+gateCard(sess,nightLosses(st,now));
         tierDebrief=autoDebrief(st,actK)+debriefCard(st,actK);
       }
       var deloadNote=deloadCard(st,F,plan,now);
@@ -4348,9 +4363,24 @@
       '<p class="mhow" style="margin:6px 0 10px;">Anything you did that the plan did not ask for. It is recorded so your effort is visible, and it never counts as a missed day or a completed one.</p>'+
       '<div class="mapchips">'+chips+'</div>'+logged+'</div>';
   }
+  /* A NIGHT IS NOT A CALENDAR DAY. Losses are bucketed under dateKey(now), which rolls at
+     midnight, but the stop-loss window is 23:00–05:00. Two losses logged at 23:30 counted as
+     zero at 00:01, so the guard was live for one hour of the six it exists to cover and dead
+     for the five that matter most — 3am, four losses deep, is the entire point. Before 05:00
+     the night began yesterday, so count both buckets. */
+  function nightKeys(now){
+    var k=[dateKey(now)];
+    if(now.getHours()<5)k.push(dateKey(addDays(now,-1)));    // before 05:00 the night began yesterday
+    return k;
+  }
+  function nightLosses(st,now){
+    var s=st.sessions||{},k=nightKeys(now),n=0;
+    for(var i=0;i<k.length;i++)n+=((s[k[i]]||{}).losses)||0;
+    return n;
+  }
   function tiltCard(st,now){
     now=now||new Date();
-    var sess=st.sessions[dateKey(now)]||{},losses=sess.losses||0,hr=now.getHours();
+    var losses=nightLosses(st,now),hr=now.getHours();
     var late=hr>=23||hr<5;
     if(losses<2||!late)return "";                      // both true, or it stays quiet
     var hhmm=two(hr)+":"+two(now.getMinutes());
@@ -4758,8 +4788,10 @@
       '<p class="reapp-cite">In the one controlled Counter-Strike experiment on this — 44 players, pre-registered — reading a script like this before playing under pressure raised shooting accuracy from <b>66% to 72%</b>. It did <b>not</b> make them faster, only more accurate. University-level players, on a practice map rather than ranked 5v5, measured on a single occasion.</p>'+
       '</div>';
   }
-  function gateCard(sess){
-    var g=sess.gate||{},losses=sess.losses||0;
+  // losses is the NIGHT count, passed in — the number on the gate must be the same number
+  // the stop-loss guard is counting, or the card fires while the card above it reads 0.
+  function gateCard(sess,losses){
+    var g=sess.gate||{};losses=losses||0;
     function chk(k,label){return '<button class="gcheck'+(g[k]?" on":"")+'" data-gate="'+k+'" aria-pressed="'+(g[k]?"true":"false")+'"><span class="gbox">'+CHK+'</span><span>'+label+'</span></button>';}
     var stop=losses>=2?'<div class="warnbanner" style="margin-top:13px;">🛑 <b>Stop-loss hit.</b> Two on the bounce — the next one gets played tilted. Call it here and come back warm.</div>':"";
     var auto=gsiLive()?'<div style="margin:10px 0 0;">'+statusChip("live","CS2 auto-tracking on")+'</div><p class="help" style="margin:6px 0 0;">Finished matches and losses log themselves.</p>':"";
@@ -5098,8 +5130,15 @@
     var rtime=root.querySelector("[data-rem-time]");
     if(rtime)rtime.onchange=function(e){var s2=load();var r=s2.settings.reminder||{on:true,time:"19:00"};r.time=e.target.value||"19:00";delete s2.settings.remLast;s2.settings.reminder=r;save(s2);};
     /* ---- v0.7 controls ---- */
-    var qs=root.querySelector("[data-quickstart]");
-    if(qs)qs.onclick=function(){startSession({quick:true});};
+    /* querySelector, singular, bound the FIRST one only — and there are three independent
+       [data-quickstart] buttons that can share a screen: the lapse card's START A 5-MIN
+       SESSION, Today's headline DO THE TEN, and the tilt card's DO THE TEN INSTEAD. Whenever
+       a lapse or tilt card was on screen it took the binding and the headline button did
+       nothing; on match night the tilt card's own button was the dead one. Both are the
+       "just do ten minutes" escape hatch, offered at the exact moment the user is least
+       likely to try twice. Bind all of them. */
+    var qs=root.querySelectorAll("[data-quickstart]");
+    for(var qsi=0;qsi<qs.length;qsi++)(function(b){b.onclick=function(){startSession({quick:true});};})(qs[qsi]);
     var gt=root.querySelectorAll("[data-gate]");
     for(var gi=0;gi<gt.length;gi++)(function(b){b.onclick=function(){
       var k=b.getAttribute("data-gate"),s2=load(),ak=dateKey(actDate());
@@ -5111,9 +5150,17 @@
       sx.goal=e.target.value.trim();s2.sessions[ak]=sx;save(s2);};
     var ls=root.querySelectorAll("[data-loss]");
     for(var lsi=0;lsi<ls.length;lsi++)(function(b){b.onclick=function(){
-      var s2=load(),ak=dateKey(actDate());
+      var s2=load(),ad=actDate(),ak=dateKey(ad);
       var sx=s2.sessions[ak]||{warm:false,deep:false,feel:0,drills:{}};
-      sx.losses=(b.getAttribute("data-loss")==="1")?((sx.losses||0)+1):0;
+      if(b.getAttribute("data-loss")==="1")sx.losses=(sx.losses||0)+1;
+      else{
+        // RESET has to clear the whole NIGHT. Zeroing only today's bucket leaves yesterday's
+        // losses sitting there, and past midnight nightLosses reads both — so the counter you
+        // just cleared would come straight back with the stop-loss banner still on it.
+        sx.losses=0;
+        var nk=nightKeys(ad);
+        for(var nki=0;nki<nk.length;nki++){var sy=s2.sessions[nk[nki]];if(sy)sy.losses=0;}
+      }
       s2.sessions[ak]=sx;save(s2);render();};})(ls[lsi]);
     var dth=root.querySelectorAll("[data-death]");
     for(var dti=0;dti<dth.length;dti++)(function(b){b.onclick=function(){
@@ -5545,7 +5592,7 @@
     pauseCard:pauseCard,freezeRow:freezeRow,restWeek:restWeek,restLine:restLine,quietWeek:quietWeek,
     tierIdentity:tierIdentity,QUIET_DAYS:QUIET_DAYS,PAUSE_WEEKS:PAUSE_WEEKS,
     isDeloadWeek:isDeloadWeek,deloadDur:deloadDur,focusMins:focusMins,deloadCard:deloadCard,
-    whyPanel:whyPanel,whySource:whySource,bottleneckCard:bottleneckCard,tiltCard:tiltCard,
+    whyPanel:whyPanel,whySource:whySource,bottleneckCard:bottleneckCard,tiltCard:tiltCard,nightLosses:nightLosses,nightKeys:nightKeys,gateCard:gateCard,
     offPlanCard:offPlanCard,OFFPLAN:OFFPLAN,
     adherence:adherence,metricMove:metricMove,driftCheck:driftCheck,driftCard:driftCard,
     coachAsk:coachAsk,coachCard:coachCard,applyCoachAnswer:applyCoachAnswer,COACH_ANSWERS:COACH_ANSWERS,
