@@ -79,7 +79,11 @@ rounds.forEach((r) => {
     (r.died ? 'YES  ' : 'no   ') + '  ' + ms(r.ms) + '  ' +
     (r.won === true ? 'won   ' : r.won === false ? 'lost  ' : '?     ') + '  ' +
     String(money(r.equip)).padStart(7) + '  ' + String(money(r.left)).padStart(5) + '  ' +
-    String(r.kills == null ? '—' : r.kills).padStart(5)
+    // kills and left-over money are captured AT THE MOMENT OF DEATH, so they mean nothing on
+    // a round you survived — printing a bare 0 there reads as "you got no kills" when the
+    // truth is "not measured". The audit card only ever reads them for deaths, for the same
+    // reason ("died without a kill").
+    String(r.died ? (r.kills == null ? '—' : r.kills) : '—').padStart(5)
   );
 });
 
