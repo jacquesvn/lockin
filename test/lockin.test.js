@@ -68,7 +68,7 @@ const { generatePlan, computeStreak, richText, validBackup, rawWeek, planWeekRaw
         leakHistory, leakHistoryCard, changedSince, changedCard, proofRows, proofCard, honestExport,
         firstWeekCard, graduateCard, altPlans, altCard, adviceCard, statusChip, ST_ROLES,
         LSRS, srsAnswer, dueLineups, lineupIsDue, lineupReviewCard,
-        stateForBackup, takeBackupImages, picStrip, IMGS, IMG_PER,
+        stateForBackup, takeBackupImages, picStrip, IMGS, IMG_PER, imgClear, daysBetween,
         picSlots, picRole, PICROLE } = sandbox.module.exports;
 
 let pass = 0, fail = 0;
@@ -3432,6 +3432,56 @@ ok('the update banner is announced once, not on every interaction', (function ()
            shareSig(noise) === s0;         // things the card does not draw must NOT bust the cache
   })());
 })();
+
+// --- v0.47: "erase all data" now erases the pictures too ---
+ok('erasing wipes the IndexedDB picture store, not just localStorage', (function () {
+  IMGS.im_gone_a = 'data:image/webp;base64,AAA';
+  IMGS.im_gone_b = 'data:image/webp;base64,BBB';
+  imgClear();                                          // sync half: the in-memory mirror
+  var emptied = !IMGS.im_gone_a && !IMGS.im_gone_b;
+  delete IMGS.im_gone_a; delete IMGS.im_gone_b;
+  return emptied &&
+         /objectStore\("img"\)\.clear\(\)/.test(script) &&      // and the store itself
+         // wired into the reset handler, after localStorage and the desktop mirror
+         /try\{imgClear\(\);\}catch\(_\)\{\}/.test(script) &&
+         script.indexOf('if(isNative)try{TAURI.core.invoke("backup_delete")') <
+           script.indexOf('try{imgClear();}catch(_){}');
+})());
+
+// --- v0.47: a failing desktop mirror is no longer invisible ---
+ok('a swallowed backup_write no longer looks identical to a working one', (function () {
+  // needsBackup returned false on desktop unconditionally, on the strength of a mirror whose
+  // every failure was eaten by a bare .catch(). No file, no nudge, no message.
+  return /var _mirrorT=null,_mirrorFail=false;/.test(script) &&
+         /function mark\(bad\)\{if\(_mirrorFail!==bad\)\{_mirrorFail=bad;try\{render\(\);\}catch\(_\)\{\}\}\}/.test(script) &&
+         /\.then\(function\(\)\{mark\(false\);\},function\(\)\{mark\(true\);\}\);/.test(script) &&
+         script.indexOf('invoke("backup_write",{json:JSON.stringify(stateForBackup(st))}).catch(function(){})') < 0 &&
+         /function mirrorFailed\(\)\{return isNative&&_mirrorFail;\}/.test(script) &&
+         /if\(mirrorFailed\(\)\)return true;\r?\n    if\(isNative\)return false;/.test(script) &&   // fallback BEFORE the desktop opt-out
+         /AUTO-BACKUP FAILING/.test(script);
+})());
+ok('the desktop opt-out still holds while the mirror is working', (function () {
+  // isNative is false in this sandbox, so assert the ordering in source: the min-sessions
+  // floor and the snooze both run BEFORE the mirror check, or a broken mirror would nag
+  // someone on their first day and ignore "not now".
+  var fn = script.slice(script.indexOf('function needsBackup('));
+  fn = fn.slice(0, fn.indexOf('\n  function ', 10));
+  var iMin = fn.indexOf('n<BACKUP_MIN_SESSIONS'), iSnooze = fn.indexOf('bkSnooze'), iFail = fn.indexOf('mirrorFailed()');
+  return iMin >= 0 && iSnooze > iMin && iFail > iSnooze;
+})());
+
+// --- v0.47: day counts survive a DST transition ---
+ok('a spring-forward inside the window does not lose a day', (function () {
+  // 2026-03-08 is the US spring-forward; the span below is exactly 21 calendar days but
+  // 20.958 real ones, so Math.floor returned 20 and the three-week nudge waited another day.
+  var span = daysBetween('2026-02-22', new Date(2026, 2, 15, 12, 0, 0));
+  var plain = daysBetween('2026-06-01', new Date(2026, 5, 22, 12, 0, 0));
+  return span === 21 && plain === 21 &&
+         script.indexOf('Math.floor((midnight(now||new Date())-midnight(parseKey(last)))/86400000)') < 0 &&
+         /return Math\.round\(\(midnight\(now\|\|new Date\(\)\)-midnight\(parseKey\(fromKey\)\)\)\/86400000\);/.test(script) &&
+         // both spans go through it — the export age AND the snooze
+         /if\(sn&&daysBetween\(sn,now\)<14\)return false;/.test(script);
+})());
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

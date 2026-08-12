@@ -2010,7 +2010,7 @@
   // Desktop only: shadow the live state to a file (debounced) so a wiped WebView cache
   // can't cost a streak. localStorage stays authoritative; this is read back only when
   // localStorage comes up empty (see the boot restore). No-op on web.
-  var _mirrorT=null;
+  var _mirrorT=null,_mirrorFail=false;   // last backup_write outcome — drives the desktop fallback nudge
   var _bootDone=false;
   // Boot has finished deciding what the state IS. Until this flips, nothing may be mirrored:
   // on a wiped WebView cache the init path save()s a BLANK state twice before the restore
@@ -2028,7 +2028,16 @@
     if(!isNative)return;
     if(!_bootDone)return;      // see bootSettled: pre-restore state must never reach the file
     if(_mirrorT)clearTimeout(_mirrorT);
-    _mirrorT=setTimeout(function(){try{TAURI.core.invoke("backup_write",{json:JSON.stringify(stateForBackup(st))}).catch(function(){});}catch(_){}},800);
+    /* The bare .catch(function(){}) here was the whole problem: a mirror that had never
+       once succeeded looked exactly like one that always did, and needsBackup switched the
+       manual nudge off on the strength of it. Record the outcome and re-render on a CHANGE,
+       so the fallback nudge appears when the mirror breaks and disappears when it recovers. */
+    _mirrorT=setTimeout(function(){
+      function mark(bad){if(_mirrorFail!==bad){_mirrorFail=bad;try{render();}catch(_){}}}
+      try{TAURI.core.invoke("backup_write",{json:JSON.stringify(stateForBackup(st))})
+        .then(function(){mark(false);},function(){mark(true);});}
+      catch(_){mark(true);}
+    },800);
   }
   // the player's gamertag (optional) — always esc() it at the call site, it's user input
   // The only way to render a state. Five roles, one shell — see the .st block in the CSS.
@@ -2119,26 +2128,42 @@
      exported. Never on desktop, where the mirror already covers it — a nudge that fires when
      the risk is not real is how people learn to dismiss the one that matters. */
   var BACKUP_MIN_SESSIONS=8;                       // below this, losing it costs an evening
+  /* Whole days between two midnights. Math.floor on a raw millisecond span loses a day
+     whenever a DST transition falls inside it: 21 days across a spring-forward is 20.958 of
+     them, floors to 20, and the "three weeks stale" nudge silently waits another day. Both
+     spans here are day counts, so round. */
+  function daysBetween(fromKey,now){
+    return Math.round((midnight(now||new Date())-midnight(parseKey(fromKey)))/86400000);
+  }
   function backupAge(st,now){
     var last=(st.settings||{}).lastExport;
     if(!last)return null;
-    return Math.floor((midnight(now||new Date())-midnight(parseKey(last)))/86400000);
+    return daysBetween(last,now);
   }
+  function mirrorFailed(){return isNative&&_mirrorFail;}
   function needsBackup(st,now){
-    if(isNative)return false;                      // desktop mirrors to a file on every save
     var n=Object.keys(st.sessions||{}).length;
     if(n<BACKUP_MIN_SESSIONS)return false;
     // "not now" means not now, not never — it comes back in a fortnight rather than nagging
     var sn=(st.settings||{}).bkSnooze;
-    if(sn){var d=Math.floor((midnight(now||new Date())-midnight(parseKey(sn)))/86400000);if(d<14)return false;}
+    if(sn&&daysBetween(sn,now)<14)return false;
+    /* Desktop mirrors to a file on every save, so the nudge normally stays off — but that
+       suppression was UNCONDITIONAL while every backup_write failure was swallowed by a bare
+       .catch(). A desktop user whose mirror had been failing for weeks (read-only profile,
+       full disk, antivirus holding the file) got no mirror, no nudge, and no message: the one
+       safeguard was switched off precisely because the other one was assumed to work. If the
+       mirror is known broken, the manual export is the fallback and it says so. */
+    if(mirrorFailed())return true;
+    if(isNative)return false;
     var age=backupAge(st,now);
     return age===null||age>=21;                    // never exported, or three weeks stale
   }
   function backupCard(st,now){
     if(!needsBackup(st,now))return "";
-    var n=Object.keys(st.sessions||{}).length,age=backupAge(st,now);
+    var n=Object.keys(st.sessions||{}).length,age=backupAge(st,now),broke=mirrorFailed();
     return '<div class="card bkcard"><div class="oftop"><div class="ml" style="color:var(--accInk);">KEEP YOUR STREAK SAFE</div>'+
-      statusChip("warn",age===null?"NEVER EXPORTED":age+" DAYS OLD")+'</div>'+
+      statusChip("warn",broke?"AUTO-BACKUP FAILING":age===null?"NEVER EXPORTED":age+" DAYS OLD")+'</div>'+
+      (broke?'<p class="mhow" style="margin:7px 0 0;">Lockin could not write its automatic backup file. That is the copy that survives a cleared cache, so until it works again this data exists in one place only.</p>':'')+
       '<p class="mhow" style="margin:7px 0 0;">'+n+' sessions and a 12-week plan live in this browser and nowhere else — that is what no account buys you, and what it costs. '+
       'Clearing site data would take all of it. One file, kept wherever you keep things.</p>'+
       '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">'+
@@ -3365,6 +3390,18 @@
     return idb().then(function(db){
       if(!db)return;
       try{db.transaction("img","readwrite").objectStore("img")["delete"](id);}catch(_){}
+    });
+  }
+  /* "Erase all data" wiped localStorage and the desktop mirror and never touched this store,
+     so every lineup screenshot survived the wipe — orphaned, unreachable through the UI, and
+     unbounded. On a phone that is the largest thing the app holds, still sitting there after
+     the user asked for it all to be gone. Not an oversight to leave for later: it is the
+     difference between "erased" and "hidden". */
+  function imgClear(){
+    for(var k in IMGS)if(IMGS.hasOwnProperty(k))delete IMGS[k];
+    return idb().then(function(db){
+      if(!db)return;
+      try{db.transaction("img","readwrite").objectStore("img").clear();}catch(_){}
     });
   }
   function imgLoadAll(){
@@ -5379,6 +5416,8 @@
       // desktop: also delete the auto-backup file, or the boot-restore would silently resurrect the
       // "erased" data on next launch (localStorage empty -> restore from lockin-state.json).
       if(isNative)try{TAURI.core.invoke("backup_delete").catch(function(){});}catch(_){}
+      // and the lineup screenshots, which live in IndexedDB and survived every previous wipe
+      try{imgClear();}catch(_){}
       mem=null;answers={};step=0;revealed=null;generating=false;backfill=false;
       document.getElementById("app").style.display="none";document.getElementById("tabbar").style.display="none";
       renderOnboard();
@@ -5659,7 +5698,7 @@
     });
   }
   if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,rawWeek:rawWeek,planWeekRaw:planWeekRaw,pauseServed:pauseServed,isTrainingDay:isTrainingDay,bestStreak:bestStreak,bestStreakSig:bestStreakSig,shareSig:shareSig,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,lineChart:lineChart,heatmap:heatmap,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
-    stateForBackup:stateForBackup,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER,
+    stateForBackup:stateForBackup,imgClear:imgClear,daysBetween:daysBetween,needsBackup:needsBackup,backupCard:backupCard,backupAge:backupAge,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER,
     picSlots:picSlots,picRole:picRole,PICROLE:PICROLE,DESTS:DESTS,destOf:destOf,subTabs:subTabs,dueCard:dueCard,todayCards:todayCards,todayStack:todayStack,
     leakOfWeek:leakOfWeek,applyGsiRound:applyGsiRound,roundStats:roundStats,autoAuditCard:autoAuditCard,ROUND_CAP:ROUND_CAP,EARLY_MS:EARLY_MS,AUDIT_MIN_ROUNDS:AUDIT_MIN_ROUNDS,needsBackup:needsBackup,backupCard:backupCard,backupAge:backupAge,whatsNew:whatsNew,newSince:newSince,vcmp:vcmp,VERSION:VERSION,markVersionSeen:markVersionSeen,WHATSNEW:WHATSNEW,BACKUP_MIN_SESSIONS:BACKUP_MIN_SESSIONS,offPlanRecent:offPlanRecent,offPlanHistory:offPlanHistory,gearTiles:gearTiles,planShot:planShot,settingsAudit:settingsAudit,XHAIR_DYNAMIC:XHAIR_DYNAMIC,leakFocus:leakFocus,applyLeakFocus:applyLeakFocus,focusIsSet:focusIsSet,LEAK_DRILL:LEAK_DRILL,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou,
     STREAK_TIERS:STREAK_TIERS,milestoneState:milestoneState,milestoneRail:milestoneRail,autoDebrief:autoDebrief,
