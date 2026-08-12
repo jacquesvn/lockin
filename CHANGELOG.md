@@ -6,7 +6,7 @@ and the git tag dates. Do not hand-edit — run the script.
 
 Full downloads and installers: [Releases](https://github.com/jacquesvn/lockin/releases).
 
-## 0.51.0 — unreleased
+## [0.51.0](https://github.com/jacquesvn/lockin/releases/tag/v0.51.0) — 2026-08-12
 
 - The half buy — when yours win less often than both your full buys and your full ecos, Lockin says so
 - Casual and deathmatch rounds are left out of it, because nothing you buy there costs you anything
