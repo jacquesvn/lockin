@@ -6,7 +6,7 @@ and the git tag dates. Do not hand-edit — run the script.
 
 Full downloads and installers: [Releases](https://github.com/jacquesvn/lockin/releases).
 
-## 0.49.0 — unreleased
+## [0.49.0](https://github.com/jacquesvn/lockin/releases/tag/v0.49.0) — 2026-08-12
 
 - Your death audit now argues with the clock — tag deaths as aim when CS2 timed them in the opening seconds, and it says so
 - It only ever claims a number it can prove, and stays quiet when the clock agrees with you
