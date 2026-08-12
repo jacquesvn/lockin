@@ -62,7 +62,7 @@ const { generatePlan, computeStreak, richText, validBackup, rawWeek, planWeekRaw
         streakDetail, pauseInfo, isPausedOn, planWeek, pauseCard, freezeRow, restWeek, restLine,
         quietWeek, tierIdentity, QUIET_DAYS, PAUSE_WEEKS,
         isDeloadWeek, deloadDur, focusMins, deloadCard, whyPanel, whySource,
-        bottleneckCard, timingCard, timingVsTag, impactCard, impactSplit, buyCard, buyTiers, ECON_MODES, tiltCard, nightLosses, nightKeys, gateCard, offPlanCard, OFFPLAN,
+        bottleneckCard, timingCard, timingVsTag, impactCard, impactSplit, buyCard, buyTiers, ECON_MODES, silentCard, silentTrend, isSilent, tiltCard, nightLosses, nightKeys, gateCard, offPlanCard, OFFPLAN,
         adherence, metricMove, driftCheck, driftCard, coachAsk, coachCard, applyCoachAnswer,
         COACH_ANSWERS, drillAdherence, skippedDrill, skippedCard,
         leakHistory, leakHistoryCard, changedSince, changedCard, proofRows, proofCard, honestExport,
@@ -1838,8 +1838,10 @@ ok('the audit stores facts and never a verdict, and stays bounded', (function ()
   // writer produced the record, not a claim about the round. It exists because records from
   // before 0.48.1 carry a k:0 that is wrong for any round the player survived, and anything
   // reading kills has to be able to tell those apart.
-  var factsOnly = Object.keys(rec).every(function (k) { return ['s', 'd', 'at', 'v', 'x', 'ms', 'bm', 'be', 'lo', 'k', 'w', 'mo'].indexOf(k) >= 0; });
-  var stamped = rec.v === 2;
+  var factsOnly = Object.keys(rec).every(function (k) { return ['s', 'd', 'at', 'v', 'x', 'ms', 'bm', 'be', 'lo', 'k', 'a', 'w', 'mo'].indexOf(k) >= 0; });
+  // Hardcoded on purpose: a schema bump should make this fail, so the bump is a decision
+  // rather than something that slides through. v3 added per-round assists.
+  var stamped = rec.v === 3;
   // Each check reads the record it just wrote, not a fixed index. Inserting a case here used
   // to shift every later st.rounds[n] — which is exactly how the mode check below broke the
   // unknown-outcome check when it was added.
@@ -1848,6 +1850,10 @@ ok('the audit stores facts and never a verdict, and stays bounded', (function ()
   // casual has no economy, so the buy card must be able to leave those rounds out.
   applyGsiRound(st, { round: 9, map: 'de_nuke', mode: 'competitive', died: false, buyMoney: 250, buyEquip: 5100, roundKills: 1, won: true }, dk, now + 5);
   var modeKept = last().mo === 'competitive' && rec.mo === '';
+  // assists ride along per round; absent means 0, never undefined, or isSilent would
+  // treat a missing reading as proof of no contribution
+  applyGsiRound(st, { round: 11, map: 'de_nuke', died: true, deathMs: 8000, buyMoney: 0, buyEquip: 3900, roundKills: 0, roundAssists: 2, won: false }, dk, now + 6);
+  var assistsKept = last().a === 2 && rec.a === 0;
   // unknown outcome must be null, never false — false would read as a lost round
   applyGsiRound(st, { round: 2, map: 'de_dust2', died: false, buyMoney: 800, buyEquip: 0, roundKills: 0, won: null }, dk, now + 1);
   var unknownIsNull = last().w === null;
@@ -1855,7 +1861,7 @@ ok('the audit stores facts and never a verdict, and stays bounded', (function ()
   for (var i = 0; i < ROUND_CAP + 40; i++) {
     applyGsiRound(st, { round: i, map: 'de_x' + i, died: false, buyMoney: 0, buyEquip: 0, roundKills: 0, won: true }, dk, now + 1000 + i);
   }
-  return factsOnly && stamped && modeKept && unknownIsNull && st.rounds.length === ROUND_CAP;
+  return factsOnly && stamped && modeKept && assistsKept && unknownIsNull && st.rounds.length === ROUND_CAP;
 })());
 ok('the backup nudge fires only where data can actually be lost, and only once it matters', (function () {
   // "No account" is a promise; this is its cost. Desktop mirrors state to a file on every
@@ -3806,7 +3812,9 @@ ok('a spring-forward inside the window does not lose a day', (function () {
   })());
 
   ok('new round records carry the schema marker', (function () {
-    return /v:2,/.test(script) && /r\.v>=2/.test(script);
+    // v3 is what gets written; v>=2 and v>=3 are the two filters reading it, and both must
+    // survive — the kills fix and the assists addition gate different cards.
+    return /v:3,/.test(script) && /r\.v>=2/.test(script) && /r\.v>=3/.test(script);
   })());
 })();
 
@@ -3883,6 +3891,85 @@ ok('a spring-forward inside the window does not lose a day', (function () {
     return /under \$2000 eco/.test(c) && /\$2000–4000 half/.test(c) && /\$4000\+ full/.test(c) &&
            /casual and deathmatch are left out/.test(c) &&
            /a small sample can say this by chance/.test(c);
+  })());
+})();
+
+// --- v0.52: the silent-round rate ---
+(function () {
+  // spec: [died, kills, assists, count]
+  function build(spec, opts) {
+    opts = opts || {};
+    const R = [];
+    spec.forEach(([died, k, a, n]) => {
+      for (let i = 0; i < n; i++) R.push({ s: 'de_nuke#' + R.length, d: '2026-08-12', at: Date.now(),
+        v: opts.v === undefined ? 3 : opts.v, mo: opts.mo === undefined ? 'competitive' : opts.mo,
+        x: died ? 1 : 0, ms: died ? 20000 : null, bm: 0, be: 3900, lo: 0, k: k, a: a, w: 1 });
+    });
+    return { rounds: R, reviews: {}, sessions: {}, settings: {}, plan: null };
+  }
+
+  ok('a silent round is a death with no kill AND no assist', (function () {
+    return isSilent({ x: 1, k: 0, a: 0 }) === true &&
+           isSilent({ x: 1, k: 1, a: 0 }) === false &&
+           isSilent({ x: 1, k: 0, a: 1 }) === false &&   // an assist is showing up
+           isSilent({ x: 0, k: 0, a: 0 }) === false;     // surviving is not silent
+  })());
+
+  ok('surviving without a frag is deliberately not silent', (function () {
+    // a metric that counted it would be teaching you to trade yourself off rather than hold
+    const t = silentTrend(build([[false, 0, 0, 50], [true, 0, 0, 50]]));
+    return t.recent.silent + t.earlier.silent === 50;
+  })());
+
+  ok('it compares your recent rounds against your own earlier ones', (function () {
+    // earlier half 30 silent of 50, recent half 12 of 50
+    const st = build([[true, 0, 0, 30], [true, 1, 0, 20],      // earlier: 60%
+                      [true, 0, 0, 12], [true, 1, 0, 38]]);    // recent:  24%
+    const t = silentTrend(st);
+    return t.earlier.pct === 60 && t.recent.pct === 24 && t.rounds === 100;
+  })());
+
+  ok('it needs a hundred rounds before it will draw a line through anything', (function () {
+    return silentTrend(build([[true, 0, 0, 60], [true, 1, 0, 39]])) === null &&
+           silentCard(build([[true, 0, 0, 60], [true, 1, 0, 39]])) === '';
+  })());
+
+  ok('records without assists are excluded — they cannot tell silent from assisted', (function () {
+    // v2 stored no `a`, so an assisted round looks identical to a silent one. Counting them
+    // would make the metric largest exactly where its own data is worst.
+    const old = build([[true, 0, 0, 60], [true, 1, 0, 60]], { v: 2 });
+    return silentTrend(old) === null;
+  })());
+
+  ok('casual rounds are left out, same as the buy card', (function () {
+    return silentTrend(build([[true, 0, 0, 60], [true, 1, 0, 60]], { mo: 'casual' })) === null;
+  })());
+
+  ok('it speaks when the rate really moved, and names the direction', (function () {
+    const better = build([[true, 0, 0, 30], [true, 1, 0, 20], [true, 0, 0, 12], [true, 1, 0, 38]]);
+    const c = silentCard(better);
+    return /SHOWING UP/.test(c) && /60% &rarr; 24%/.test(c) && /MOVING/.test(c) &&
+           /turning up in more rounds/.test(c);
+  })());
+
+  ok('it says so when the rate moved the WRONG way', (function () {
+    const worse = build([[true, 0, 0, 12], [true, 1, 0, 38], [true, 0, 0, 30], [true, 1, 0, 20]]);
+    const c = silentCard(worse);
+    return /MOVING THE WRONG WAY/.test(c) && /24% &rarr; 60%/.test(c) &&
+           /turning up in fewer rounds/.test(c);
+  })());
+
+  ok('a small wobble is not a trend', (function () {
+    // 24% -> 30% is six points across two fifty-round halves: noise, and it stays quiet
+    const flat = build([[true, 0, 0, 12], [true, 1, 0, 38], [true, 0, 0, 15], [true, 1, 0, 35]]);
+    return silentCard(flat) === '';
+  })());
+
+  ok('it refuses to credit the plan, and says the figure was counted not entered', (function () {
+    const c = silentCard(build([[true, 0, 0, 30], [true, 1, 0, 20], [true, 0, 0, 12], [true, 1, 0, 38]]));
+    return /It does not say the plan did this/.test(c) &&
+           /Opponents, maps and form all move it too/.test(c) &&
+           /counted, not entered/i.test(c);
   })());
 })();
 

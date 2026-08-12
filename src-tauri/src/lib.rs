@@ -406,6 +406,11 @@ struct RoundTracker {
     // branch. Result: every surviving round recorded 0 kills while CS2 was sending the number
     // in every single payload.
     last_kills: i64,
+    // match_stats.assists is CUMULATIVE for the match, so a per-round figure is a delta:
+    // what it read when the round went live against what it reads now. Same self-only rule
+    // as everything else — while you are spectating, match_stats belongs to THEM.
+    last_assists: i64,
+    assists_at_live: i64,
     team: String,
     emitted: bool,
 }
@@ -497,6 +502,9 @@ fn track_round(tr: &mut RoundTracker, v: &serde_json::Value, is_self: bool) -> O
         }
         // captured on EVERY payload that is me, not only on the one where I died
         tr.last_kills = kills;
+        if let Some(a) = v.pointer("/player/match_stats/assists").and_then(|a| a.as_i64()) {
+            tr.last_assists = a;
+        }
     }
 
     /* ORDER IS THE WHOLE FIX, and it was wrong from the day this shipped.
@@ -553,6 +561,9 @@ fn track_round(tr: &mut RoundTracker, v: &serde_json::Value, is_self: bool) -> O
             "buyEquip": tr.buy_equip,
             "leftOver": tr.death_money,
             "roundKills": tr.last_kills,
+            // clamped: a new match resets match_stats to zero, which would otherwise read as
+            // a negative number of assists rather than as the start of a new match
+            "roundAssists": std::cmp::max(0, tr.last_assists - tr.assists_at_live),
             "won": won,
         }));
     }
@@ -569,6 +580,7 @@ fn track_round(tr: &mut RoundTracker, v: &serde_json::Value, is_self: bool) -> O
         tr.buy_equip = 0;
         tr.death_money = 0;
         tr.last_kills = 0;
+        tr.assists_at_live = tr.last_assists;
         tr.team.clear();
     }
 
@@ -582,6 +594,8 @@ fn track_round(tr: &mut RoundTracker, v: &serde_json::Value, is_self: bool) -> O
         tr.buy_money = money;
         tr.buy_equip = equip;
         tr.death_ms = None;
+        // the round-start reading the emit will subtract from
+        tr.assists_at_live = tr.last_assists;
     }
 
     out

@@ -2392,15 +2392,20 @@
       if(p.s===sig&&(now-p.at)<120000)return st;
     }
     st.rounds.push({s:sig,d:dk,at:now,
-      // Schema marker. Records written before 0.48.1 always carry k:0 on a round you
-      // SURVIVED, because kills were only captured inside the death branch — so counting them
-      // would make every player look carried. Anything reading k for more than "did you die
-      // without a kill" must filter on v>=2. Old records simply have no v.
-      v:2,
+      /* Schema marker. Each bump exists because an earlier version stored something that is
+         wrong rather than merely missing, and a card reading it would draw a false conclusion.
+           v absent — kills were captured only inside the death branch, so every round you
+             SURVIVED carries a wrong k:0. Reading those would make a good player look carried.
+             Anything using kills filters on v>=2.
+           v<3 — no assists, so a round where you assisted but did not frag is stored
+             identically to one where you did nothing. The silent-round rate turns on exactly
+             that difference, so it filters on v>=3.
+         Old records stay stored and simply fall out of whatever they cannot support. */
+      v:3,
       x:r.died?1:0,                                   // died
       ms:(typeof r.deathMs==="number")?r.deathMs:null, // when, from round-live
       bm:r.buyMoney|0, be:r.buyEquip|0,                // what you walked out holding
-      lo:r.leftOver|0, k:r.roundKills|0,
+      lo:r.leftOver|0, k:r.roundKills|0, a:r.roundAssists|0,
       mo:(typeof r.mode==="string")?r.mode:"",  // game mode: economy is meaningless in casual
       w:(r.won===true)?1:(r.won===false)?0:null});
     while(st.rounds.length>ROUND_CAP)st.rounds.shift();
@@ -3885,7 +3890,7 @@
        it leads into it rather than trailing it, and youVsYou — the you-against-your-own-past
        line — now sits with the comparison it is about instead of floating at the top. */
     return hd+milestoneRail(st)+insightsCard(st)+
-      impactCard(st)+buyCard(st)+bottleneckCard(st)+timingCard(st,new Date())+deathCard(st)+leakCard(st)+
+      silentCard(st)+impactCard(st)+buyCard(st)+bottleneckCard(st)+timingCard(st,new Date())+deathCard(st)+leakCard(st)+
       leakHistoryCard(st)+changedCard(st)+youVsYou()+proofCard(st)+mx+
       cal+planShot(st)+sharePreview(st)+milestonesCard(st)+glossary();
   }
@@ -4943,6 +4948,51 @@
       'Counted across '+t.rounds+' rounds in modes with a real economy; casual and deathmatch are left out because nothing there costs you anything. '+
       'These are your own games, not a rule — a small sample can say this by chance.</p></div>';
   }
+  /* ---------- showing up ----------
+     THE ONLY OUTCOME THIS APP MEASURES ITSELF. Everything else on Progress that claims
+     improvement is a number you typed in from Leetify — Proof for a sceptic says so out loud.
+     This one is counted from rounds you played.
+
+     A SILENT ROUND is one you died in with no kill and no assist: nothing the game recorded.
+     Not "low impact", not a rating — the absence of anything at all. Surviving without a frag
+     is deliberately NOT silent, because staying alive denies a pick and keeps the retake
+     alive, and a metric that punishes it would be teaching you to trade yourself off.
+
+     WHY A TREND AND NOT A NUMBER. "31% of your rounds are silent" is unanchored — the same
+     problem that made the old panel worthless. Against your own earlier rounds it is a
+     direction, and a direction is something you can act on.
+
+     WHAT IT IS NOT: proof the plan worked. Opponents change, maps change, form changes. The
+     card reports what moved and refuses to say why, which is the same rule the rest of the
+     evidence follows. */
+  function isSilent(r){return r&&r.x===1&&!(r.k||0)&&!(r.a||0);}
+  function silentTrend(st,half){
+    var H=half||50;
+    // v>=3 only: before it there are no assists, so an assisted round is stored exactly like
+    // a silent one and the whole metric would be measuring the gap in its own data.
+    var rs=(st.rounds||[]).filter(function(r){return r&&r.v>=3&&ECON_MODES[r.mo];});
+    if(rs.length<H*2)return null;
+    function rate(a){var s=a.filter(isSilent).length;return {n:a.length,silent:s,pct:Math.round(s/a.length*100)};}
+    return {earlier:rate(rs.slice(-H*2,-H)),recent:rate(rs.slice(-H)),rounds:rs.length};
+  }
+  function silentCard(st){
+    var t=silentTrend(st);
+    if(!t)return "";
+    var d=t.recent.pct-t.earlier.pct;
+    if(Math.abs(d)<8)return "";                      // inside the noise of two 50-round halves
+    var better=d<0;
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">SHOWING UP</span>'+
+      statusChip(better?"live":"warn",better?"MOVING":"MOVING THE WRONG WAY")+'</div>'+
+      '<div class="card"><p class="bnbig">'+t.earlier.pct+'% &rarr; '+t.recent.pct+'%</p>'+
+      '<p class="mhow" style="margin:6px 0 0;">Rounds you died in without a kill or an assist. '+
+      'Across your last '+t.recent.n+' rounds that is <b style="color:var(--text);">'+t.recent.silent+'</b>, against <b style="color:var(--text);">'+t.earlier.silent+'</b> in the '+t.earlier.n+' before them. '+
+      (better
+        ? 'You are turning up in more rounds than you were.'
+        : 'You are turning up in fewer rounds than you were. Worth knowing before the scoreline tells you.')+'</p>'+
+      '<p class="help" style="margin:8px 0 0;">Counted, not entered — this is the one figure on this screen Lockin measured rather than asked you for. '+
+      'Surviving without a kill is not silent: staying alive denies a pick. '+
+      'It does not say the plan did this. Opponents, maps and form all move it too.</p></div>';
+  }
   function deathCard(st){
     var today=(st.reviews||{})[dateKey(new Date())]||{};
     var btns='<div class="causes">'+CAUSES.map(function(c){
@@ -5959,7 +6009,7 @@
     pauseCard:pauseCard,freezeRow:freezeRow,restWeek:restWeek,restLine:restLine,quietWeek:quietWeek,
     tierIdentity:tierIdentity,QUIET_DAYS:QUIET_DAYS,PAUSE_WEEKS:PAUSE_WEEKS,
     isDeloadWeek:isDeloadWeek,deloadDur:deloadDur,focusMins:focusMins,deloadCard:deloadCard,
-    whyPanel:whyPanel,whySource:whySource,bottleneckCard:bottleneckCard,timingCard:timingCard,timingVsTag:timingVsTag,impactCard:impactCard,impactSplit:impactSplit,buyCard:buyCard,buyTiers:buyTiers,ECON_MODES:ECON_MODES,tiltCard:tiltCard,nightLosses:nightLosses,nightKeys:nightKeys,gateCard:gateCard,
+    whyPanel:whyPanel,whySource:whySource,bottleneckCard:bottleneckCard,timingCard:timingCard,timingVsTag:timingVsTag,impactCard:impactCard,impactSplit:impactSplit,buyCard:buyCard,buyTiers:buyTiers,ECON_MODES:ECON_MODES,silentCard:silentCard,silentTrend:silentTrend,isSilent:isSilent,tiltCard:tiltCard,nightLosses:nightLosses,nightKeys:nightKeys,gateCard:gateCard,
     offPlanCard:offPlanCard,OFFPLAN:OFFPLAN,
     adherence:adherence,metricMove:metricMove,driftCheck:driftCheck,driftCard:driftCard,
     coachAsk:coachAsk,coachCard:coachCard,applyCoachAnswer:applyCoachAnswer,COACH_ANSWERS:COACH_ANSWERS,
