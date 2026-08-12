@@ -1192,7 +1192,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.50.0";
+  var VERSION="0.51.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -2146,7 +2146,9 @@
     "0.49.0":["Your death audit now argues with the clock — tag deaths as aim when CS2 timed them in the opening seconds, and it says so",
               "It only ever claims a number it can prove, and stays quiet when the clock agrees with you"],
     "0.50.0":["Your rounds, not the scoreboard — the round you got a 2k and lost is no longer filed with the round you did nothing",
-              "Removed the panel that reported your median time of death. It was a fact with no decision attached"]
+              "Removed the panel that reported your median time of death. It was a fact with no decision attached"],
+    "0.51.0":["The half buy — when yours win less often than both your full buys and your full ecos, Lockin says so",
+              "Casual and deathmatch rounds are left out of it, because nothing you buy there costs you anything"]
   };
   function vcmp(a,b){
     var x=String(a).split("."),y=String(b).split(".");

@@ -6,6 +6,11 @@ and the git tag dates. Do not hand-edit — run the script.
 
 Full downloads and installers: [Releases](https://github.com/jacquesvn/lockin/releases).
 
+## 0.51.0 — unreleased
+
+- The half buy — when yours win less often than both your full buys and your full ecos, Lockin says so
+- Casual and deathmatch rounds are left out of it, because nothing you buy there costs you anything
+
 ## [0.50.0](https://github.com/jacquesvn/lockin/releases/tag/v0.50.0) — 2026-08-12
 
 - Your rounds, not the scoreboard — the round you got a 2k and lost is no longer filed with the round you did nothing
