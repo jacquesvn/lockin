@@ -3483,5 +3483,64 @@ ok('a spring-forward inside the window does not lose a day', (function () {
          /if\(sn&&daysBetween\(sn,now\)<14\)return false;/.test(script);
 })());
 
+// --- v0.47: the last four ---
+(function () {
+  var sw = fs.readFileSync(path.join(__dirname, '..', 'docs', 'service-worker.js'), 'utf8');
+  var landing = fs.readFileSync(path.join(__dirname, '..', 'docs', 'landing.html'), 'utf8');
+
+  ok('only the app shell may be cached AS the app shell', (function () {
+    // c.put('./index.html', copy) ran for EVERY same-origin navigation, so one visit to
+    // landing.html — or anything the host answered with a 404 page — became the offline app,
+    // permanently, until the next release happened to bump CACHE. landing.html is in scope.
+    // strip comments — the point is where the WRITE sits, not what the prose says
+    var code = sw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    var iGuard = code.indexOf('if (shell && res.ok && res.status === 200)');
+    var iPut = code.indexOf("c.put('./index.html'");
+    return /const isShellPath = \(p\) => p === ROOT \|\| p === ROOT \+ 'index\.html';/.test(code) &&
+           /shell = isShellPath\(new URL\(req\.url\)\.pathname\);/.test(code) &&
+           iGuard >= 0 && iPut > iGuard &&                          // the only write is behind the guard
+           (code.match(/c\.put\(/g) || []).length === 1;
+  })());
+  ok('the offline fallback still serves the app when the network is gone', (function () {
+    return /\.catch\(\(\) => caches\.match\(req\)\.then\(\(r\) => r \|\| caches\.match\('\.\/index\.html'\)\)\)/.test(sw) &&
+           /ASSETS = \['\.\/index\.html'/.test(sw);      // and the shell is precached on install
+  })());
+
+  ok('the reminder switch cannot read ON while the browser is blocking it', (function () {
+    return /function notifyDenied\(\)\{try\{return !!\(window\.Notification&&window\.Notification\.permission==="denied"\);\}/.test(script) &&
+           // the answer is read, and a refusal turns the switch back off
+           /function remPermission\(p,msg\)\{/.test(script) &&
+           /s3\.settings\.reminder\.on=false;\r?\n    save\(s3\);render\(\);/.test(script) &&
+           /requestPermission\(function\(p\)\{remPermission\(p,msg\);\}\)/.test(script) &&   // legacy callback
+           /pr\.then\(function\(p\)\{remPermission\(p,msg\);\}\)/.test(script) &&             // and the promise
+           script.indexOf('pr.then(function(){pushNotify(msg);})') < 0 &&                   // the old fire-and-forget
+           // and it says why instead of leaving a dead switch
+           /var remBlocked=!isNative&&notifyDenied\(\);/.test(script) &&
+           /This browser has notifications blocked for Lockin/.test(script);
+  })());
+  ok('a browser with no Notification API at all does not leave the switch on', (function () {
+    return /else\{ \/\/ no Notification API at all[\s\S]{0,120}r\.on=false;s2\.settings\.reminder=r;save\(s2\);/.test(script);
+  })());
+
+  ok('the day rolls over on screen, not just in the data', (function () {
+    return /var _dayNow=dateKey\(new Date\(\)\);/.test(script) &&
+           /if\(k===_dayNow\)return;/.test(script) &&
+           /if\(SESS&&SESS\.list\)return;/.test(script) &&      // never yank a running session
+           /if\(TOUR_I>=0\)return;/.test(script) &&             // or a positioned tour step
+           /_dayNow=k;/.test(script);
+  })());
+
+  ok('the landing page states the real number of quiz questions', (function () {
+    var i = script.indexOf('var QUIZ=[');
+    var q = script.slice(i, script.indexOf('\n  var ', i + 8));
+    var n = (q.match(/\{id:"[a-zA-Z]+"/g) || []).length;
+    var words = ['zero','one','two','three','four','five','six','seven','eight','nine','ten'];
+    return n === 8 &&
+           landing.indexOf(words[n] + ' questions') >= 0 &&
+           !/seven questions/i.test(landing) &&
+           (landing.match(new RegExp(words[n] + ' questions', 'gi')) || []).length === 3;   // description, og, body
+  })());
+})();
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

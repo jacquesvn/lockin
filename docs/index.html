@@ -1156,7 +1156,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.46.0";
+  var VERSION="0.47.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -2438,6 +2438,21 @@
   // Closed-app reminders need the desktop build — the UI says so rather than pretending.
   function webNotifyAvailable(){return !isNative&&typeof window!=="undefined"&&("Notification" in window);}
   function notifyGranted(){try{return !!(window.Notification&&window.Notification.permission==="granted");}catch(e){return false;}}
+  function notifyDenied(){try{return !!(window.Notification&&window.Notification.permission==="denied");}catch(e){return false;}}
+  /* The web toggle latched ON and saved BEFORE the permission prompt was answered, and the
+     answer was never read. Deny it — or arrive with notifications already blocked, where
+     requestPermission resolves "denied" without even prompting — and the switch sat there
+     reading ON while reminderTick early-returned on every single tick. The one setting whose
+     entire job is to interrupt you, quietly doing nothing, for as long as you had it on.
+     Reflect what the browser actually said. */
+  function remPermission(p,msg){
+    if(p==="granted"){pushNotify(msg);render();return;}
+    var s3=load();
+    s3.settings=s3.settings||{};
+    s3.settings.reminder=s3.settings.reminder||{time:"19:00"};
+    s3.settings.reminder.on=false;
+    save(s3);render();
+  }
   function pushNotify(body){
     if(isNative){nativeNotify(body);return;}
     try{if(notifyGranted())new window.Notification("Lockin",{body:body,icon:"icon-192.png"});}catch(e){}
@@ -5048,8 +5063,14 @@
     var remSec='';
     if(isNative||webNotifyAvailable()){
       var rem=st.settings.reminder||{on:false,time:"19:00"};
+      /* The browser is the one that decides whether a notification may fire, and if it has
+         said no there is nothing this switch can do about it. Say that, rather than leaving
+         an ON toggle that silently never fires. */
+      var remBlocked=!isNative&&notifyDenied();
       var remHelp=isNative
         ?"Lockin sits in your tray and pings you at your time. Turning it on also launches Lockin at login so the reminder actually fires."
+        :remBlocked
+        ?"This browser has notifications blocked for Lockin, so a reminder cannot fire. Allow notifications for this site in your browser settings, then switch it back on."
         :"Lockin nudges you at your time while it's open in a tab or installed as an app. For a reminder when Lockin is closed, use the desktop app.";
       remSec='<div class="divi"><span class="ml" role="heading" aria-level="2">DAILY REMINDER · '+(isNative?"DESKTOP":"THIS BROWSER")+'</span></div>'+
         '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">'+
@@ -5224,7 +5245,12 @@
         if(isNative){setAutostart(true);pushNotify(msg);}
         else if(notifyGranted())pushNotify(msg);
         else if(window.Notification){ // web: ask permission from this click (a user gesture)
-          try{var pr=window.Notification.requestPermission();if(pr&&pr.then)pr.then(function(){pushNotify(msg);});}catch(e){}
+          // both shapes: the modern promise and the legacy callback (older Safari)
+          try{var pr=window.Notification.requestPermission(function(p){remPermission(p,msg);});
+            if(pr&&pr.then)pr.then(function(p){remPermission(p,msg);});}catch(e){}
+        }
+        else{ // no Notification API at all — the switch cannot mean anything here
+          r.on=false;s2.settings.reminder=r;save(s2);
         }
       }else{s2.settings.reminder=r;save(s2);if(isNative)setAutostart(false);}
       render();};
@@ -5673,6 +5699,25 @@
     bootSettled();renderOnboard();
   })();
   if(isNative||("Notification" in window))setInterval(reminderTick,30000);
+  /* ROLL OVER AT MIDNIGHT. Nothing re-rendered when the date changed, and this app is used
+     late: a session started at 23:50 and ticked off at 00:05 wrote to the NEW day while the
+     screen still showed the old one — the drill you just checked appears unchecked, the
+     streak and the week are yesterday's, and the gate is asking about a match night that has
+     already ended. Every write already uses dateKey(actDate()), so the DATA was right the
+     whole time; only the picture was stale, which is worse, because the user reacts to the
+     picture. Cheap poll rather than a scheduled timeout: laptops sleep, timeouts drift, and
+     a wake at 09:00 needs the same refresh a tick at 00:00 does.
+     Guarded on the session overlay and the tour so a re-render cannot yank either out from
+     under the user mid-step. */
+  var _dayNow=dateKey(new Date());
+  setInterval(function(){
+    var k=dateKey(new Date());
+    if(k===_dayNow)return;
+    _dayNow=k;
+    if(SESS&&SESS.list)return;                 // mid-session: renderSession owns the screen
+    if(TOUR_I>=0)return;                       // mid-tour: the spotlight is positioned per step
+    try{render();}catch(_){}
+  },30000);
   // quiet auto-check shortly after launch; failures stay silent (offline is normal, not an error)
   if(isNative)setTimeout(function(){checkUpdate(false);},4000);
   // A stale service worker in the DESKTOP webview is catastrophic: it shadows every future

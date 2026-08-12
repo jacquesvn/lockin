@@ -1,7 +1,7 @@
 /* Lockin service worker — offline app shell.
    Navigations are network-first so a redeploy lands immediately (falls back to cache offline);
    static assets are cache-first. Bump CACHE to the app version on every release. */
-const CACHE = 'lockin-0.46.0';
+const CACHE = 'lockin-0.47.0';
 const ASSETS = ['./index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -14,6 +14,13 @@ self.addEventListener('activate', (e) => {
       .then(() => self.clients.claim())
   );
 });
+/* The scope root, e.g. "/lockin/". Used to tell the app shell apart from every OTHER
+   same-origin document — landing.html is in scope, and so is whatever the host serves for a
+   404. See the navigation branch: this used to be the difference between an offline app and
+   an offline marketing page. */
+const ROOT = (() => { try { return new URL(self.registration.scope).pathname; } catch (_) { return '/'; } })();
+const isShellPath = (p) => p === ROOT || p === ROOT + 'index.html';
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
@@ -24,12 +31,21 @@ self.addEventListener('fetch', (e) => {
   const accept = req.headers.get('accept') || '';
   const isNav = req.mode === 'navigate' || accept.indexOf('text/html') >= 0;
   if (isNav) {
+    /* ONLY the app shell may be written to the shell key. This used to put EVERY same-origin
+       navigation under './index.html', so a single visit to landing.html — or to anything the
+       host answered with a 404 page — became the offline app, permanently, until the next
+       release happened to bump CACHE. The user opens Lockin on a train and gets the marketing
+       page. Response.ok is checked for the same reason: an error page is not an app shell. */
+    let shell = false;
+    try { shell = isShellPath(new URL(req.url).pathname); } catch (_) { shell = false; }
     // network-first: always try the fresh page, cache a copy, fall back to cache when offline
     e.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('./index.html', copy)).catch(() => {});
+          if (shell && res.ok && res.status === 200) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put('./index.html', copy)).catch(() => {});
+          }
           return res;
         })
         .catch(() => caches.match(req).then((r) => r || caches.match('./index.html')))
