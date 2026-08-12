@@ -5,7 +5,7 @@
   "scripts": {
     "tauri": "tauri",
     "check": "node scripts/check-syntax.js",
-    "test": "node test/lockin.test.js",
+    "test": "node test/lockin.test.js && node test/journey.test.js",
     "verify": "npm run check && npm test"
   },
   "devDependencies": {
