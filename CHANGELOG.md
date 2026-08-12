@@ -6,7 +6,7 @@ and the git tag dates. Do not hand-edit — run the script.
 
 Full downloads and installers: [Releases](https://github.com/jacquesvn/lockin/releases).
 
-## 0.48.1 — unreleased
+## [0.48.1](https://github.com/jacquesvn/lockin/releases/tag/v0.48.1) — 2026-08-12
 
 - Fixed: the match debrief never appeared unless the plan called it a match night — it follows the match now
 - Fixed: rounds you survived recorded zero kills, when CS2 was sending the real number all along
