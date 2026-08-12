@@ -62,7 +62,7 @@ const { generatePlan, computeStreak, richText, validBackup, rawWeek, planWeekRaw
         streakDetail, pauseInfo, isPausedOn, planWeek, pauseCard, freezeRow, restWeek, restLine,
         quietWeek, tierIdentity, QUIET_DAYS, PAUSE_WEEKS,
         isDeloadWeek, deloadDur, focusMins, deloadCard, whyPanel, whySource,
-        bottleneckCard, timingCard, timingVsTag, impactCard, impactSplit, tiltCard, nightLosses, nightKeys, gateCard, offPlanCard, OFFPLAN,
+        bottleneckCard, timingCard, timingVsTag, impactCard, impactSplit, buyCard, buyTiers, ECON_MODES, tiltCard, nightLosses, nightKeys, gateCard, offPlanCard, OFFPLAN,
         adherence, metricMove, driftCheck, driftCard, coachAsk, coachCard, applyCoachAnswer,
         COACH_ANSWERS, drillAdherence, skippedDrill, skippedCard,
         leakHistory, leakHistoryCard, changedSince, changedCard, proofRows, proofCard, honestExport,
@@ -1838,16 +1838,24 @@ ok('the audit stores facts and never a verdict, and stays bounded', (function ()
   // writer produced the record, not a claim about the round. It exists because records from
   // before 0.48.1 carry a k:0 that is wrong for any round the player survived, and anything
   // reading kills has to be able to tell those apart.
-  var factsOnly = Object.keys(rec).every(function (k) { return ['s', 'd', 'at', 'v', 'x', 'ms', 'bm', 'be', 'lo', 'k', 'w'].indexOf(k) >= 0; });
+  var factsOnly = Object.keys(rec).every(function (k) { return ['s', 'd', 'at', 'v', 'x', 'ms', 'bm', 'be', 'lo', 'k', 'w', 'mo'].indexOf(k) >= 0; });
   var stamped = rec.v === 2;
+  // Each check reads the record it just wrote, not a fixed index. Inserting a case here used
+  // to shift every later st.rounds[n] — which is exactly how the mode check below broke the
+  // unknown-outcome check when it was added.
+  var last = function () { return st.rounds[st.rounds.length - 1]; };
+  // mode is a fact about the round, not a verdict about it — and it is load-bearing:
+  // casual has no economy, so the buy card must be able to leave those rounds out.
+  applyGsiRound(st, { round: 9, map: 'de_nuke', mode: 'competitive', died: false, buyMoney: 250, buyEquip: 5100, roundKills: 1, won: true }, dk, now + 5);
+  var modeKept = last().mo === 'competitive' && rec.mo === '';
   // unknown outcome must be null, never false — false would read as a lost round
   applyGsiRound(st, { round: 2, map: 'de_dust2', died: false, buyMoney: 800, buyEquip: 0, roundKills: 0, won: null }, dk, now + 1);
-  var unknownIsNull = st.rounds[1].w === null;
+  var unknownIsNull = last().w === null;
   // and it cannot grow without bound in a 5MB localStorage budget
   for (var i = 0; i < ROUND_CAP + 40; i++) {
     applyGsiRound(st, { round: i, map: 'de_x' + i, died: false, buyMoney: 0, buyEquip: 0, roundKills: 0, won: true }, dk, now + 1000 + i);
   }
-  return factsOnly && stamped && unknownIsNull && st.rounds.length === ROUND_CAP;
+  return factsOnly && stamped && modeKept && unknownIsNull && st.rounds.length === ROUND_CAP;
 })());
 ok('the backup nudge fires only where data can actually be lost, and only once it matters', (function () {
   // "No account" is a promise; this is its cost. Desktop mirrors state to a file on every
@@ -3799,6 +3807,82 @@ ok('a spring-forward inside the window does not lose a day', (function () {
 
   ok('new round records carry the schema marker', (function () {
     return /v:2,/.test(script) && /r\.v>=2/.test(script);
+  })());
+})();
+
+// --- v0.51: the half buy ---
+(function () {
+  function build(spec, mode) {
+    // spec: [gearValue, won, count]
+    const R = [];
+    spec.forEach(([be, won, n]) => {
+      for (let i = 0; i < n; i++) R.push({ s: 'de_nuke#' + R.length, d: '2026-08-12', at: Date.now(),
+        v: 2, mo: mode === undefined ? 'competitive' : mode, x: 0, ms: null,
+        bm: 500, be: be, lo: 0, k: 1, w: won ? 1 : 0 });
+    });
+    return { rounds: R, reviews: {}, sessions: {}, settings: {}, plan: null };
+  }
+  // a shape where the half buy really is the worst of the three
+  const bad = () => build([[5200, true, 14], [5200, false, 6],     // full  70%
+                           [3000, true, 3], [3000, false, 12],      // half  20%
+                           [ 800, true, 5], [ 800, false, 7]]);     // eco   42%
+
+  ok('rounds are tiered by the gear they went live with', (function () {
+    const t = buyTiers(bad());
+    return t.full.n === 20 && t.full.w === 14 &&
+           t.half.n === 15 && t.half.w === 3 &&
+           t.eco.n === 12 && t.eco.w === 5 && t.rounds === 47;
+  })());
+
+  ok('CASUAL rounds are excluded — that mode has no economy to read', (function () {
+    // A real capture showed four straight casual rounds on $200 of gear with $10,350 in hand.
+    // In casual that is not hoarding, because none of it costs anything. Counting it would be
+    // measuring a decision the mode never asked the player to make.
+    const t = buyTiers(build([[5200, true, 14], [3000, false, 15], [800, true, 12]], 'casual'));
+    return t.rounds === 0 && buyCard(build([[5200, true, 14], [3000, false, 15], [800, true, 12]], 'casual')) === '';
+  })());
+
+  ok('an unrecognised mode fails CLOSED rather than being assumed to have an economy', (function () {
+    // only "casual" has ever been seen in a capture; the allowlist is documentation, not
+    // measurement, so anything unknown must be left out instead of guessed into the table
+    return buyTiers(build([[5200, true, 20], [3000, false, 15], [800, true, 12]], 'gungameprogressive')).rounds === 0 &&
+           buyTiers(build([[5200, true, 20], [3000, false, 15], [800, true, 12]], '')).rounds === 0 &&
+           ECON_MODES.competitive === 1 && ECON_MODES.premier === 1 && !ECON_MODES.casual;
+  })());
+
+  ok('pre-0.48.1 rounds are excluded here too', (function () {
+    const st = build([[5200, true, 20], [3000, false, 15], [800, true, 12]]);
+    st.rounds.forEach((r) => { delete r.v; });
+    return buyTiers(st).rounds === 0;
+  })());
+
+  ok('it speaks only when the half buy is the worst of the three', (function () {
+    const c = buyCard(bad());
+    return /THE HALF BUY/.test(c) && /Your half buys win <b[^>]*>20%/.test(c) &&
+           c.indexOf('3 of 15') >= 0 && c.indexOf('14 of 20') >= 0;
+  })());
+
+  ok('it says nothing when the half buy is not the worst', (function () {
+    // half 60%, eco 20% — nothing here the player needs told
+    const fine = build([[5200, true, 14], [5200, false, 6],
+                        [3000, true, 9], [3000, false, 6],
+                        [ 800, true, 3], [ 800, false, 12]]);
+    return buyCard(fine) === '';
+  })());
+
+  ok('it says nothing on a thin sample, or when a tier is nearly empty', (function () {
+    const thin = build([[5200, true, 10], [3000, false, 10], [800, true, 10]]);   // 30 rounds
+    const lopsided = build([[5200, true, 20], [5200, false, 10],
+                            [3000, false, 3],                                     // only 3 half buys
+                            [800, true, 5], [800, false, 10]]);
+    return buyCard(thin) === '' && buyCard(lopsided) === '';
+  })());
+
+  ok('it prints its thresholds and admits the sample can lie', (function () {
+    const c = buyCard(bad());
+    return /under \$2000 eco/.test(c) && /\$2000–4000 half/.test(c) && /\$4000\+ full/.test(c) &&
+           /casual and deathmatch are left out/.test(c) &&
+           /a small sample can say this by chance/.test(c);
   })());
 })();
 

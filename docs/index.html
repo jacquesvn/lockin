@@ -343,6 +343,12 @@
   .hd h1{font-size:30px;line-height:1;}
   .iconbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer;display:grid;place-items:center;}
   .iconbtn svg{width:17px;height:17px;}
+  .byr{display:grid;grid-template-columns:auto 58px 1fr auto;gap:10px;align-items:baseline;padding:9px 0;border-top:1px solid var(--line);}
+  .byr:first-of-type{border-top:0;padding-top:0;}
+  .byl{font-size:13.5px;font-weight:600;color:var(--text);}
+  .byn{font-family:var(--fd);font-weight:800;font-size:19px;color:var(--accInk);letter-spacing:-0.01em;text-align:right;}
+  .byd{font-family:var(--fm);font-size:11.5px;color:var(--faint);}
+  .byx{font-family:var(--fm);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--bad-ink);}
   /* The 2x2. A grid rather than a table because the row labels are not headers of equal
      weight — the numbers are the content and the labels only orient you. */
   .ixgrid{display:grid;grid-template-columns:auto 1fr 1fr;gap:8px 10px;align-items:center;}
@@ -2393,6 +2399,7 @@
       ms:(typeof r.deathMs==="number")?r.deathMs:null, // when, from round-live
       bm:r.buyMoney|0, be:r.buyEquip|0,                // what you walked out holding
       lo:r.leftOver|0, k:r.roundKills|0,
+      mo:(typeof r.mode==="string")?r.mode:"",  // game mode: economy is meaningless in casual
       w:(r.won===true)?1:(r.won===false)?0:null});
     while(st.rounds.length>ROUND_CAP)st.rounds.shift();
     return st;
@@ -3876,7 +3883,7 @@
        it leads into it rather than trailing it, and youVsYou — the you-against-your-own-past
        line — now sits with the comparison it is about instead of floating at the top. */
     return hd+milestoneRail(st)+insightsCard(st)+
-      impactCard(st)+bottleneckCard(st)+timingCard(st,new Date())+deathCard(st)+leakCard(st)+
+      impactCard(st)+buyCard(st)+bottleneckCard(st)+timingCard(st,new Date())+deathCard(st)+leakCard(st)+
       leakHistoryCard(st)+changedCard(st)+youVsYou()+proofCard(st)+mx+
       cal+planShot(st)+sharePreview(st)+milestonesCard(st)+glossary();
   }
@@ -4875,6 +4882,64 @@
       '. Those are not the rounds to review. The '+s.toFix+' below them are.</p>'+
       '<p class="help" style="margin:8px 0 0;">A kill is your share of a five-man round, so this counts one as pulling your weight and does not score you above it. '+
       'It is also all CS2 reports: the flash that won the entry, the smoke, the info call and the angle you held are not in the data, so <b>no kill</b> means the game recorded none — not that you did nothing.</p></div>';
+  }
+  /* ---------- the buy ----------
+     ECONOMY ONLY EXISTS IN SOME MODES. Casual hands you free armour, runs its own loss
+     bonuses and lets you sit on the $16k cap buying nothing — a real 20-round capture showed
+     exactly that, four straight rounds on $200 of gear with $10,350 in hand, which in casual
+     is not a mistake because none of it costs anything. Reading that as hoarding would be
+     measuring a decision the mode does not ask you to make. So rounds carry their mode and
+     only the ones with a real economy are counted.
+
+     ONLY "casual" HAS BEEN OBSERVED IN A CAPTURE. The list below is from CS2's documented
+     mode strings, not from something measured, and it is the one guess in this card — if the
+     card stays silent after a competitive match, that is the first thing to check. It fails
+     CLOSED: an unrecognised mode is excluded rather than assumed to have an economy.
+
+     WHY BUY TIERS AND NOT "money left over". Dying with money is not automatically wrong —
+     saving is correct play, and hoarding for a rifle next round is a plan. What is hard to
+     defend is the HALF BUY: enough to lose the gear, not enough to win the round. If yours
+     win less often than both your full buys and your full ecos, that is your own games making
+     the argument, not a coaching claim borrowed from somewhere. */
+  var ECON_MODES={competitive:1,premier:1,scrimcomp2v2:1,skirmish:1};
+  var BUY_ECO=2000, BUY_FULL=4000;                   // gear value at the moment the round went live
+  function buyTiers(st){
+    var rs=(st.rounds||[]).filter(function(r){
+      return r&&r.v>=2&&ECON_MODES[r.mo]&&(r.w===1||r.w===0);
+    });
+    var t={eco:{n:0,w:0},half:{n:0,w:0},full:{n:0,w:0}};
+    rs.forEach(function(r){
+      var k=(r.be||0)<BUY_ECO?"eco":(r.be||0)<BUY_FULL?"half":"full";
+      t[k].n++;if(r.w===1)t[k].w++;
+    });
+    t.rounds=rs.length;
+    return t;
+  }
+  function buyCard(st){
+    var t=buyTiers(st);
+    if(t.rounds<40)return "";                        // three tiers out of fewer is noise
+    if(t.eco.n<5||t.half.n<5||t.full.n<5)return "";  // every row needs enough to mean anything
+    var pct=function(x){return Math.round(x.w/x.n*100);};
+    var e=pct(t.eco),h=pct(t.half),f=pct(t.full);
+    // Only speak when the half buy is the WORST of the three. Otherwise there is nothing here
+    // the player needs told, and a three-row table of their own win rates is just more facts.
+    if(!(h<e&&h<f))return "";
+    function row(label,x,note){
+      return '<div class="byr"><span class="byl">'+label+'</span>'+
+        '<span class="byn">'+pct(x)+'%</span>'+
+        '<span class="byd">'+x.w+' of '+x.n+'</span>'+
+        (note?'<span class="byx">'+note+'</span>':'<span class="byx"></span>')+'</div>';
+    }
+    return '<div class="divi"><span class="ml" role="heading" aria-level="2">THE HALF BUY</span>'+
+      statusChip("warn","YOUR WORST ROUND")+'</div>'+
+      '<div class="card">'+
+      row("Full buy",t.full,"")+row("Half buy",t.half,"worst")+row("Eco",t.eco,"")+
+      '<p class="mhow" style="margin:10px 0 0;">Your half buys win <b style="color:var(--text);">'+h+'%</b> — below your full buys and below your full ecos. '+
+      'A half buy is the one that loses the gear without winning the round: you arrive with enough to be worth killing and not enough to hold. '+
+      'Saving those rounds outright would put a full buy in the next one.</p>'+
+      '<p class="help" style="margin:8px 0 0;">Tiers are gear value when the round went live — under $'+BUY_ECO+' eco, $'+BUY_ECO+'–'+BUY_FULL+' half, $'+BUY_FULL+'+ full. '+
+      'Counted across '+t.rounds+' rounds in modes with a real economy; casual and deathmatch are left out because nothing there costs you anything. '+
+      'These are your own games, not a rule — a small sample can say this by chance.</p></div>';
   }
   function deathCard(st){
     var today=(st.reviews||{})[dateKey(new Date())]||{};
@@ -5892,7 +5957,7 @@
     pauseCard:pauseCard,freezeRow:freezeRow,restWeek:restWeek,restLine:restLine,quietWeek:quietWeek,
     tierIdentity:tierIdentity,QUIET_DAYS:QUIET_DAYS,PAUSE_WEEKS:PAUSE_WEEKS,
     isDeloadWeek:isDeloadWeek,deloadDur:deloadDur,focusMins:focusMins,deloadCard:deloadCard,
-    whyPanel:whyPanel,whySource:whySource,bottleneckCard:bottleneckCard,timingCard:timingCard,timingVsTag:timingVsTag,impactCard:impactCard,impactSplit:impactSplit,tiltCard:tiltCard,nightLosses:nightLosses,nightKeys:nightKeys,gateCard:gateCard,
+    whyPanel:whyPanel,whySource:whySource,bottleneckCard:bottleneckCard,timingCard:timingCard,timingVsTag:timingVsTag,impactCard:impactCard,impactSplit:impactSplit,buyCard:buyCard,buyTiers:buyTiers,ECON_MODES:ECON_MODES,tiltCard:tiltCard,nightLosses:nightLosses,nightKeys:nightKeys,gateCard:gateCard,
     offPlanCard:offPlanCard,OFFPLAN:OFFPLAN,
     adherence:adherence,metricMove:metricMove,driftCheck:driftCheck,driftCard:driftCard,
     coachAsk:coachAsk,coachCard:coachCard,applyCoachAnswer:applyCoachAnswer,COACH_ANSWERS:COACH_ANSWERS,

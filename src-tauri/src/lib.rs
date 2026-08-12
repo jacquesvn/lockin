@@ -542,6 +542,11 @@ fn track_round(tr: &mut RoundTracker, v: &serde_json::Value, is_self: bool) -> O
             // it on this payload, which is exactly the 1-based number on the scoreboard.
             "round": round_no,
             "map": v.pointer("/map/name").and_then(|s| s.as_str()).unwrap_or(""),
+            // The GAME MODE, because economy only exists in some of them. Casual hands out
+            // free armour, runs different loss bonuses and lets you sit on the $16k cap
+            // buying nothing — a real capture showed exactly that, and any economy reading
+            // built on it would be measuring a mode where the decision does not exist.
+            "mode": v.pointer("/map/mode").and_then(|s| s.as_str()).unwrap_or(""),
             "died": tr.death_ms.is_some(),
             "deathMs": tr.death_ms,
             "buyMoney": tr.buy_money,
