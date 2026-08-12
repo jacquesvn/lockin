@@ -3,8 +3,9 @@
  * WHY THIS EXISTS. The round tracker is the one feature whose correctness rests on a reading
  * of CS2's GSI payload rather than on a measurement. No test can settle it — nothing in a
  * harness can launch CS2 — so the only way to know is to play and compare the log against
- * what happened. The audit card needs 20 rounds before it renders, so below that this reads
- * the raw records instead.
+ * what happened. Nothing in the app displays these records directly any more — the
+ * WATCHED, NOT ASKED panel was removed in 0.50.0 because a list of facts you cannot act on
+ * is decoration — so this is the only way to read them.
  *
  *   Setup -> Export, then:  node scripts/check-rounds.js lockin-backup-YYYY-MM-DD.json
  *
@@ -45,7 +46,7 @@ function norm(r) {
     day: r.d || null,
   };
 }
-const EARLY_MS = 20000;   // the window the audit card reports on
+const EARLY_MS = 20000;   // the window the contradiction card reasons about
 
 if (!raw.length) {
   console.log('No rounds recorded.\n');
@@ -114,17 +115,29 @@ console.log('');
 if (flags.length) { console.log('worth a second look:'); flags.forEach((f) => console.log('  · ' + f)); }
 else console.log('nothing structurally odd.');
 
-/* ---- what the audit card will say, so you can check the card against the rows ---- */
+/* ---- the same figures the cards reason about, so you can check them against the rows ---- */
 const timed = died.filter((r) => typeof r.ms === 'number');
 const early = timed.filter((r) => r.ms < EARLY_MS);
 const sorted = timed.map((r) => r.ms).sort((a, b) => a - b);
 const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : null;
-console.log('\nwhat the audit card should say at ' + rounds.length + ' rounds' +
-            (rounds.length < 20 ? '  (it needs 20 before it renders)' : '') + ':');
+const v2 = rounds.filter((r, i) => (raw[i] || {}).v >= 2 && r.won !== null);
+const impact = (k) => (k || 0) >= 1;
+console.log('\nwhat the cards see across these ' + rounds.length + ' rounds:');
 console.log('  rounds you died in        ' + died.length + ' of ' + rounds.length);
-if (median != null) console.log('  typical time of death     ' + (median / 1000).toFixed(1) + 's');
-console.log('  died inside the first 20s ' + early.length + ' of ' + timed.length);
-console.log('  ...and lost those         ' + early.filter((r) => r.won === false).length + ' of ' + early.length);
+if (median != null) console.log('  median time of death      ' + (median / 1000).toFixed(1) + 's   (not shown anywhere — a fact with no decision attached)');
+console.log('  died inside the first 20s ' + early.length + ' of ' + timed.length + '   (feeds the contradiction card)');
+console.log('');
+if (v2.length < rounds.length) {
+  console.log('  ' + (rounds.length - v2.length) + ' round(s) predate the 0.48.1 kills fix and are excluded from the 2x2 below');
+}
+if (!v2.length) console.log('  the 2x2 needs rounds recorded by 0.48.1 or later — none here yet');
+else {
+  const cell = (won, imp) => v2.filter((r) => (r.won === won) === true && impact(r.kills) === imp).length;
+  console.log('  the 2x2 (needs 30 rounds to render in the app, ' + v2.length + ' usable here)');
+  console.log('              won   lost');
+  console.log('   a kill  ' + String(cell(true, true)).padStart(6) + String(cell(false, true)).padStart(7) + '   <- lost with a kill: not yours to fix');
+  console.log('   no kill ' + String(cell(true, false)).padStart(6) + String(cell(false, false)).padStart(7));
+}
 
 console.log('\nNow the part only you can do:');
 console.log('  · CS2 scoreboard DEATHS should equal ' + died.length + ' — one death per round, no respawn');

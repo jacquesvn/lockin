@@ -270,11 +270,6 @@
   .gth{font-family:var(--fm);font-size:9px;letter-spacing:0.08em;color:var(--faint);margin-top:3px;}
   @media (max-width:719px){ .gtiles{grid-template-columns:repeat(auto-fit,minmax(132px,1fr));} }
   /* ---------- the automatic audit ---------- */
-  .aarow{padding:10px 0;border-bottom:1px solid var(--line);}
-  .aarow:last-child{border-bottom:0;padding-bottom:0;}
-  .aan{font-size:13.5px;font-weight:600;color:var(--text);}
-  .aav{float:right;font-family:var(--fd);font-weight:800;font-size:15px;color:var(--accInk);letter-spacing:-0.01em;}
-  .aas{clear:both;margin:3px 0 0;font-size:12px;color:var(--faint);line-height:1.45;}
   /* ---------- settings audit rows ---------- */
   .sarow{padding:11px 0;border-bottom:1px solid var(--line);}
   .sarow:last-child{border-bottom:0;padding-bottom:0;}
@@ -2411,44 +2406,6 @@
      have been seen against real matches. EARLY_MS is a description of a window, not a verdict
      about it. */
   var EARLY_MS=20000;
-  function roundStats(st,n){
-    var rs=(st.rounds||[]).slice(-(n||60));
-    if(!rs.length)return null;
-    var died=rs.filter(function(r){return r.x;});
-    var timed=died.filter(function(r){return typeof r.ms==="number";});
-    var early=timed.filter(function(r){return r.ms<EARLY_MS;});
-    var noKill=died.filter(function(r){return !r.k;});
-    var withMoney=died.filter(function(r){return r.lo>=1000;});
-    var lostWhenEarly=early.filter(function(r){return r.w===0;});
-    var ms=timed.map(function(r){return r.ms;}).sort(function(a,b){return a-b;});
-    return {rounds:rs.length,deaths:died.length,timed:timed.length,
-      early:early.length,noKill:noKill.length,withMoney:withMoney.length,
-      lostWhenEarly:lostWhenEarly.length,
-      medianMs:ms.length?ms[Math.floor(ms.length/2)]:null,
-      avgLeftOver:withMoney.length?Math.round(withMoney.reduce(function(a,r){return a+r.lo;},0)/withMoney.length):0};
-  }
-  var AUDIT_MIN_ROUNDS=20;
-  function autoAuditCard(st){
-    var s=roundStats(st,60);
-    if(!s||s.rounds<AUDIT_MIN_ROUNDS)return "";
-    function row(label,val,sub){
-      return '<div class="aarow"><span class="aan">'+label+'</span><span class="aav">'+val+'</span>'+
-        (sub?'<p class="aas">'+sub+'</p>':'')+'</div>';
-    }
-    var secs=s.medianMs!=null?(s.medianMs/1000).toFixed(1):"—";
-    return '<div class="divi"><span class="ml" role="heading" aria-level="2">WATCHED, NOT ASKED</span>'+
-      statusChip("live",s.rounds+" ROUNDS")+'</div>'+
-      '<div class="card"><p class="mhow" style="margin-top:0;">Read straight from CS2 while you played — you did not log any of it. '+
-      'These are observations, not advice: the plan will not act on them until there is enough here to be sure what they mean.</p>'+
-      row("Rounds you died in",s.deaths+" of "+s.rounds,"")+
-      (s.timed?row("Typical time of death",secs+"s","Measured from the round going live.")+
-        row("Died inside the first "+(EARLY_MS/1000)+"s",s.early+" of "+s.timed,
-          s.lostWhenEarly?"You lost "+s.lostWhenEarly+" of those rounds.":""):"")+
-      (s.noKill?row("Died without a kill that round",s.noKill+" of "+s.deaths,""):"")+
-      (s.withMoney?row("Died holding $1,000+",s.withMoney+" of "+s.deaths,
-        "Averaging $"+s.avgLeftOver+" unspent."):"")+
-      '</div>';
-  }
   // pure state change (kept separate from onGsiMatch so it's testable without a DOM/native bridge)
   function applyGsiMatch(st,m,dk,now){
     if(!m||!m.result)return st;
@@ -3917,7 +3874,7 @@
        it leads into it rather than trailing it, and youVsYou — the you-against-your-own-past
        line — now sits with the comparison it is about instead of floating at the top. */
     return hd+milestoneRail(st)+insightsCard(st)+
-      autoAuditCard(st)+impactCard(st)+bottleneckCard(st)+timingCard(st,new Date())+deathCard(st)+leakCard(st)+
+      impactCard(st)+bottleneckCard(st)+timingCard(st,new Date())+deathCard(st)+leakCard(st)+
       leakHistoryCard(st)+changedCard(st)+youVsYou()+proofCard(st)+mx+
       cal+planShot(st)+sharePreview(st)+milestonesCard(st)+glossary();
   }
@@ -5926,7 +5883,7 @@
   if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,rawWeek:rawWeek,planWeekRaw:planWeekRaw,pauseServed:pauseServed,isTrainingDay:isTrainingDay,bestStreak:bestStreak,bestStreakSig:bestStreakSig,shareSig:shareSig,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,lineChart:lineChart,heatmap:heatmap,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
     stateForBackup:stateForBackup,imgClear:imgClear,daysBetween:daysBetween,needsBackup:needsBackup,backupCard:backupCard,backupAge:backupAge,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER,
     picSlots:picSlots,picRole:picRole,PICROLE:PICROLE,DESTS:DESTS,destOf:destOf,subTabs:subTabs,dueCard:dueCard,todayCards:todayCards,todayStack:todayStack,
-    leakOfWeek:leakOfWeek,applyGsiRound:applyGsiRound,roundStats:roundStats,autoAuditCard:autoAuditCard,ROUND_CAP:ROUND_CAP,EARLY_MS:EARLY_MS,AUDIT_MIN_ROUNDS:AUDIT_MIN_ROUNDS,needsBackup:needsBackup,backupCard:backupCard,backupAge:backupAge,whatsNew:whatsNew,newSince:newSince,vcmp:vcmp,VERSION:VERSION,markVersionSeen:markVersionSeen,WHATSNEW:WHATSNEW,BACKUP_MIN_SESSIONS:BACKUP_MIN_SESSIONS,offPlanRecent:offPlanRecent,offPlanHistory:offPlanHistory,gearTiles:gearTiles,planShot:planShot,settingsAudit:settingsAudit,XHAIR_DYNAMIC:XHAIR_DYNAMIC,leakFocus:leakFocus,applyLeakFocus:applyLeakFocus,focusIsSet:focusIsSet,LEAK_DRILL:LEAK_DRILL,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou,
+    leakOfWeek:leakOfWeek,applyGsiRound:applyGsiRound,ROUND_CAP:ROUND_CAP,EARLY_MS:EARLY_MS,needsBackup:needsBackup,backupCard:backupCard,backupAge:backupAge,whatsNew:whatsNew,newSince:newSince,vcmp:vcmp,VERSION:VERSION,markVersionSeen:markVersionSeen,WHATSNEW:WHATSNEW,BACKUP_MIN_SESSIONS:BACKUP_MIN_SESSIONS,offPlanRecent:offPlanRecent,offPlanHistory:offPlanHistory,gearTiles:gearTiles,planShot:planShot,settingsAudit:settingsAudit,XHAIR_DYNAMIC:XHAIR_DYNAMIC,leakFocus:leakFocus,applyLeakFocus:applyLeakFocus,focusIsSet:focusIsSet,LEAK_DRILL:LEAK_DRILL,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou,
     STREAK_TIERS:STREAK_TIERS,milestoneState:milestoneState,milestoneRail:milestoneRail,autoDebrief:autoDebrief,
     lineupCount:lineupCount,lineupMaps:lineupMaps,recallCount:recallCount,
     streakDetail:streakDetail,pauseInfo:pauseInfo,isPausedOn:isPausedOn,isPaused:isPaused,planWeek:planWeek,

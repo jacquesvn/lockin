@@ -163,13 +163,30 @@ loopback-only connection that ignores anything without its own token, and nothin
 your PC. The manual +1 LOSS button keeps working exactly as before for anyone who doesn't
 set it up.
 
-**Watches your rounds so you don't have to.** *(desktop, and new)* With auto-tracking on,
-Lockin keeps one fact per round — did you die, how long after the round went live, what you
-had bought, whether you won — and after enough rounds shows what it saw: how often you died
-inside the first twenty seconds, your typical time of death, whether the early ones
-correlate with losing. It is filed under *observations, not advice*, and the plan will not
-act on any of it: nobody has to remember twenty rounds after the fact, and self-report is
-exactly the thing this app distrusts everywhere else.
+**Watches your rounds so you don't have to.** *(desktop)* With auto-tracking on, Lockin keeps
+one fact per round — did you die, how long after the round went live, what you bought, what
+you had left, kills, whether you won. Nobody sustains remembering twenty rounds after the
+fact, and self-report is exactly the thing this app distrusts everywhere else.
+
+It does not show you those facts. A panel of numbers you cannot act on is decoration, and
+this one was — it reported your median time of death, which is a fact with no decision
+attached. The data exists to feed two cards that change a conclusion:
+
+**Your rounds, not the scoreboard.** A scoreboard shows your K/D and the score and never
+crosses them, so the round you got a 2k and lost anyway looks identical to the round you did
+nothing and lost. Lockin splits them: rounds you won or lost, against rounds you took a kill
+in or didn't. The 2k you lost is not a round to review; the ones under it are. One kill is
+the bar — five enemies, five players — and it is deliberately not a rating, because the
+moment it weights a 5k above a 1k it becomes a leaderboard. It also prints what it cannot
+see: the flash that won the entry, the smoke, the info call and the angle you held are not
+in the data, so *no kill* means the game recorded none, never that you did nothing.
+
+**The clock against your own diagnosis.** Tag deaths as aim while CS2 timed them in the
+opening seconds and it says so — with a floor it can prove rather than an estimate. Causes
+are logged per day and rounds per round, so no death can be joined to a tag; what can be
+computed is a minimum overlap, and days where you tagged more deaths than the tracker saw
+are dropped whole because there the arithmetic does not hold. It states the overlap and asks
+a question. It does not claim early deaths *are* a timing problem — no study says that.
 
 **Shows whether it's working.**
 - Streak, best streak, days trained, average hand feel
