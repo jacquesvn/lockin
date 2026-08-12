@@ -1,2 +1,5 @@
 node_modules/
 src-tauri/target/
+
+# generated for screenshots — regenerate with scripts/make-demo-seed.js
+demo-seed.json
