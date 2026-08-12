@@ -1,0 +1,39 @@
+# Generate src-tauri/Cargo.lock on a runner that already has Rust, so the lockfile can be
+# committed without installing a ~1-2GB toolchain locally just to produce one file.
+#
+# Run it from the Actions tab (or: gh workflow run lockfile.yml), download the artifact,
+# drop Cargo.lock into src-tauri/ and commit. The desktop workflow already applies --locked
+# conditionally, so the build becomes reproducible the moment the file lands — no further
+# change needed there.
+#
+# This does NOT commit for you: a workflow that writes to its own repo needs elevated
+# permissions, and that is a bigger grant than this one-off job is worth.
+name: cargo-lockfile
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # generate-lockfile resolves the dependency graph without building anything, so this
+      # is a short job rather than a full compile.
+      - name: Resolve the crate graph
+        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+
+      - name: Report what was pinned
+        shell: bash
+        run: |
+          echo "Cargo.lock: $(wc -l < src-tauri/Cargo.lock) lines"
+          echo "crates pinned: $(grep -c '^name = ' src-tauri/Cargo.lock)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Cargo.lock
+          path: src-tauri/Cargo.lock
+          if-no-files-found: error
