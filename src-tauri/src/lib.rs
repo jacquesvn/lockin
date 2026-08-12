@@ -400,7 +400,12 @@ struct RoundTracker {
     buy_equip: i64,
     death_ms: Option<u64>,
     death_money: i64,
-    death_kills: i64,
+    // kills as last reported by a payload that was ME. round_kills cannot rise after you
+    // die, so on a death round this equals kills-at-death; on a round you survived it is the
+    // real count, which death_kills could never be because it was only written in the death
+    // branch. Result: every surviving round recorded 0 kills while CS2 was sending the number
+    // in every single payload.
+    last_kills: i64,
     team: String,
     emitted: bool,
 }
@@ -490,6 +495,8 @@ fn track_round(tr: &mut RoundTracker, v: &serde_json::Value, is_self: bool) -> O
         if let Some(t) = v.pointer("/player/team").and_then(|s| s.as_str()) {
             if !t.is_empty() { tr.team = t.to_string(); }
         }
+        // captured on EVERY payload that is me, not only on the one where I died
+        tr.last_kills = kills;
     }
 
     /* ORDER IS THE WHOLE FIX, and it was wrong from the day this shipped.
@@ -517,7 +524,6 @@ fn track_round(tr: &mut RoundTracker, v: &serde_json::Value, is_self: bool) -> O
         if let Some(started) = tr.live_at {
             tr.death_ms = Some(started.elapsed().as_millis() as u64);
             tr.death_money = money;
-            tr.death_kills = kills;
         }
     }
 
@@ -541,7 +547,7 @@ fn track_round(tr: &mut RoundTracker, v: &serde_json::Value, is_self: bool) -> O
             "buyMoney": tr.buy_money,
             "buyEquip": tr.buy_equip,
             "leftOver": tr.death_money,
-            "roundKills": tr.death_kills,
+            "roundKills": tr.last_kills,
             "won": won,
         }));
     }
@@ -557,7 +563,7 @@ fn track_round(tr: &mut RoundTracker, v: &serde_json::Value, is_self: bool) -> O
         tr.buy_money = 0;
         tr.buy_equip = 0;
         tr.death_money = 0;
-        tr.death_kills = 0;
+        tr.last_kills = 0;
         tr.team.clear();
     }
 
@@ -726,6 +732,35 @@ mod tests {
         assert!(ms >= 20, "death was timed from the live edge, got {ms}ms");
         // #52 the next freezetime must not emit anything more
         assert!(track_round(&mut tr, &me("freezetime", 4, 100), true).is_none());
+    }
+
+    /* Straight from the same capture: round one, survived, two kills. round_kills was in
+       EVERY payload and the record threw it away, because it was only ever written inside
+       the death branch — so a round you lived through always claimed zero. */
+    #[test]
+    fn a_round_you_survived_still_records_its_kills() {
+        let mut tr = RoundTracker::default();
+        assert!(track_round(&mut tr, &payload("freezetime", 0, 100, 800, 200, 0), true).is_none());
+        assert!(track_round(&mut tr, &payload("live", 0, 100, 800, 3600, 0), true).is_none());
+        assert!(track_round(&mut tr, &payload("live", 0, 100, 800, 3600, 1), true).is_none());
+        assert!(track_round(&mut tr, &payload("live", 0, 100, 800, 3600, 2), true).is_none());
+        // over, map.round bumped to 1, still alive on 100hp
+        let rec = track_round(&mut tr, &payload("over", 1, 100, 800, 3600, 2), true).unwrap();
+        assert_eq!(rec["died"], false);
+        assert_eq!(rec["roundKills"], 2, "two kills happened and they must survive the round");
+    }
+
+    #[test]
+    fn kills_are_not_taken_from_the_player_you_are_spectating() {
+        let mut tr = RoundTracker::default();
+        track_round(&mut tr, &payload("live", 0, 100, 800, 3600, 1), true);
+        track_round(&mut tr, &payload("live", 0, 0, 800, 3600, 1), true); // I die holding 1 kill
+        let mut spec = payload("live", 0, 100, 800, 3600, 4); // a team-mate on 4
+        spec["player"]["steamid"] = serde_json::json!("76561198000000999");
+        track_round(&mut tr, &spec, false);
+        let rec = track_round(&mut tr, &payload("over", 1, 0, 800, 3600, 1), true).unwrap();
+        assert_eq!(rec["roundKills"], 1, "my kills, never the spectated player's");
+        assert_eq!(rec["died"], true);
     }
 
     #[test]

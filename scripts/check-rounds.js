@@ -79,11 +79,12 @@ rounds.forEach((r) => {
     (r.died ? 'YES  ' : 'no   ') + '  ' + ms(r.ms) + '  ' +
     (r.won === true ? 'won   ' : r.won === false ? 'lost  ' : '?     ') + '  ' +
     String(money(r.equip)).padStart(7) + '  ' + String(money(r.left)).padStart(5) + '  ' +
-    // kills and left-over money are captured AT THE MOMENT OF DEATH, so they mean nothing on
-    // a round you survived — printing a bare 0 there reads as "you got no kills" when the
-    // truth is "not measured". The audit card only ever reads them for deaths, for the same
-    // reason ("died without a kill").
-    String(r.died ? (r.kills == null ? '—' : r.kills) : '—').padStart(5)
+    // From 0.48.1 kills are captured on every payload that was you, so they are the real
+    // round count whether you lived or died (round_kills cannot rise after death, so a death
+    // round still reads kills-at-death). Before that they were written only in the death
+    // branch and every surviving round claimed zero — records from 0.48.0 and earlier will
+    // still show 0 here, and that is the old bug showing, not a new one.
+    String(r.kills == null ? '—' : r.kills).padStart(5)
   );
 });
 

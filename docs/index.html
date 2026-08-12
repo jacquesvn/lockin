@@ -1183,7 +1183,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.48.0";
+  var VERSION="0.48.1";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -2131,7 +2131,9 @@
               "Fixed: “Erase all data” left every lineup screenshot behind",
               "Fixed: the reminder switch could read ON while your browser was blocking notifications",
               "Progress opens without the pause — your record is worked out once instead of on every render"],
-    "0.48.0":["Fixed: CS2 auto-tracking recorded no rounds at all — the death audit had been blank since it shipped"]
+    "0.48.0":["Fixed: CS2 auto-tracking recorded no rounds at all — the death audit had been blank since it shipped"],
+    "0.48.1":["Fixed: the match debrief never appeared unless the plan called it a match night — it follows the match now",
+              "Fixed: rounds you survived recorded zero kills, when CS2 was sending the real number all along"]
   };
   function vcmp(a,b){
     var x=String(a).split("."),y=String(b).split(".");
