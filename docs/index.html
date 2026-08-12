@@ -3962,9 +3962,26 @@
   // value, then drops once only a strict best remains. Evaluating computeStreak (freeze-aware) from
   // each warm-day endpoint keeps the record consistent with curStreak and monotonic (the freeze
   // budget only grows as warmDays grows), and lets a freeze-bridged milestone be observed later.
+  /* O(warm-days × streak-length): every warm day is an endpoint, and each endpoint walks the
+     run back day by day. At a year in that is ~365 endpoints over runs up to 365 long — tens
+     of thousands of day-steps — and it ran THREE times per Progress render (twice inside
+     achState, once in the streak block) and twice per drill tick, on the main thread, in the
+     middle of a session timer. Memoised on an EXACT signature of everything streakDetail
+     reads: the warm-day set, the freeze budget, the plan's schedule and start, and the pause.
+     Nothing here is a heuristic — if any input moves, the signature moves and it recomputes. */
+  var _bsSig=null,_bsVal=0;
+  function bestStreakSig(st,keys,fb){
+    var p=st&&st.plan;
+    return fb+"|"+(p?(p.created||"")+"~"+(p.startedOn||"")+"~"+JSON.stringify(p.weekly||null):"")+
+      "|"+JSON.stringify((st&&st.settings&&st.settings.pause)||null)+"|"+keys.join(",");
+  }
   function bestStreak(st){
-    var keys=warmDays(st);if(!keys.length)return 0;var fb=freezeBudget(st),best=0;
+    var keys=warmDays(st);if(!keys.length)return 0;var fb=freezeBudget(st);
+    var sig=bestStreakSig(st,keys,fb);
+    if(sig===_bsSig)return _bsVal;
+    var best=0;
     for(var i=0;i<keys.length;i++){var s=computeStreak(st,parseKey(keys[i]),fb);if(s>best)best=s;}
+    _bsSig=sig;_bsVal=best;
     return best;}
   /* ---------- milestones / achievements (all derived from existing state) ---------- */
   function drillsTicked(st){var n=0;for(var k in st.sessions){var dr=st.sessions[k]&&st.sessions[k].drills;if(dr)for(var i in dr)if(dr[i])n++;}return n;}
@@ -4782,13 +4799,30 @@
     },"image/png");
   }
   // the preview is the same canvas the buttons produce, so what you see is what you send
+  /* Everything shareCard draws, and nothing else — so the cache below can be exact rather
+     than a guess about when the picture changed. */
+  function shareSig(st){
+    var mon=mondayOf(new Date()),wk="",ss=st.sessions||{};
+    for(var i=0;i<7;i++){var s2=ss[dateKey(addDays(mon,i))];wk+=(s2&&s2.warm)?"1":"0";}
+    return playerTag(st)+"|"+curStreak(st)+"|"+((st.plan&&st.plan.keystoneName)||"")+
+      "|"+planWeek(st,new Date())+"|"+wk;
+  }
+  var _shareSig=null,_shareUrl=null;
   function sharePreview(st){
-    var c=shareCard(st);
-    if(!c)return "";
+    /* toDataURL is a SYNCHRONOUS PNG encode of a 640×360 canvas, and this ran on every single
+       Progress render — every tab back to Progress, every drill tick that re-rendered, every
+       theme toggle — to produce a picture that had not changed. Encode only when one of the
+       five things it draws actually moves. */
+    var sig=shareSig(st),src=(sig===_shareSig)?_shareUrl:null;
+    if(!src){
+      var c=shareCard(st);
+      if(!c)return "";
+      src=c.toDataURL("image/png");_shareSig=sig;_shareUrl=src;
+    }
     var canCopy=!!(window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write);
     return '<div class="divi"><span class="ml" role="heading" aria-level="2">SHARE CARD</span></div>'+
       '<div class="card"><p class="mhow" style="margin-top:0;">Composed to be posted. One streak, one tier, one real stat, and the mark — nothing that needs explaining, and no number that flatters you.</p>'+
-      '<img class="shareimg" alt="Your progress card: streak, focus and week" src="'+c.toDataURL("image/png")+'">'+
+      '<img class="shareimg" alt="Your progress card: streak, focus and week" src="'+src+'">'+
       '<div class="sharebtns">'+
         (canCopy?'<button class="pbtn facet" data-sharecopy="1">COPY IMAGE</button>':'')+
         '<button class="btncopy" data-sharecard="1">SAVE PNG</button>'+
@@ -5624,7 +5658,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,rawWeek:rawWeek,planWeekRaw:planWeekRaw,pauseServed:pauseServed,isTrainingDay:isTrainingDay,bestStreak:bestStreak,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,lineChart:lineChart,heatmap:heatmap,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,rawWeek:rawWeek,planWeekRaw:planWeekRaw,pauseServed:pauseServed,isTrainingDay:isTrainingDay,bestStreak:bestStreak,bestStreakSig:bestStreakSig,shareSig:shareSig,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,lineChart:lineChart,heatmap:heatmap,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
     stateForBackup:stateForBackup,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER,
     picSlots:picSlots,picRole:picRole,PICROLE:PICROLE,DESTS:DESTS,destOf:destOf,subTabs:subTabs,dueCard:dueCard,todayCards:todayCards,todayStack:todayStack,
     leakOfWeek:leakOfWeek,applyGsiRound:applyGsiRound,roundStats:roundStats,autoAuditCard:autoAuditCard,ROUND_CAP:ROUND_CAP,EARLY_MS:EARLY_MS,AUDIT_MIN_ROUNDS:AUDIT_MIN_ROUNDS,needsBackup:needsBackup,backupCard:backupCard,backupAge:backupAge,whatsNew:whatsNew,newSince:newSince,vcmp:vcmp,VERSION:VERSION,markVersionSeen:markVersionSeen,WHATSNEW:WHATSNEW,BACKUP_MIN_SESSIONS:BACKUP_MIN_SESSIONS,offPlanRecent:offPlanRecent,offPlanHistory:offPlanHistory,gearTiles:gearTiles,planShot:planShot,settingsAudit:settingsAudit,XHAIR_DYNAMIC:XHAIR_DYNAMIC,leakFocus:leakFocus,applyLeakFocus:applyLeakFocus,focusIsSet:focusIsSet,LEAK_DRILL:LEAK_DRILL,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou,

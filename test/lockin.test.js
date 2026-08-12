@@ -55,10 +55,10 @@ const { generatePlan, computeStreak, richText, validBackup, rawWeek, planWeekRaw
         applyGsiRound, roundStats, autoAuditCard, ROUND_CAP, EARLY_MS, AUDIT_MIN_ROUNDS,
         buildTargets, shouldRegisterSW, isTauriOrigin, CALM, PROTOCOLS, trainingDayCount, weekdayCount, isTrainingDay, QUIZ, rankLabel, benchHint, missedYesterday,
         lfyParseId, lfyPct, lfySuggest, lfyProfileUrl, LFY_BENCH, updateBanner, UPD, planReview, applyReview, tkey, lapseInfo, lapseCard, reappraisalCard, practiceCard, WORKSHOP, workshopKit, workshopUrl, deathCard, TOUR, playerTag,
-        curStreak, freezeBudget, ACHIEVEMENTS, achState, checkAchievements,
+        curStreak, freezeBudget, warmDays, ACHIEVEMENTS, achState, checkAchievements,
         weeklyRecap, recapCard, debriefCard, applyGsiMatch, DESTS, destOf, subTabs,
         dueCard, todayCards, todayStack, leakOfWeek, leakCard, tenList, tenMins, youVsYou,
-        STREAK_TIERS, milestoneState, milestoneRail, autoDebrief, lineupCount, lineupMaps, recallCount,
+        STREAK_TIERS, milestoneState, milestoneRail, bestStreakSig, shareSig, autoDebrief, lineupCount, lineupMaps, recallCount,
         streakDetail, pauseInfo, isPausedOn, planWeek, pauseCard, freezeRow, restWeek, restLine,
         quietWeek, tierIdentity, QUIET_DAYS, PAUSE_WEEKS,
         isDeloadWeek, deloadDur, focusMins, deloadCard, whyPanel, whySource,
@@ -1982,7 +1982,13 @@ ok('the share card is previewed before it is sent, and copy degrades honestly', 
   // buttons produce, so what you see is what you send.
   var fn = script.slice(script.indexOf('function sharePreview('));
   fn = fn.slice(0, fn.indexOf('\n  function ', 10));
-  var sameCanvas = /var c=shareCard\(st\)/.test(fn) && /src="'\+c\.toDataURL/.test(fn);
+  // The <img> src must still be the PNG of the canvas shareCard() built — that is the whole
+  // "what you see is what you send" claim. It is now encoded once and cached (toDataURL is a
+  // synchronous encode that used to run on every Progress render), so assert the chain:
+  // shareCard -> toDataURL -> the cached url -> the img.
+  var sameCanvas = /var c=shareCard\(st\);/.test(fn) &&
+                   /src=c\.toDataURL\("image\/png"\);_shareSig=sig;_shareUrl=src;/.test(fn) &&
+                   /src="'\+src\+'"/.test(fn);
   // shareCard now RETURNS the canvas instead of downloading it — that split is the feature
   var gen = script.slice(script.indexOf('function shareCard('));
   gen = gen.slice(0, gen.indexOf('\n  function ', 10));
@@ -3358,6 +3364,74 @@ ok('the update banner is announced once, not on every interaction', (function ()
          /if\(ub\)\{var ubh=updateBanner\(\);if\(ubh!==_updHtml\)\{_updHtml=ubh;ub\.innerHTML=ubh;\}\}/.test(script) &&
          script.indexOf('if(ub)ub.innerHTML=updateBanner();') < 0;
 })());
+
+// --- v0.47: bestStreak was O(warm-days × streak-length), three times per Progress render ---
+(function () {
+  function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }   // not exported
+  function yearOfTraining() {
+    var st = { sessions: {}, settings: {}, plan: { created: '2025-08-01',
+      weekly: { 0:'cstrafe',1:'cstrafe',2:'cstrafe',3:'cstrafe',4:'cstrafe',5:'cstrafe',6:'cstrafe' } } };
+    var d = new Date(2025, 7, 1);
+    for (var i = 0; i < 365; i++) { st.sessions[dateKey(d)] = { warm: true }; d = addDays(d, 1); }
+    return st;
+  }
+  ok('a year of training computes the record once and reuses it', (function () {
+    var st = yearOfTraining();
+    var t0 = Date.now(); var a = bestStreak(st); var cold = Date.now() - t0;
+    var t1 = Date.now(); var b = bestStreak(st); var warm = Date.now() - t1;
+    var t2 = Date.now(); for (var i = 0; i < 20; i++) bestStreak(st); var twenty = Date.now() - t2;
+    if (!(a === b && a >= 365)) console.log('      best=' + a + '/' + b);
+    console.log('      365 warm days: first ' + cold + 'ms, cached ' + warm + 'ms, 20 more ' + twenty + 'ms');
+    return a === b && a >= 365 && twenty <= Math.max(2, cold);   // 20 cached calls cost less than one cold one
+  })());
+  ok('the cache is keyed on every input, so nothing can go stale', (function () {
+    var st = yearOfTraining();
+    var base = bestStreak(st);
+    // add a warm day -> different set
+    var st2 = yearOfTraining(); st2.sessions['2026-08-05'] = { warm: true };
+    var addDay = bestStreak(st2) !== base || true;   // value may match; the SIGNATURE must not
+    var sigA = bestStreakSig(st, warmDays(st), freezeBudget(st));
+    var sigB = bestStreakSig(st2, warmDays(st2), freezeBudget(st2));
+    // pause and plan schedule both feed streakDetail, so both must move the signature
+    var st3 = yearOfTraining(); st3.settings.pause = { from: '2026-01-01', weeks: 2 };
+    var st4 = yearOfTraining(); st4.plan.weekly = { 0:'rest',1:'cstrafe',2:'cstrafe',3:'cstrafe',4:'cstrafe',5:'match',6:'match' };
+    var st5 = yearOfTraining(); st5.plan.startedOn = '2025-09-01';
+    var sigC = bestStreakSig(st3, warmDays(st3), freezeBudget(st3));
+    var sigD = bestStreakSig(st4, warmDays(st4), freezeBudget(st4));
+    var sigE = bestStreakSig(st5, warmDays(st5), freezeBudget(st5));
+    return addDay && sigA !== sigB && sigA !== sigC && sigA !== sigD && sigA !== sigE;
+  })());
+  ok('swapping one warm day for another changes the signature (length alone would not)', (function () {
+    var a = yearOfTraining(), b = yearOfTraining();
+    delete b.sessions['2025-08-10']; b.sessions['2026-08-09'] = { warm: true };
+    var ka = warmDays(a), kb = warmDays(b);
+    return ka.length === kb.length &&                                   // same COUNT...
+           bestStreakSig(a, ka, freezeBudget(a)) !== bestStreakSig(b, kb, freezeBudget(b));  // ...different set
+  })());
+
+  // --- v0.47: the share PNG is encoded once, not on every Progress render ---
+  ok('the share signature moves with everything the card draws, and nothing else', (function () {
+    var base = { sessions: {}, settings: { tag: 'zy' }, plan: { created: dateKey(new Date()), keystoneName: 'Counter-strafing',
+      weekly: { 0:'cstrafe',1:'cstrafe',2:'cstrafe',3:'cstrafe',4:'cstrafe',5:'cstrafe',6:'cstrafe' } } };
+    function clone() { return JSON.parse(JSON.stringify(base)); }
+    var s0 = shareSig(base);
+    var tag = clone(); tag.settings.tag = 'niko';
+    var keystone = clone(); keystone.plan.keystoneName = 'Spray control';
+    var week = clone(); week.plan.created = dateKey(addDays(new Date(), -40));
+    // Vary ONLY the week strip: pick a day in this week that is neither today nor yesterday,
+    // so curStreak cannot move and the difference has to come from the strip itself.
+    var now = new Date(), mon = addDays(now, -((now.getDay() + 6) % 7));
+    var skip = [dateKey(now), dateKey(addDays(now, -1))], strip = null;
+    for (var i = 0; i < 7; i++) { var k = dateKey(addDays(mon, i)); if (skip.indexOf(k) < 0) { strip = k; break; } }
+    var warm = clone(); warm.sessions[strip] = { warm: true };
+    var noise = clone(); noise.settings.theme = 'light'; noise.metrics = { cstrafe: { pct: 71 } };
+    if (curStreak(warm) !== curStreak(base)) console.log('      strip day moved curStreak — test does not isolate wk');
+    return shareSig(tag) !== s0 && shareSig(keystone) !== s0 &&
+           shareSig(week) !== s0 &&
+           curStreak(warm) === curStreak(base) && shareSig(warm) !== s0 &&   // the strip alone busts it
+           shareSig(noise) === s0;         // things the card does not draw must NOT bust the cache
+  })());
+})();
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
