@@ -6,7 +6,7 @@ and the git tag dates. Do not hand-edit — run the script.
 
 Full downloads and installers: [Releases](https://github.com/jacquesvn/lockin/releases).
 
-## 0.52.0 — unreleased
+## [0.52.0](https://github.com/jacquesvn/lockin/releases/tag/v0.52.0) — 2026-08-13
 
 - Showing up — the share of rounds you died in without a kill or an assist, tracked against your own earlier rounds
 - It is the first figure on Progress that Lockin measured rather than asked you to type in
