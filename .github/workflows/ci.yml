@@ -1,0 +1,63 @@
+# The gate that runs on every push, not just on a release tag.
+#
+# desktop-build only fires on a v* tag, and that same run publishes a public release — so
+# until now the only way to find out whether the Rust even COMPILED was to ship it. That is
+# backwards, and it has already cost us: an edit moved #[tauri::command] off start_gsi onto a
+# helper, which is a build break, and nothing local could see it (no Rust toolchain on the
+# dev machine). This job compiles the crate and runs both test suites, and publishes nothing.
+#
+# Deliberately the same three commands desktop-build runs before it packages anything, so a
+# green tick here means the release build will get past its own gates.
+name: ci
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+# A newer push to the same branch makes an in-flight run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install deps (locked)
+        run: npm ci
+
+      - name: Frontend gate (syntax + unit tests)
+        run: npm run verify
+
+      # Same conditional --locked as desktop-build: correct whether or not the lockfile is
+      # committed, and the step below says which mode actually ran so "reproducible" is never
+      # something you have to take on trust.
+      - name: Report dependency-pinning mode
+        shell: bash
+        run: |
+          if [ -f src-tauri/Cargo.lock ]; then
+            echo "Cargo.lock present — building --locked (reproducible)"
+          else
+            echo "::warning::No src-tauri/Cargo.lock — the crate graph is re-resolved on every build."
+          fi
+
+      # This is the step that matters: it COMPILES the crate. Everything else here is already
+      # checked locally.
+      - name: Rust tests (GSI win/loss derivation, token shape, config)
+        run: cargo test --manifest-path src-tauri/Cargo.toml ${{ hashFiles('src-tauri/Cargo.lock') != '' && '--locked' || '' }}
