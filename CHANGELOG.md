@@ -6,7 +6,7 @@ and the git tag dates. Do not hand-edit — run the script.
 
 Full downloads and installers: [Releases](https://github.com/jacquesvn/lockin/releases).
 
-## 0.48.0 — unreleased
+## [0.48.0](https://github.com/jacquesvn/lockin/releases/tag/v0.48.0) — 2026-08-12
 
 - Fixed: CS2 auto-tracking recorded no rounds at all — the death audit had been blank since it shipped
 
