@@ -3902,7 +3902,7 @@
        it leads into it rather than trailing it, and youVsYou — the you-against-your-own-past
        line — now sits with the comparison it is about instead of floating at the top. */
     return hd+milestoneRail(st)+insightsCard(st)+
-      autoAuditCard(st)+bottleneckCard(st)+deathCard(st)+leakCard(st)+
+      autoAuditCard(st)+bottleneckCard(st)+timingCard(st,new Date())+deathCard(st)+leakCard(st)+
       leakHistoryCard(st)+changedCard(st)+youVsYou()+proofCard(st)+mx+
       cal+planShot(st)+sharePreview(st)+milestonesCard(st)+glossary();
   }
@@ -4796,6 +4796,65 @@
       '<p class="mhow" style="margin:6px 0 0;"><b style="color:var(--text);">'+pct+'%</b> of your logged deaths happen before aim decides anything — '+
       t.pos+' holding a losing angle, '+t.info+' with no information, '+t.trade+' with nobody to trade you, out of '+total+'. '+
       'That does not mean stop drilling aim. It means the ceiling you are hitting is positional, and the plan should weight it.</p></div>';
+  }
+  /* ---------- the clock against the tag ----------
+     bottleneckCard contradicts what you said in the QUIZ using the deaths you logged. This
+     contradicts the deaths you LOGGED using what the game actually observed — the half you
+     cannot misremember, because nobody has to remember it.
+
+     THE HARD PART IS THE JOIN, and it is why this is arithmetic rather than a guess.
+     st.reviews holds per-DAY counts by cause; st.rounds holds per-ROUND facts. There is no
+     key tying one tagged death to one observed death, so "which of your aim deaths were
+     early" is not answerable. What IS answerable is a floor: if on one day you tagged A of
+     your deaths as aim, the tracker saw D deaths and E of them were early, then at least
+     A + E − D of the aim-tagged deaths were early ones. Pigeonhole. It cannot be wrong.
+
+     That floor only holds if every death you tagged is one the tracker also saw, so days
+     where you tagged MORE deaths than the tracker observed are dropped entirely — on those,
+     a tag might belong to a match played with the app closed, and the arithmetic breaks.
+     The card reports how many days it could actually use, because a floor built on two days
+     deserves less of your attention than one built on twelve. */
+  function timingVsTag(st,now,windowDays){
+    var days=windowDays||30, R=st.reviews||{}, rounds=st.rounds||[];
+    var byDay={};
+    rounds.forEach(function(r){
+      if(!r||!r.d)return;
+      var b=byDay[r.d]||(byDay[r.d]={deaths:0,early:0});
+      if(r.x!==1)return;
+      b.deaths++;
+      if(typeof r.ms==="number"&&r.ms<EARLY_MS)b.early++;
+    });
+    var used=0,taggedAim=0,deaths=0,early=0,floor=0;
+    for(var i=0;i<days;i++){
+      var dk=dateKey(addDays(now||new Date(),-i));
+      var rev=R[dk],obs=byDay[dk];
+      if(!rev||!obs||!obs.deaths)continue;
+      var tagSum=0;CAUSES.forEach(function(c){tagSum+=rev[c[0]]||0;});
+      if(!tagSum||tagSum>obs.deaths)continue;      // cannot join these two honestly
+      used++;
+      var a=rev.aim||0;
+      taggedAim+=a;deaths+=obs.deaths;early+=obs.early;
+      floor+=Math.max(0,a+obs.early-obs.deaths);
+    }
+    return {days:used,taggedAim:taggedAim,deaths:deaths,early:early,floor:floor};
+  }
+  function timingCard(st,now){
+    var t=timingVsTag(st,now);
+    // Same discipline as every other evidence card: speak only when BOTH halves are there,
+    // and stay quiet when the data agrees with you.
+    if(t.days<3||t.deaths<10||t.taggedAim<4)return "";
+    if(t.floor<3)return "";                                  // no provable overlap worth naming
+    if(t.floor/t.taggedAim<0.5)return "";                    // not most of them — say nothing
+    var secs=Math.round(EARLY_MS/1000);
+    return '<div class="card bottleneck"><div class="mrhead"><span class="ml" style="color:var(--accInk);">YOU CALLED IT AIM</span>'+
+      statusChip("warn","THE CLOCK DISAGREES")+'</div>'+
+      '<p class="bnbig">At least '+t.floor+' of those were opening duels.</p>'+
+      '<p class="mhow" style="margin:6px 0 0;">You tagged <b style="color:var(--text);">'+t.taggedAim+'</b> deaths as aim. '+
+      'Across the same '+t.days+' day'+(t.days===1?'':'s')+', CS2 timed <b style="color:var(--text);">'+t.early+'</b> of your '+t.deaths+' deaths inside the first '+secs+' seconds — '+
+      'so at least '+t.floor+' of the ones you called aim happened before the round had taken shape. '+
+      'Aim decides a duel. It does not decide when the duel starts, or whether you were the one who started it. '+
+      'Worth asking, next session, whether those were duels you lost or duels you chose.</p>'+
+      '<p class="help" style="margin:8px 0 0;">Counted only on days where the tracker saw every death you tagged, so the figure is a floor, not an estimate.</p></div>';
   }
   function deathCard(st){
     var today=(st.reviews||{})[dateKey(new Date())]||{};
@@ -5813,7 +5872,7 @@
     pauseCard:pauseCard,freezeRow:freezeRow,restWeek:restWeek,restLine:restLine,quietWeek:quietWeek,
     tierIdentity:tierIdentity,QUIET_DAYS:QUIET_DAYS,PAUSE_WEEKS:PAUSE_WEEKS,
     isDeloadWeek:isDeloadWeek,deloadDur:deloadDur,focusMins:focusMins,deloadCard:deloadCard,
-    whyPanel:whyPanel,whySource:whySource,bottleneckCard:bottleneckCard,tiltCard:tiltCard,nightLosses:nightLosses,nightKeys:nightKeys,gateCard:gateCard,
+    whyPanel:whyPanel,whySource:whySource,bottleneckCard:bottleneckCard,timingCard:timingCard,timingVsTag:timingVsTag,tiltCard:tiltCard,nightLosses:nightLosses,nightKeys:nightKeys,gateCard:gateCard,
     offPlanCard:offPlanCard,OFFPLAN:OFFPLAN,
     adherence:adherence,metricMove:metricMove,driftCheck:driftCheck,driftCard:driftCard,
     coachAsk:coachAsk,coachCard:coachCard,applyCoachAnswer:applyCoachAnswer,COACH_ANSWERS:COACH_ANSWERS,

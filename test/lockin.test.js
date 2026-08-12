@@ -62,7 +62,7 @@ const { generatePlan, computeStreak, richText, validBackup, rawWeek, planWeekRaw
         streakDetail, pauseInfo, isPausedOn, planWeek, pauseCard, freezeRow, restWeek, restLine,
         quietWeek, tierIdentity, QUIET_DAYS, PAUSE_WEEKS,
         isDeloadWeek, deloadDur, focusMins, deloadCard, whyPanel, whySource,
-        bottleneckCard, tiltCard, nightLosses, nightKeys, gateCard, offPlanCard, OFFPLAN,
+        bottleneckCard, timingCard, timingVsTag, tiltCard, nightLosses, nightKeys, gateCard, offPlanCard, OFFPLAN,
         adherence, metricMove, driftCheck, driftCard, coachAsk, coachCard, applyCoachAnswer,
         COACH_ANSWERS, drillAdherence, skippedDrill, skippedCard,
         leakHistory, leakHistoryCard, changedSince, changedCard, proofRows, proofCard, honestExport,
@@ -3539,6 +3539,189 @@ ok('a spring-forward inside the window does not lose a day', (function () {
            landing.indexOf(words[n] + ' questions') >= 0 &&
            !/seven questions/i.test(landing) &&
            (landing.match(new RegExp(words[n] + ' questions', 'gi')) || []).length === 3;   // description, og, body
+  })());
+})();
+
+// --- v0.49: the clock against the tag ---
+// This card makes a numeric claim — "at least N of the deaths you called aim were early" —
+// so the arithmetic behind it gets tested harder than the copy does.
+(function () {
+  function day(n) { const d = new Date(); d.setDate(d.getDate() - n); return dateKey(d); }
+  function build(spec) {
+    // spec: [{ back, tags:{aim,pos,...}, deaths:[msOrNull, ...] }]
+    const st = { reviews: {}, rounds: [], sessions: {}, settings: {}, plan: null };
+    spec.forEach((s) => {
+      const dk = day(s.back);
+      if (s.tags) st.reviews[dk] = s.tags;
+      (s.deaths || []).forEach((ms, i) => {
+        st.rounds.push({ s: 'de_mirage#' + i, d: dk, at: Date.now(), x: 1, ms: ms, bm: 0, be: 0, lo: 0, k: 0, w: 0 });
+      });
+      (s.survived || 0) && Array.from({ length: s.survived }).forEach((_, i) => {
+        st.rounds.push({ s: 'de_mirage#s' + i, d: dk, at: Date.now(), x: 0, ms: null, bm: 0, be: 0, lo: 0, k: 1, w: 1 });
+      });
+    });
+    return st;
+  }
+
+  ok('the pigeonhole floor is provably the true minimum overlap', (function () {
+    // max(0, A + E - D) is claimed to be the least possible number of aim-tagged deaths that
+    // were also early. Prove it by brute force for every small case rather than trusting the
+    // formula: choose which A of the D deaths carry the aim tag, with E of them early, and
+    // find the smallest achievable overlap.
+    function brute(D, A, E) {
+      let best = Infinity;
+      const idx = Array.from({ length: D }, (_, i) => i);      // 0..E-1 are the early ones
+      function pick(start, chosen) {
+        if (chosen.length === A) {
+          best = Math.min(best, chosen.filter((i) => i < E).length);
+          return;
+        }
+        for (let i = start; i < D; i++) pick(i + 1, chosen.concat(i));
+      }
+      pick(0, []);
+      return best === Infinity ? 0 : best;
+    }
+    for (let D = 1; D <= 7; D++)
+      for (let A = 0; A <= D; A++)
+        for (let E = 0; E <= D; E++)
+          if (brute(D, A, E) !== Math.max(0, A + E - D)) {
+            console.log('      formula wrong at D=' + D + ' A=' + A + ' E=' + E +
+                        ': brute=' + brute(D, A, E) + ' formula=' + Math.max(0, A + E - D));
+            return false;
+          }
+    return true;
+  })());
+
+  ok('it stays silent until there is enough of both halves', (function () {
+    const thin = build([{ back: 1, tags: { aim: 3 }, deaths: [5000, 6000, 7000] }]);
+    return timingCard(thin, new Date()) === '';
+  })());
+
+  ok('it stays silent when the clock AGREES with you', (function () {
+    // you said aim, and your deaths really are late-round duels
+    const late = build([
+      { back: 1, tags: { aim: 4 }, deaths: [45000, 50000, 61000, 55000] },
+      { back: 2, tags: { aim: 4 }, deaths: [47000, 52000, 58000, 44000] },
+      { back: 3, tags: { aim: 4 }, deaths: [49000, 51000, 63000, 46000] },
+    ]);
+    const t = timingVsTag(late, new Date());
+    if (t.floor !== 0) console.log('      expected no provable overlap, got ' + t.floor);
+    return t.floor === 0 && timingCard(late, new Date()) === '';
+  })());
+
+  ok('it speaks when most of your aim tags provably were not aim', (function () {
+    // 4 deaths a day, all 4 tagged aim, 3 of 4 early => floor 3 per day
+    const early = build([
+      { back: 1, tags: { aim: 4 }, deaths: [4000, 9000, 12000, 55000] },
+      { back: 2, tags: { aim: 4 }, deaths: [3000, 8000, 15000, 48000] },
+      { back: 3, tags: { aim: 4 }, deaths: [6000, 11000, 14000, 52000] },
+    ]);
+    const t = timingVsTag(early, new Date());
+    const c = timingCard(early, new Date());
+    if (t.floor !== 9) console.log('      floor=' + t.floor + ' (expected 9)');
+    return t.days === 3 && t.taggedAim === 12 && t.deaths === 12 && t.early === 9 && t.floor === 9 &&
+           /YOU CALLED IT AIM/.test(c) && c.indexOf('At least 9 of those') >= 0 &&
+           /THE CLOCK DISAGREES/.test(c);
+  })());
+
+  ok('a day where you tagged more deaths than the tracker saw is dropped whole', (function () {
+    // the tracker saw 2, you tagged 5 — a tag might belong to a match played with the app
+    // closed, so the pigeonhole does not hold and the day cannot be used at all
+    const mixed = build([
+      { back: 1, tags: { aim: 5 }, deaths: [3000, 4000] },
+      { back: 2, tags: { aim: 4 }, deaths: [3000, 8000, 15000, 48000] },
+      { back: 3, tags: { aim: 4 }, deaths: [6000, 11000, 14000, 52000] },
+      { back: 4, tags: { aim: 4 }, deaths: [5000, 9000, 13000, 51000] },
+    ]);
+    const t = timingVsTag(mixed, new Date());
+    return t.days === 3 && t.taggedAim === 12 && t.deaths === 12;   // the 5-tag day contributed nothing
+  })());
+
+  ok('the floor can never exceed the number of aim tags, on any data', (function () {
+    // property check over random shapes — a floor above taggedAim would be nonsense
+    let seed = 12345;
+    const rnd = (n) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; };
+    for (let trial = 0; trial < 300; trial++) {
+      const spec = [];
+      for (let d = 1; d <= 1 + rnd(5); d++) {
+        const deaths = Array.from({ length: 1 + rnd(6) }, () => (rnd(2) ? rnd(19000) : 20000 + rnd(40000)));
+        const aim = rnd(deaths.length + 1);
+        spec.push({ back: d, tags: { aim: aim, pos: rnd(2) }, deaths: deaths });
+      }
+      const t = timingVsTag(build(spec), new Date());
+      if (t.floor > t.taggedAim || t.floor > t.early || t.floor < 0) {
+        console.log('      impossible floor: ' + JSON.stringify(t));
+        return false;
+      }
+    }
+    return true;
+  })());
+
+  ok('surviving rounds never count as deaths', (function () {
+    const s = build([{ back: 1, tags: { aim: 2 }, deaths: [4000, 6000], survived: 8 }]);
+    const t = timingVsTag(s, new Date());
+    return t.deaths === 2 && t.early === 2;
+  })());
+})();
+
+// These three exist because falsification found the tests above too weak. Each was written
+// against a specific wrong implementation that the earlier assertions could not tell apart
+// from the right one.
+(function () {
+  function day(n) { const d = new Date(); d.setDate(d.getDate() - n); return dateKey(d); }
+  function build(spec) {
+    const st = { reviews: {}, rounds: [], sessions: {}, settings: {}, plan: null };
+    spec.forEach((s) => {
+      const dk = day(s.back);
+      st.reviews[dk] = s.tags;
+      s.deaths.forEach((ms, i) => {
+        st.rounds.push({ s: 'de_mirage#' + i, d: dk, at: Date.now(), x: 1, ms: ms, bm: 0, be: 0, lo: 0, k: 0, w: 0 });
+      });
+    });
+    return st;
+  }
+
+  ok('the IMPLEMENTATION uses the pigeonhole floor, not a plausible lookalike', (function () {
+    // The brute-force test above proves max(0,A+E-D) is the true minimum — but it proves it
+    // about a formula written in this file, which says nothing about what timingVsTag does.
+    // min(A,E) is the obvious wrong answer and agrees with the right one whenever A === D,
+    // which is exactly the shape the earlier fixture had. Pick A < D so they diverge:
+    //   D=4, A=2, E=3  ->  pigeonhole 1   |   min(A,E) 2
+    const st = build([
+      { back: 1, tags: { aim: 2, pos: 2 }, deaths: [3000, 7000, 11000, 50000] },
+      { back: 2, tags: { aim: 2, pos: 2 }, deaths: [4000, 8000, 12000, 51000] },
+      { back: 3, tags: { aim: 2, pos: 2 }, deaths: [5000, 9000, 13000, 52000] },
+    ]);
+    const t = timingVsTag(st, new Date());
+    if (t.floor !== 3) console.log('      floor=' + t.floor + ' (pigeonhole says 3, min(A,E) would say 6)');
+    return t.deaths === 12 && t.early === 9 && t.taggedAim === 6 && t.floor === 3;
+  })());
+
+  ok('a floor of one or two is not worth interrupting you for', (function () {
+    // ratio is exactly 0.5 here, so the only thing that can keep this quiet is the floor gate
+    const st = build([
+      { back: 1, tags: { aim: 2, pos: 2 }, deaths: [3000, 6000, 9000, 12000] },   // D4 A2 E4 -> 2
+      { back: 2, tags: { aim: 1, pos: 3 }, deaths: [4000, 40000, 45000, 50000] }, // D4 A1 E1 -> 0
+      { back: 3, tags: { aim: 1, pos: 3 }, deaths: [5000, 41000, 46000, 51000] }, // D4 A1 E1 -> 0
+    ]);
+    const t = timingVsTag(st, new Date());
+    if (!(t.floor === 2 && t.taggedAim === 4)) console.log('      floor=' + t.floor + ' aim=' + t.taggedAim);
+    return t.floor === 2 && t.taggedAim === 4 && t.deaths === 12 &&
+           timingCard(st, new Date()) === '';
+  })());
+
+  ok('it will not call you wrong on a minority of your own tags', (function () {
+    // floor 3 clears the floor gate, but 3 of 12 is not "most of them" — saying "you called
+    // it aim" on a quarter of the evidence would be the kind of overclaim this app exists
+    // not to make
+    const st = build([
+      { back: 1, tags: { aim: 4 }, deaths: [3000, 7000, 11000, 50000] },   // D4 A4 E3 -> 3
+      { back: 2, tags: { aim: 4 }, deaths: [40000, 45000, 50000, 55000] }, // D4 A4 E0 -> 0
+      { back: 3, tags: { aim: 4 }, deaths: [41000, 46000, 51000, 56000] }, // D4 A4 E0 -> 0
+    ]);
+    const t = timingVsTag(st, new Date());
+    if (!(t.floor === 3 && t.taggedAim === 12)) console.log('      floor=' + t.floor + ' aim=' + t.taggedAim);
+    return t.floor === 3 && t.taggedAim === 12 && timingCard(st, new Date()) === '';
   })());
 })();
 
