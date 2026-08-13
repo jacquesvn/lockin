@@ -43,6 +43,9 @@ function norm(r) {
     equip: r.be != null ? r.be : r.buyEquip,
     left: r.lo != null ? r.lo : r.leftOver,
     kills: r.k != null ? r.k : r.roundKills,
+    assists: r.a != null ? r.a : r.roundAssists,
+    mode: r.mo != null ? r.mo : r.mode,
+    v: r.v || 0,
     day: r.d || null,
   };
 }
@@ -72,8 +75,8 @@ const money = (v) => (v == null ? '—' : '$' + v);
 const maps = Array.from(new Set(rounds.map((r) => r.map).filter(Boolean)));
 console.log('\n' + rounds.length + ' round(s) recorded' + (maps.length ? ' on ' + maps.join(', ') : '') +
             (rounds[0].day ? '  (' + rounds[0].day + ')' : '') + '\n');
-console.log(' rnd  died   when      won     buy      left   kills');
-console.log(' ---  -----  --------  ------  -------  -----  -----');
+console.log(' rnd  died   when      won     buy      left   kills  asst');
+console.log(' ---  -----  --------  ------  -------  -----  -----  ----');
 rounds.forEach((r) => {
   console.log(
     String(r.round == null ? '?' : r.round).padStart(4) + '  ' +
@@ -85,7 +88,8 @@ rounds.forEach((r) => {
     // round still reads kills-at-death). Before that they were written only in the death
     // branch and every surviving round claimed zero — records from 0.48.0 and earlier will
     // still show 0 here, and that is the old bug showing, not a new one.
-    String(r.kills == null ? '—' : r.kills).padStart(5)
+    String(r.kills == null ? '—' : r.kills).padStart(5) + '  ' +
+    String(r.assists == null ? '—' : r.assists).padStart(4)
   );
 });
 
@@ -139,8 +143,46 @@ else {
   console.log('   no kill ' + String(cell(true, false)).padStart(6) + String(cell(false, false)).padStart(7));
 }
 
+/* ---- THE MODE VERDICT ----
+ * The one assumption in the app that has never been measured. Two cards — the half buy and
+ * showing up — only count rounds whose mode is in ECON_MODES, and that list came from CS2's
+ * documented mode strings rather than from anything observed; only "casual" has ever been
+ * seen in a real capture. It fails closed, so a wrong guess reads as silence, which is
+ * indistinguishable from "not enough rounds yet". Hence this section.
+ * The allowlist is read out of the app so this cannot drift from what actually gates. */
+let econModes = null;
+try {
+  const app = fs.readFileSync(require('path').join(__dirname, '..', 'docs', 'index.html'), 'utf8');
+  const m = /var ECON_MODES=\{([^}]*)\}/.exec(app);
+  if (m) econModes = m[1].split(',').map((s) => s.split(':')[0].trim()).filter(Boolean);
+} catch (e) { /* run from elsewhere: fall through to the warning below */ }
+
+const modes = Array.from(new Set(rounds.map((r) => r.mode).filter((s) => s != null)));
+console.log('\nmode — the one thing in the app nobody has verified:');
+if (!modes.length || modes.every((s) => s === '')) {
+  console.log('  no mode on any record. Either these predate 0.51.0, or map.mode was empty.');
+  console.log('  The half-buy and showing-up cards count NONE of these rounds.');
+} else if (!econModes) {
+  console.log('  observed: ' + modes.join(', ') + '   (could not read ECON_MODES — run this from the repo)');
+} else {
+  modes.forEach((mo) => {
+    const n = rounds.filter((r) => r.mode === mo).length;
+    const counted = econModes.indexOf(mo) >= 0;
+    console.log('  ' + (mo || '(empty)').padEnd(22) + n + ' round(s)   ' +
+      (counted ? 'COUNTED by the economy cards' : 'IGNORED — not in ECON_MODES'));
+  });
+  const missed = modes.filter((mo) => mo && econModes.indexOf(mo) < 0 && mo !== 'casual' && mo !== 'deathmatch');
+  if (missed.length) {
+    console.log('\n  >> ' + missed.join(', ') + ' looks like real play but is not on the allowlist.');
+    console.log('  >> If that is a mode with a real economy, ECON_MODES needs it: ' + econModes.join(', '));
+  }
+}
+
 console.log('\nNow the part only you can do:');
+var totK=rounds.reduce(function(a,r){return a+(r.kills||0);},0);
+var totA=rounds.reduce(function(a,r){return a+(r.assists||0);},0);
 console.log('  · CS2 scoreboard DEATHS should equal ' + died.length + ' — one death per round, no respawn');
+console.log('  · scoreboard KILLS should equal ' + totK + ', and ASSISTS ' + totA + ' — both are new and unproven');
 console.log('  · the final SCORE should match won ' + won + ' / lost ' + lost);
 console.log('  · are the early/late deaths in the rounds you remember them in?');
 console.log('  · did anything get recorded during WARMUP? (nothing should have)');
