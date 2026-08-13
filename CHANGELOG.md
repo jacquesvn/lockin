@@ -6,7 +6,7 @@ and the git tag dates. Do not hand-edit — run the script.
 
 Full downloads and installers: [Releases](https://github.com/jacquesvn/lockin/releases).
 
-## 0.53.0 — unreleased
+## [0.53.0](https://github.com/jacquesvn/lockin/releases/tag/v0.53.0) — 2026-08-13
 
 - Fixed: leave Lockin open and it never noticed a new version — closing to the tray is not quitting, and the check only ran at launch
 
