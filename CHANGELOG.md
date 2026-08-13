@@ -6,7 +6,7 @@ and the git tag dates. Do not hand-edit — run the script.
 
 Full downloads and installers: [Releases](https://github.com/jacquesvn/lockin/releases).
 
-## 0.54.0 — unreleased
+## [0.54.0](https://github.com/jacquesvn/lockin/releases/tag/v0.54.0) — 2026-08-13
 
 - Lockin now notices when your CS2 config was written by an older version, and says so in Setup instead of quietly sending less than it could
 - It asks CS2 for your loadout too, so a future card can tell you what you were holding when you died, not just what it cost
