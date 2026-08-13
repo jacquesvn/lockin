@@ -3198,10 +3198,14 @@ ok('an import keeps THIS machine\'s token and drops whatever the file carried', 
 ok('the token is validated again in Rust, where it is actually trusted', (function () {
   var rs = require('fs').readFileSync(require('path').join(__dirname, '..', 'src-tauri', 'src', 'lib.rs'), 'utf8');
   return /fn gsi_token_ok\(t: &str\) -> bool \{\s*t\.len\(\) == 32 && t\.chars\(\)\.all\(\|c\| c\.is_ascii_hexdigit\(\) && !c\.is_ascii_uppercase\(\)\)/.test(rs) &&
-         // both sinks: the listener and the file writer
-         (rs.match(/if !gsi_token_ok\(&token\) \{\s*return Err\("refused: malformed GSI token"\.into\(\)\);/g) || []).length === 2 &&
+         // every sink: the listener, the file writer, and the staleness check — which embeds
+         // the token in the body it compares against, so an unvalidated one would still be
+         // formatted into a KeyValues string. This count is deliberate: adding a fourth
+         // command that touches the token should fail here until someone gates it too.
+         (rs.match(/if !gsi_token_ok\(&token\) \{\s*return Err\("refused: malformed GSI token"\.into\(\)\);/g) || []).length === 3 &&
          /#\[tauri::command\]\s*fn start_gsi/.test(rs) &&         // the attribute stayed on the command
-         /#\[tauri::command\]\s*fn write_gsi_config/.test(rs);
+         /#\[tauri::command\]\s*fn write_gsi_config/.test(rs) &&
+         /#\[tauri::command\]\s*fn gsi_config_state/.test(rs);
 })());
 
 // --- v0.47: the pause must hold the programme CLOCK, not just the number on screen ---
@@ -4081,6 +4085,58 @@ ok('a spring-forward inside the window does not lose a day', (function () {
   ok('coming back from the tray asks for a check', (function () {
     return /app\.emit\("window-shown", \(\)\)/.test(rust) &&
            /TAURI\.event\.listen\("window-shown",function\(\)\{maybeCheckUpdate\(\);\}\)/.test(script);
+  })());
+})();
+
+// --- v0.54: the CS2 config can go out of date, and nothing used to say so ---
+(function staleGsiConfig() {
+  const rust = fs.readFileSync(path.join(__dirname, '..', 'src-tauri', 'src', 'lib.rs'), 'utf8');
+  // The cfg is written once, on a button, and never again. When the data blocks we ask CS2
+  // for change, every existing install keeps sending the OLD payload — and the "connected"
+  // chip still reads green, because CS2 is posting perfectly well. The failure is invisible
+  // by construction, which is why it needs guards rather than a note in the changelog.
+
+  ok('CS2 is asked for player_weapons — what you were HOLDING when you died', (function () {
+    // Nothing reads it yet. It is requested now so the data exists by the time the card
+    // that needs it is built, instead of costing another match to collect.
+    const body = rust.slice(rust.indexOf('fn gsi_config_body'));
+    const fmt = body.slice(0, body.indexOf('\n}'));
+    return /\\"player_weapons\\" \\"1\\"/.test(fmt);
+  })());
+
+  ok('the staleness check and the writer resolve the SAME file', (function () {
+    // If they resolved differently the check would grade a file CS2 never reads — passing
+    // while the real cfg rots. One shared helper is the only way to keep them honest.
+    const helper = /fn csgo_cfg_dir\(\) -> Result<PathBuf, String>/.test(rust);
+    const both = (rust.match(/let \w+ = csgo_cfg_dir\(\)\?;/g) || []).length >= 2;
+    const oneName = (rust.match(/gamestate_integration_lockin\.cfg/g) || []).length >= 2;
+    return helper && both && oneName;
+  })());
+
+  ok('a check that cannot run stays silent — it never claims "stale"', (function () {
+    // No CS2, no Steam, an unreadable folder: none of those are things to nag about, and a
+    // check that fails must not produce a warning. The rejection handler does nothing at all.
+    const fn = script.slice(script.indexOf('function checkGsiConfig()'));
+    const body = fn.slice(0, fn.indexOf('\n  }'));
+    return /if\(!isNative\)return;/.test(body) &&
+           /if\(s!=="missing"&&s!=="stale"&&s!=="current"\)return;/.test(body) &&   // only our three
+           /\},function\(\)\{\}\);/.test(body);                                     // and errors are swallowed
+  })());
+
+  ok('the notice fires only on "stale", and the button says what it will do', (function () {
+    // "RE-WRITE" invites a shrug; "UPDATE" says something is out of date. The label is the
+    // only part of this the user reads before deciding whether to press it.
+    return /\(GSICFG==="stale"\?'<p class="help" role="status"/.test(script) &&
+           /GSICFG==="stale"\?"UPDATE CS2 CONFIG"/.test(script) &&
+           /Re-write it below, then restart CS2\./.test(script);
+  })());
+
+  ok('writing the config clears the warning without needing a restart', (function () {
+    // The write succeeded, so the file on disk is now current by definition. Leaving the
+    // notice up would teach the user the button does not work.
+    const fn = script.slice(script.indexOf('function writeGsiConfig()'));
+    const body = fn.slice(0, fn.indexOf('\n  }'));
+    return /GSICFG="current";render\(\);/.test(body);
   })());
 })();
 

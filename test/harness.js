@@ -148,10 +148,23 @@ function makeDoc() {
 }
 
 /* ---------------------------------------------------------------- the sandbox ---- */
-function bootApp(seedState, startClock) {
+/* Boot the app.
+ *
+ * `native` (optional) turns on the DESKTOP paths by installing a window.__TAURI__ before the
+ * script runs — `var isNative=!!(TAURI&&TAURI.core)` is evaluated once at load, so it has to be
+ * there first. Pass `{invoke: {command: value|Error}}` to script what each Tauri command answers;
+ * anything unlisted resolves to null, so a test only has to state the commands it cares about.
+ * Every invoke is recorded on api.invoked for "was this even called" assertions.
+ *
+ * Without it the harness is a browser and every native branch is dead code — which is why the
+ * GSI section, the updater and the backup mirror had only source-scanning coverage before.
+ */
+function bootApp(seedState, startClock, native) {
   CONTAINERS.length = 0;
   const store = {};
   if (seedState) store['lockin.v1'] = JSON.stringify(seedState);
+  const invoked = [];
+  const listeners = {};
 
   const clock = new Date(startClock.getTime());
   const RealDate = Date;
@@ -206,12 +219,41 @@ function bootApp(seedState, startClock) {
   };
   sb.window = sb; sb.self = sb; sb.globalThis = sb;
 
+  if (native) {
+    const answers = native.invoke || {};
+    sb.__TAURI__ = {
+      core: {
+        invoke(cmd, args) {
+          invoked.push({ cmd, args });
+          if (!Object.prototype.hasOwnProperty.call(answers, cmd)) return Promise.resolve(null);
+          const a = answers[cmd];
+          return a instanceof Error ? Promise.reject(a) : Promise.resolve(a);
+        },
+      },
+      // Listeners are captured so a test can fire a CS2 event by hand: api.emit('gsi-round', …).
+      event: {
+        listen(name, fn) { (listeners[name] = listeners[name] || []).push(fn); return Promise.resolve(function () {}); },
+        emit() { return Promise.resolve(); },
+      },
+      window: { getCurrentWindow: () => ({ show() {}, hide() {}, setFocus() {} }) },
+    };
+  }
+
   vm.createContext(sb);
   vm.runInContext(script, sb, { filename: 'docs/index.html' });
 
   const api = {
-    sb, store, doc, clock,
+    sb, store, doc, clock, invoked,
     X: sb.module.exports,
+    // Did the app call this Tauri command? Returns the recorded {cmd,args} entries.
+    calls(cmd) { return invoked.filter((c) => c.cmd === cmd); },
+    // Fire a Tauri event at whatever the app registered for it.
+    emit(name, payload) {
+      const ls = listeners[name] || [];
+      if (!ls.length) throw new Error('nothing listening for ' + name);
+      ls.forEach((fn) => fn({ payload }));
+      return ls.length;
+    },
     flush(n) {                       // run queued callbacks (they may queue more)
       let rounds = n || 6;
       while (rounds-- > 0 && queue.length) {

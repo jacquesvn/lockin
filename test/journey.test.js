@@ -403,5 +403,35 @@ ok('migration is idempotent — a second boot does not re-scale anything', (func
   })());
 })();
 
+/* ================================================================ PHASE 8 ========
+ * The desktop build, booted for real.
+ *
+ * Everything behind `isNative` used to be untestable here — the harness is a browser, so
+ * window.__TAURI__ was absent and every native branch was dead code that only regexes had
+ * ever read. bootApp's third argument installs a Tauri stub before the script runs, which
+ * is what makes the questions below answerable instead of merely assertable.
+ */
+(function desktop() {
+  const NIGHT = new Date(2026, 7, 14, 20, 0, 0);
+
+  ok('on desktop the app asks CS2 for a config check at boot, with the same token the listener uses', (function () {
+    const app = bootApp(null, NIGHT, { invoke: { gsi_config_state: 'current' } });
+    const started = app.calls('start_gsi');
+    const checked = app.calls('gsi_config_state');
+    if (!started.length || !checked.length) {
+      console.log('      start_gsi=' + started.length + '  gsi_config_state=' + checked.length);
+      return false;
+    }
+    // Same token and port on both, or the cfg and the listener are describing different things.
+    const a = started[0].args, b = checked[0].args;
+    return a.token === b.token && a.port === b.port && /^[0-9a-f]{32}$/.test(b.token);
+  })());
+
+  ok('on the web that check never runs — there is no CS2 config to have', (function () {
+    const app = bootApp(null, NIGHT);            // no third argument: browser, as before
+    return app.calls('gsi_config_state').length === 0 && app.calls('start_gsi').length === 0;
+  })());
+})();
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

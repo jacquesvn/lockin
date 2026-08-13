@@ -1192,7 +1192,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.53.0";
+  var VERSION="0.54.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -2151,7 +2151,9 @@
               "Casual and deathmatch rounds are left out of it, because nothing you buy there costs you anything"],
     "0.52.0":["Showing up — the share of rounds you died in without a kill or an assist, tracked against your own earlier rounds",
               "It is the first figure on Progress that Lockin measured rather than asked you to type in"],
-    "0.53.0":["Fixed: leave Lockin open and it never noticed a new version — closing to the tray is not quitting, and the check only ran at launch"]
+    "0.53.0":["Fixed: leave Lockin open and it never noticed a new version — closing to the tray is not quitting, and the check only ran at launch"],
+    "0.54.0":["Lockin now notices when your CS2 config was written by an older version, and says so in Setup instead of quietly sending less than it could",
+              "It asks CS2 for your loadout too, so a future card can tell you what you were holding when you died, not just what it cost"]
   };
   function vcmp(a,b){
     var x=String(a).split("."),y=String(b).split(".");
@@ -2339,6 +2341,12 @@
   // tonight's stop-loss counter — the same one the manual +1 LOSS button feeds, so hand-logging
   // still works for anyone who hasn't set this up. All local; the app never reads more than score.
   var GSI_PORT=3121, gsiLastBeat=0, gsiOffT=null, GSISET=null;   // GSISET={ok,msg,path} of the last cfg write
+  // "missing" | "stale" | "current" | null (not checked / no CS2 found). The cfg is written once,
+  // on a button, and then never again — so when the data blocks we ask CS2 for change, every
+  // existing install keeps sending the OLD payload and nothing says so: tracking still reads
+  // connected, rounds still record, and only the new field is quietly absent. This is how the
+  // app notices for you. 0.54.0 added player_weapons, which is the first time it has mattered.
+  var GSICFG=null;
   function randToken(){var a=new Uint8Array(16);try{window.crypto.getRandomValues(a);}catch(_){}
     var s="";for(var i=0;i<a.length;i++)s+=("0"+(a[i]&255).toString(16)).slice(-2);return s;}
   // one stable token per install, shared between the cfg we write and the listener that checks it
@@ -2364,6 +2372,8 @@
   function startGsi(){
     if(!isNative)return;
     try{TAURI.core.invoke("start_gsi",{port:GSI_PORT,token:gsiToken()}).catch(function(){});}catch(_){}
+    // Once at boot is enough: the cfg only changes when this app writes it or the user deletes it.
+    checkGsiConfig();
     if(TAURI.event&&TAURI.event.listen){
       TAURI.event.listen("gsi-beat",function(){
         var first=!gsiLastBeat;gsiLastBeat=Date.now();
@@ -2455,8 +2465,20 @@
     if(!isNative)return;
     GSISET={ok:true,msg:"Writing config…"};render();
     TAURI.core.invoke("write_gsi_config",{token:gsiToken(),port:GSI_PORT}).then(function(path){
-      GSISET={ok:true,path:path,msg:"Done. Restart CS2 (or finish a match) and it'll track itself."};render();
+      GSISET={ok:true,path:path,msg:"Done. Restart CS2 (or finish a match) and it'll track itself."};
+      GSICFG="current";render();
     },function(err){GSISET={ok:false,msg:String(err||"Couldn’t find your CS2 install.")};render();});
+  }
+  // Ask whether the file CS2 will read on its next launch is the one this version wants.
+  // Failure is silent on purpose: no CS2 install, no Steam, an unreadable folder — none of
+  // those are things to nag about, and a check that can't run must not claim "stale".
+  function checkGsiConfig(){
+    if(!isNative)return;
+    TAURI.core.invoke("gsi_config_state",{token:gsiToken(),port:GSI_PORT}).then(function(s){
+      if(s!=="missing"&&s!=="stale"&&s!=="current")return;
+      if(GSICFG===s)return;                 // nothing changed — don't repaint
+      GSICFG=s;render();
+    },function(){});
   }
   // Desktop-only "which maps do I already have" check, fed to the Get-the-maps badges.
   // ok=false means we couldn't read the Steam install — the UI then shows NO badges (never
@@ -5347,7 +5369,14 @@
         '<div class="mname">Live match tracking</div>'+
         statusChip(live?"live":"idle",live?"Connected":"Not detected")+'</div>'+
         '<p class="help" style="margin:0 0 12px;">One click writes CS2’s Game State Integration config. After that, finished matches log themselves and a loss counts toward tonight’s stop-loss — no buttons to press. It reads the scoreboard only; nothing leaves this PC.</p>'+
-        '<button class="gbtn tourbtn" data-gsi-setup="1" style="width:100%;"><span class="tourico">'+SHIELD+'</span>'+((GSISET&&GSISET.path)?"RE-WRITE CS2 CONFIG":"SET UP AUTO-TRACKING")+'</button>'+
+        // A stale cfg is the one failure the "connected" chip cannot show: CS2 is happily
+        // posting, so everything looks fine, but it is sending an older version's payload.
+        // Say what it costs and what to do, in that order.
+        // accInk, not bad-ink: this is a notice, not a failure. Nothing is broken — tracking
+        // still works — so the red reserved for "the write failed" would overstate it. Both
+        // tokens are contrast-audited for text on every ground; the raw --acc/--bad fills are not.
+        (GSICFG==="stale"?'<p class="help" role="status" style="margin:0 0 12px;color:var(--accInk);">Your CS2 config was written by an older version of Lockin. It still works, but this version asks CS2 for more than that file requests. Re-write it below, then restart CS2.</p>':'')+
+        '<button class="gbtn tourbtn" data-gsi-setup="1" style="width:100%;"><span class="tourico">'+SHIELD+'</span>'+(GSICFG==="stale"?"UPDATE CS2 CONFIG":(GSICFG==="current"||(GSISET&&GSISET.path))?"RE-WRITE CS2 CONFIG":"SET UP AUTO-TRACKING")+'</button>'+
         (GSISET?'<p class="help" style="margin:10px 0 0;'+(GSISET.ok?'':'color:var(--bad);')+'">'+esc(GSISET.msg)+'</p>':'')+'</div>';
     }
     // The privacy claim, stated plainly rather than implied. It is the one promise a paid

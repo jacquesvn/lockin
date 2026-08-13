@@ -657,8 +657,61 @@ fn handle_gsi_request(
 // app-minted hex and port is a u16, so neither can break out of the KeyValues quoting.
 fn gsi_config_body(token: &str, port: u16) -> String {
     format!(
-        "\"Lockin auto-tracking\"\n{{\n  \"uri\" \"http://127.0.0.1:{port}/\"\n  \"timeout\" \"5.0\"\n  \"buffer\" \"0.1\"\n  \"throttle\" \"0.5\"\n  \"heartbeat\" \"30.0\"\n  \"auth\"\n  {{\n    \"token\" \"{token}\"\n  }}\n  \"data\"\n  {{\n    \"provider\" \"1\"\n    \"map\" \"1\"\n    \"round\" \"1\"\n    \"player_id\" \"1\"\n    \"player_state\" \"1\"\n    \"player_match_stats\" \"1\"\n  }}\n}}\n"
+        // player_weapons is requested but not yet read: it is what you were HOLDING when you
+        // died, which is the difference between "you died with $4,500" and "you died holding
+        // two flashes and a molly you never threw". Asking for it now means the data exists
+        // by the time the card that needs it is built, rather than costing another match.
+        "\"Lockin auto-tracking\"\n{{\n  \"uri\" \"http://127.0.0.1:{port}/\"\n  \"timeout\" \"5.0\"\n  \"buffer\" \"0.1\"\n  \"throttle\" \"0.5\"\n  \"heartbeat\" \"30.0\"\n  \"auth\"\n  {{\n    \"token\" \"{token}\"\n  }}\n  \"data\"\n  {{\n    \"provider\" \"1\"\n    \"map\" \"1\"\n    \"round\" \"1\"\n    \"player_id\" \"1\"\n    \"player_state\" \"1\"\n    \"player_weapons\" \"1\"\n    \"player_match_stats\" \"1\"\n  }}\n}}\n"
     )
+}
+
+// Where CS2 keeps its cfg folder. Read-only: it creates nothing, so the staleness check can
+// use the same resolution as the writer without touching the disk. Shared so the two can
+// never disagree about WHICH file we mean — the failure that would make the check lie.
+// The three failure messages stay distinct because they ask different things of the user:
+// install Steam, fix a corrupt libraryfolders.vdf, install CS2.
+fn csgo_cfg_dir() -> Result<PathBuf, String> {
+    let root = steam_root().ok_or("Couldn't find Steam")?;
+    for lib in steam_libraries(&root).ok_or("Couldn't read Steam libraries")? {
+        let csgo = lib
+            .join("steamapps")
+            .join("common")
+            .join("Counter-Strike Global Offensive")
+            .join("game")
+            .join("csgo");
+        if csgo.is_dir() {
+            return Ok(csgo.join("cfg"));
+        }
+    }
+    Err("Couldn't find your CS2 install".into())
+}
+
+// Classify an on-disk cfg against what we would write today. Split from the file I/O so the
+// three-way decision is unit-testable without a CS2 install.
+fn gsi_config_state_of(found: Option<&str>, expected: &str) -> &'static str {
+    match found {
+        None => "missing",
+        Some(s) if s == expected => "current",
+        Some(_) => "stale",
+    }
+}
+
+// Is the cfg CS2 will read on its next launch the one this version of Lockin wants?
+//
+// WHY THIS EXISTS. The cfg is written once, on a button, and then never again — so every time
+// the requested data blocks change (player_weapons in 0.54.0), every existing install keeps
+// silently sending the OLD payload until the user happens to press the button again. That
+// failure is invisible: tracking still says "connected", rounds still record, and only the new
+// field is quietly missing. The app has to notice, because the user has no way to.
+#[tauri::command]
+fn gsi_config_state(token: String, port: u16) -> Result<String, String> {
+    if !gsi_token_ok(&token) {
+        return Err("refused: malformed GSI token".into());
+    }
+    let dir = csgo_cfg_dir()?;
+    let path = dir.join("gamestate_integration_lockin.cfg");
+    let found = std::fs::read_to_string(&path).ok();
+    Ok(gsi_config_state_of(found.as_deref(), &gsi_config_body(&token, port)).into())
 }
 
 // Write CS2's gamestate_integration_lockin.cfg so the game starts POSTing to our listener.
@@ -669,30 +722,19 @@ fn write_gsi_config(token: String, port: u16) -> Result<String, String> {
     if !gsi_token_ok(&token) {
         return Err("refused: malformed GSI token".into());
     }
-    let root = steam_root().ok_or("Couldn't find Steam")?;
-    let libs = steam_libraries(&root).ok_or("Couldn't read Steam libraries")?;
-    for lib in libs {
-        let csgo = lib
-            .join("steamapps")
-            .join("common")
-            .join("Counter-Strike Global Offensive")
-            .join("game")
-            .join("csgo");
-        if !csgo.is_dir() {
-            continue;
-        }
-        let cfg = csgo.join("cfg");
-        std::fs::create_dir_all(&cfg).map_err(|e| e.to_string())?;
-        let path = cfg.join("gamestate_integration_lockin.cfg");
-        std::fs::write(&path, gsi_config_body(&token, port)).map_err(|e| e.to_string())?;
-        return Ok(path.to_string_lossy().to_string());
-    }
-    Err("Couldn't find your CS2 install".into())
+    let cfg = csgo_cfg_dir()?;
+    std::fs::create_dir_all(&cfg).map_err(|e| e.to_string())?;
+    let path = cfg.join("gamestate_integration_lockin.cfg");
+    std::fs::write(&path, gsi_config_body(&token, port)).map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().to_string())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{gsi_config_body, gsi_is_self, gsi_result, gsi_token_ok, quoted_after, track_round, RoundTracker};
+    use super::{
+        gsi_config_body, gsi_config_state_of, gsi_is_self, gsi_result, gsi_token_ok, quoted_after,
+        track_round, RoundTracker,
+    };
 
     // Payloads shaped like the ones CS2 actually posts, so the pointers are exercised for real.
     fn payload(rphase: &str, round: i64, health: i64, money: i64, equip: i64, kills: i64) -> serde_json::Value {
@@ -981,8 +1023,34 @@ mod tests {
         assert!(cfg.contains("\"uri\" \"http://127.0.0.1:3121/\""));
         assert!(cfg.contains("\"token\" \"deadbeef\""));
         assert!(cfg.contains("\"player_match_stats\" \"1\""));
+        // what you were HOLDING when you died — the difference between "you died with
+        // $4,500" and "you died holding two flashes you never threw". Nothing reads it
+        // yet; it is requested now so the data exists before the card that needs it.
+        assert!(cfg.contains("\"player_weapons\" \"1\""));
         // the KeyValues braces must balance or CS2 rejects the file
         assert_eq!(cfg.matches('{').count(), cfg.matches('}').count());
+    }
+
+    #[test]
+    fn a_cfg_written_by_an_older_lockin_reads_as_stale_not_current() {
+        let now = gsi_config_body("deadbeef", 3121);
+        // exactly what 0.53.0 wrote: same token, same port, one fewer data block
+        let old = now.replace("    \"player_weapons\" \"1\"\n", "");
+        assert_ne!(old, now, "the fixture must actually differ or this proves nothing");
+        assert_eq!(gsi_config_state_of(Some(&old), &now), "stale");
+        assert_eq!(gsi_config_state_of(Some(&now), &now), "current");
+        assert_eq!(gsi_config_state_of(None, &now), "missing");
+    }
+
+    #[test]
+    fn a_cfg_holding_a_different_token_or_port_is_stale_too() {
+        // both would leave CS2 posting somewhere we are not listening, or with a token the
+        // listener rejects — silently, since the UI's "connected" chip only watches heartbeats.
+        let now = gsi_config_body("deadbeef", 3121);
+        assert_eq!(gsi_config_state_of(Some(&gsi_config_body("cafe", 3121)), &now), "stale");
+        assert_eq!(gsi_config_state_of(Some(&gsi_config_body("deadbeef", 3122)), &now), "stale");
+        // and an unrelated file in that path is not mistaken for ours
+        assert_eq!(gsi_config_state_of(Some("\"something else\"\n{\n}\n"), &now), "stale");
     }
 }
 
@@ -1057,7 +1125,8 @@ pub fn run() {
             backup_delete,
             read_cs_config,
             start_gsi,
-            write_gsi_config
+            write_gsi_config,
+            gsi_config_state
         ])
         .setup(|app| {
             let show = MenuItem::with_id(app, "show", "Open Lockin", true, None::<&str>)?;
