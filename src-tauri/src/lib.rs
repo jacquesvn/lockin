@@ -1025,6 +1025,11 @@ fn show_main(app: &tauri::AppHandle) {
         let _ = w.show();
         let _ = w.unminimize();
         let _ = w.set_focus();
+        // Closing the window only HIDES it, so the process can live for weeks and the update
+        // check — a one-shot 4s after launch — would never run again. Opening the window is
+        // the moment the user is actually present, so it is worth a look. The frontend still
+        // applies its own interval gate, so clicking the tray repeatedly costs nothing.
+        let _ = app.emit("window-shown", ());
     }
 }
 

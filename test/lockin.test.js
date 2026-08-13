@@ -62,7 +62,7 @@ const { generatePlan, computeStreak, richText, validBackup, rawWeek, planWeekRaw
         streakDetail, pauseInfo, isPausedOn, planWeek, pauseCard, freezeRow, restWeek, restLine,
         quietWeek, tierIdentity, QUIET_DAYS, PAUSE_WEEKS,
         isDeloadWeek, deloadDur, focusMins, deloadCard, whyPanel, whySource,
-        bottleneckCard, timingCard, timingVsTag, impactCard, impactSplit, buyCard, buyTiers, ECON_MODES, silentCard, silentTrend, isSilent, tiltCard, nightLosses, nightKeys, gateCard, offPlanCard, OFFPLAN,
+        bottleneckCard, timingCard, timingVsTag, impactCard, impactSplit, buyCard, buyTiers, ECON_MODES, silentCard, silentTrend, isSilent, maybeCheckUpdate, tiltCard, nightLosses, nightKeys, gateCard, offPlanCard, OFFPLAN,
         adherence, metricMove, driftCheck, driftCard, coachAsk, coachCard, applyCoachAnswer,
         COACH_ANSWERS, drillAdherence, skippedDrill, skippedCard,
         leakHistory, leakHistoryCard, changedSince, changedCard, proofRows, proofCard, honestExport,
@@ -3970,6 +3970,117 @@ ok('a spring-forward inside the window does not lose a day', (function () {
     return /It does not say the plan did this/.test(c) &&
            /Opponents, maps and form all move it too/.test(c) &&
            /counted, not entered/i.test(c);
+  })());
+})();
+
+// --- v0.53: the update check runs more than once ---
+// Closing the window only hides it to the tray, so the process can live for weeks. The check
+// was a single setTimeout 4s after launch, which meant a machine that is never rebooted never
+// saw another release. Six shipped in one day and someone with the app open saw none.
+(function () {
+  const rust = fs.readFileSync(path.join(__dirname, '..', 'src-tauri', 'src', 'lib.rs'), 'utf8');
+  // A third sandbox: native bridge, a clock we control, and a counter on the invoke so the
+  // gate can be observed rather than inferred.
+  function nativeApp() {
+    const calls = [];
+    let clock = 1786500000000;
+    const RealDate = Date;
+    function D(a, b, c, d, e, f, g) {
+      if (arguments.length === 0) return new RealDate(clock);
+      if (arguments.length === 1) return new RealDate(a);
+      return new RealDate(a, b, c, d || 0, e || 0, f || 0, g || 0);
+    }
+    D.now = () => clock;
+    D.parse = RealDate.parse; D.UTC = RealDate.UTC; D.prototype = RealDate.prototype;
+
+    const sb = {
+      module: { exports: {} },
+      window: { matchMedia: () => ({ matches: false }), addEventListener() {},
+                __TAURI__: { core: { invoke: (cmd) => { calls.push(cmd); return Promise.resolve(null); } },
+                             event: { listen() {} } } },
+      document: documentStub,
+      localStorage: { _d: {}, getItem(k) { return this._d[k] || null; }, setItem(k, v) { this._d[k] = String(v); }, removeItem(k) { delete this._d[k]; } },
+      navigator: {}, location: { protocol: 'http:', hostname: 'localhost' },
+      Date: D,
+      setInterval: () => 0, clearInterval() {}, setTimeout: () => 0, clearTimeout() {}, console,
+    };
+    sb.window.document = sb.document;
+    vm.createContext(sb);
+    vm.runInContext(script, sb, { filename: 'docs/index.html#upd' });
+    return { X: sb.module.exports, calls, tick: (ms) => { clock += ms; }, checks: () => calls.filter((c) => c === 'check_update').length };
+  }
+
+  ok('a background check fires, then will not fire again for four hours', (function () {
+    const a = nativeApp();
+    // checkUpdate parks UPD.state on "checking" until its promise resolves, and that
+    // resolution is a microtask this synchronous test never reaches. Left alone, every call
+    // after the first is refused by THAT guard and the test would pass without the time gate
+    // existing at all. Settling the state by hand is what the real round trip does.
+    const settle = () => { a.X.UPD.state = 'current'; };
+    a.X.maybeCheckUpdate();                       // first call: nothing checked yet
+    const one = a.checks(); settle();
+    a.X.maybeCheckUpdate(); a.X.maybeCheckUpdate();
+    const stillOne = a.checks(); settle();
+    a.tick(a.X.UPD_EVERY - 1000);
+    a.X.maybeCheckUpdate();
+    const notYet = a.checks(); settle();
+    a.tick(2000);                                 // now past the gate
+    a.X.maybeCheckUpdate();
+    const twice = a.checks();
+    if (!(one === 1 && stillOne === 1 && notYet === 1 && twice === 2))
+      console.log('      checks: ' + [one, stillOne, notYet, twice].join(','));
+    return one === 1 && stillOne === 1 && notYet === 1 && twice === 2;
+  })());
+
+  ok('four hours is the gate, and it is a clock comparison not a long timer', (function () {
+    // a 4h setInterval stalls across sleep — a laptop shut for a day fires once on wake and
+    // then not again for four hours. The heartbeat is short; the clock is what gates.
+    const a = nativeApp();
+    return a.X.UPD_EVERY === 4 * 60 * 60 * 1000 &&
+           /setInterval\(maybeCheckUpdate,30\*60\*1000\)/.test(script) &&
+           /if\(now-_updLast<UPD_EVERY\)return;/.test(script);
+  })());
+
+  ok('it stops checking once an update is already known', (function () {
+    const a = nativeApp();
+    a.X.UPD.state = 'available';
+    a.X.maybeCheckUpdate();
+    const none = a.checks();
+    a.X.UPD.state = 'installing';
+    a.X.maybeCheckUpdate();
+    return none === 0 && a.checks() === 0;
+  })());
+
+  ok('a check after an error or a clean result is allowed again', (function () {
+    const a = nativeApp();
+    a.X.UPD.state = 'current';
+    a.X.maybeCheckUpdate();
+    const afterCurrent = a.checks();
+    a.tick(a.X.UPD_EVERY + 1);
+    a.X.UPD.state = 'error';
+    a.X.maybeCheckUpdate();
+    return afterCurrent === 1 && a.checks() === 2;
+  })());
+
+  ok('the web build never checks at all', (function () {
+    // maybeCheckUpdate is exported from the web sandbox too; isNative gates it
+    const before = 0;
+    maybeCheckUpdate();
+    return before === 0 && UPD.state !== 'checking';   // nothing to invoke, nothing changed
+  })());
+
+  ok('it will not redraw under a running session or the tour', (function () {
+    // SESS and TOUR_I are closure state with no exported setter, so this is the one part
+    // asserted from source — the same two guards the midnight roll-over uses, which IS
+    // covered behaviourally in journey.test.js
+    const fn = script.slice(script.indexOf('function maybeCheckUpdate()'));
+    const body = fn.slice(0, fn.indexOf('\n  }'));
+    return /if\(SESS&&SESS\.list\)return;/.test(body) && /if\(TOUR_I>=0\)return;/.test(body);
+  })());
+
+  ok('coming back from the tray asks for a check', (function () {
+    return /app\.emit\("window-shown", \(\)\)/.test(rust) &&
+           /TAURI\.event\.listen\("window-shown",function\(\)\{maybeCheckUpdate\(\);\}\)/.test(script);
   })());
 })();
 

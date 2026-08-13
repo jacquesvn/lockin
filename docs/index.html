@@ -5977,8 +5977,33 @@
     if(TOUR_I>=0)return;                       // mid-tour: the spotlight is positioned per step
     try{render();}catch(_){}
   },30000);
-  // quiet auto-check shortly after launch; failures stay silent (offline is normal, not an error)
-  if(isNative)setTimeout(function(){checkUpdate(false);},4000);
+  /* UPDATE CHECKS. This used to be a single setTimeout 4s after launch, and closing the
+     window only hides it to the tray — so a machine that is never rebooted never checked
+     again. Six releases could ship in a day and someone with the app open would see none of
+     them. The banner was built to be interruption-free precisely so it could appear whenever;
+     all of that care assumed it eventually fired.
+
+     A CLOCK GATE, NOT A LONG INTERVAL. A 4h setInterval drifts and stalls across sleep — a
+     laptop shut for a day fires once on wake and then not for another four hours. A short
+     heartbeat asking "has it been four hours" is self-correcting, and costs one comparison. */
+  var UPD_EVERY=4*60*60*1000, _updLast=0;
+  function maybeCheckUpdate(){
+    if(!isNative)return;
+    if(UPD.state==="available"||UPD.state==="installing")return;   // already known, or busy
+    if(SESS&&SESS.list)return;                 // never redraw under a running session
+    if(TOUR_I>=0)return;                       // nor under the tour
+    var now=Date.now();
+    if(now-_updLast<UPD_EVERY)return;
+    _updLast=now;
+    checkUpdate(false);                        // failures stay silent — offline is normal
+  }
+  if(isNative){
+    setTimeout(function(){_updLast=Date.now();checkUpdate(false);},4000);
+    setInterval(maybeCheckUpdate,30*60*1000);
+    // and when the window comes back from the tray, because that is when someone is actually
+    // looking at it. The gate above still applies, so tray-clicking does not hammer anything.
+    try{if(TAURI.event&&TAURI.event.listen)TAURI.event.listen("window-shown",function(){maybeCheckUpdate();});}catch(_){}
+  }
   // A stale service worker in the DESKTOP webview is catastrophic: it shadows every future
   // build and survives reinstalls (that's what trapped the app on v1 — see the v0.9.4 self-heal).
   // So this is checked two independent ways. isNative depends on window.__TAURI__ having loaded;
@@ -6001,7 +6026,7 @@
       refreshing=true;location.reload();
     });
   }
-  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,rawWeek:rawWeek,planWeekRaw:planWeekRaw,pauseServed:pauseServed,isTrainingDay:isTrainingDay,bestStreak:bestStreak,bestStreakSig:bestStreakSig,shareSig:shareSig,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,lineChart:lineChart,heatmap:heatmap,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
+  if(typeof module!=="undefined")module.exports={generatePlan:generatePlan,computeStreak:computeStreak,FOCI:FOCI,dateKey:dateKey,richText:richText,validBackup:validBackup,buildTargets:buildTargets,tkey:tkey,drillList:drillList,rawWeek:rawWeek,planWeekRaw:planWeekRaw,pauseServed:pauseServed,isTrainingDay:isTrainingDay,bestStreak:bestStreak,bestStreakSig:bestStreakSig,shareSig:shareSig,weekCounts:weekCounts,reviewTotals:reviewTotals,barChart:barChart,lineChart:lineChart,heatmap:heatmap,MAPS:MAPS,shouldRegisterSW:shouldRegisterSW,isTauriOrigin:isTauriOrigin,CALM:CALM,PROTOCOLS:PROTOCOLS,trainingDayCount:trainingDayCount,weekdayCount:weekdayCount,missedYesterday:missedYesterday,QUIZ:QUIZ,rankLabel:rankLabel,benchHint:benchHint,lfyParseId:lfyParseId,lfyPct:lfyPct,lfySuggest:lfySuggest,lfyProfileUrl:lfyProfileUrl,LFY_BENCH:LFY_BENCH,updateBanner:updateBanner,maybeCheckUpdate:maybeCheckUpdate,UPD_EVERY:UPD_EVERY,UPD:UPD,planReview:planReview,applyReview:applyReview,lapseInfo:lapseInfo,lapseCard:lapseCard,warmDays:warmDays,reappraisalCard:reappraisalCard,practiceCard:practiceCard,WORKSHOP:WORKSHOP,workshopKit:workshopKit,workshopUrl:workshopUrl,deathCard:deathCard,WSCAN:WSCAN,TOUR:TOUR,playerTag:playerTag,curStreak:curStreak,freezeBudget:freezeBudget,ACHIEVEMENTS:ACHIEVEMENTS,achState:achState,checkAchievements:checkAchievements,milestonesCard:milestonesCard,weeklyRecap:weeklyRecap,recapCard:recapCard,debriefCard:debriefCard,applyGsiMatch:applyGsiMatch,LSRS:LSRS,srsAnswer:srsAnswer,dueLineups:dueLineups,lineupIsDue:lineupIsDue,lineupReviewCard:lineupReviewCard,
     stateForBackup:stateForBackup,imgClear:imgClear,daysBetween:daysBetween,needsBackup:needsBackup,backupCard:backupCard,backupAge:backupAge,takeBackupImages:takeBackupImages,picStrip:picStrip,IMGS:IMGS,IMG_PER:IMG_PER,
     picSlots:picSlots,picRole:picRole,PICROLE:PICROLE,DESTS:DESTS,destOf:destOf,subTabs:subTabs,dueCard:dueCard,todayCards:todayCards,todayStack:todayStack,
     leakOfWeek:leakOfWeek,applyGsiRound:applyGsiRound,ROUND_CAP:ROUND_CAP,EARLY_MS:EARLY_MS,needsBackup:needsBackup,backupCard:backupCard,backupAge:backupAge,whatsNew:whatsNew,newSince:newSince,vcmp:vcmp,VERSION:VERSION,markVersionSeen:markVersionSeen,WHATSNEW:WHATSNEW,BACKUP_MIN_SESSIONS:BACKUP_MIN_SESSIONS,offPlanRecent:offPlanRecent,offPlanHistory:offPlanHistory,gearTiles:gearTiles,planShot:planShot,settingsAudit:settingsAudit,XHAIR_DYNAMIC:XHAIR_DYNAMIC,leakFocus:leakFocus,applyLeakFocus:applyLeakFocus,focusIsSet:focusIsSet,LEAK_DRILL:LEAK_DRILL,leakCard:leakCard,tenList:tenList,tenMins:tenMins,youVsYou:youVsYou,
