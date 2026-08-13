@@ -66,7 +66,9 @@ see [On the coaching](#on-the-coaching).
 
 The installer isn't code-signed, so Windows SmartScreen may warn on first run:
 **More info → Run anyway**. From v0.9.1 the desktop app updates itself, so that's a
-one-time step.
+one-time step. It checks a few seconds after launch, every four hours while it runs, and
+whenever you bring the window back from the tray — closing to the tray does not quit it, so
+before v0.53.0 a machine that never rebooted never checked twice.
 
 ---
 

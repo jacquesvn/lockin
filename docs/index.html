@@ -1192,7 +1192,7 @@
 (function(){
   "use strict";
   var KEY="lockin.v1";
-  var VERSION="0.52.0";
+  var VERSION="0.53.0";
   var storageOk=true, mem=null;
 
   /* ---------- svg bits ---------- */
@@ -2150,7 +2150,8 @@
     "0.51.0":["The half buy — when yours win less often than both your full buys and your full ecos, Lockin says so",
               "Casual and deathmatch rounds are left out of it, because nothing you buy there costs you anything"],
     "0.52.0":["Showing up — the share of rounds you died in without a kill or an assist, tracked against your own earlier rounds",
-              "It is the first figure on Progress that Lockin measured rather than asked you to type in"]
+              "It is the first figure on Progress that Lockin measured rather than asked you to type in"],
+    "0.53.0":["Fixed: leave Lockin open and it never noticed a new version — closing to the tray is not quitting, and the check only ran at launch"]
   };
   function vcmp(a,b){
     var x=String(a).split("."),y=String(b).split(".");

@@ -6,6 +6,10 @@ and the git tag dates. Do not hand-edit — run the script.
 
 Full downloads and installers: [Releases](https://github.com/jacquesvn/lockin/releases).
 
+## 0.53.0 — unreleased
+
+- Fixed: leave Lockin open and it never noticed a new version — closing to the tray is not quitting, and the check only ran at launch
+
 ## [0.52.0](https://github.com/jacquesvn/lockin/releases/tag/v0.52.0) — 2026-08-13
 
 - Showing up — the share of rounds you died in without a kill or an assist, tracked against your own earlier rounds
